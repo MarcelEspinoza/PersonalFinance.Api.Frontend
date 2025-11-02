@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
 import { useAuth } from "../../contexts/AuthContext";
+import { CategoriesService } from "../../services/categoriesService"; // agregado
 import { IncomesService } from "../../services/incomesService";
 import {
   FixedIncome,
@@ -28,18 +29,46 @@ export default function IncomePage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(getInitialFormData());
+  const [categories, setCategories] = useState<CategoryDto[]>([]); // agregado
 
   useEffect(() => {
     if (user) loadData();
   }, [user]);
 
+  useEffect(() => {
+    if (user) loadCategories(); // carga única de categories
+  }, [user]);
+
+  const loadCategories = async () => {
+    try {
+      const { data } = await CategoriesService.getAll();
+      setCategories(data);
+    } catch (error) {
+      console.error("Error loading categories:", error);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
       const { data } = await IncomesService.getAll();
-      setFixedIncomes(data.filter((i: any) => i.type === "Fixed"));
-      setVariableIncomes(data.filter((i: any) => i.type === "Variable"));
-      setTemporaryIncomes(data.filter((i: any) => i.type === "Temporary"));
+
+      // Normaliza claves que puedan venir con variantes (end_Date, start_Date, Date, etc.)
+      const normalized = (data || []).map((i: any) => {
+        return {
+          ...i,
+          // normaliza date
+          date: i.date ?? i.Date ?? null,
+          // normaliza start_date
+          start_date: i.start_date ?? i.start_Date ?? i.startDate ?? null,
+          // normaliza end_date (maneja end_Date con D mayúscula)
+          end_date: i.end_date ?? i.end_Date ?? i.endDate ?? null,
+        };
+      });
+
+      setFixedIncomes(normalized.filter((i: any) => i.type === "Fixed"));
+      setVariableIncomes(normalized.filter((i: any) => i.type === "Variable"));
+      setTemporaryIncomes(normalized.filter((i: any) => i.type === "Temporary"));
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -47,24 +76,66 @@ export default function IncomePage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const formatDate = (d: string) => {
+  // Si ya viene en YYYY-MM-DD, úsalo; si no, normaliza
+  const date = new Date(d);
+  return !isNaN(date.getTime())
+    ? date.toISOString().split("T")[0]
+    : d; // evita romper si ya está correcto
+};
 
-    const payload = {
-      amount: parseFloat(formData.amount),
-      description: formData.name,
-      date: formData.date || new Date().toISOString().split("T")[0],
-      type:
-        activeTab === "fixed"
-          ? "Fixed"
-          : activeTab === "variable"
-          ? "Variable"
-          : "Temporary",
-      categoryId: formData.categoryId || null,
-      start_date: formData.start_date || null,
-      end_date: formData.isIndefinite ? null : formData.end_date || null,
-      notes: formData.notes || null,
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // Validaciones básicas
+  const amountNum = parseFloat(formData.amount);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    alert("La cantidad debe ser un número mayor que 0.");
+    return;
+  }
+  if (!formData.name || formData.name.trim().length === 0) {
+    alert("El nombre/descripcion es obligatorio.");
+    return;
+  }
+  if (!formData.date) {
+    alert("La fecha es obligatoria.");
+    return;
+  }
+  if (!formData.categoryId || formData.categoryId <= 0) {
+    alert("Selecciona una categoría válida.");
+    return;
+  }
+
+  const startDate = formData.start_date ? formatDate(formData.start_date) : null;
+  const endDate = formData.isIndefinite
+    ? null
+    : formData.end_date
+    ? formatDate(formData.end_date)
+    : null;
+
+  if (startDate && endDate && endDate < startDate) {
+    alert("La fecha de fin no puede ser anterior a la fecha de inicio.");
+    return;
+  }
+
+  const payload = {
+    amount: amountNum,
+    description: formData.name.trim(),
+    date: formatDate(formData.date),
+    type:
+      activeTab === "fixed"
+        ? "Fixed"
+        : activeTab === "variable"
+        ? "Variable"
+        : "Temporary",
+    categoryId: formData.categoryId,
+    start_date: startDate,          // o elimina si tu API no lo usa
+    end_date: endDate,              // null si indefinido
+    notes: formData.notes?.trim() || "", // evita null si el backend no lo admite
     };
+
+    // Útil para depurar
+    console.log("Payload enviado:", payload);
 
     try {
       if (editingId) {
@@ -76,26 +147,32 @@ export default function IncomePage() {
       setEditingId(null);
       setFormData(getInitialFormData());
       loadData();
-    } catch (error) {
+    } catch (error: any) {
+      // Muestra detalles del backend si los hay
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Error inesperado";
       console.error("Error saving income:", error);
     }
   };
 
-  const handleEdit = (item: FixedIncome | VariableIncome | TemporaryIncome) => {
+  const handleEdit = (item: IncomeDto) => {
     setEditingId(String(item.id));
 
-    setFormData((prev) => ({
-      ...prev,
-      name: (item as any).description || (item as any).name || "",
+    setFormData({
+      ...getInitialFormData(),
+      name: item.description || "",
       amount: String(item.amount ?? ""),
-      date: (item as any).date || prev.date,
-      categoryId: (item as any).categoryId ?? prev.categoryId,
-      notes: (item as any).notes ?? "",
-      start_date: (item as any).start_date ?? "",
-      end_date: (item as any).end_date ?? "",
-      isIndefinite: (item as any).end_date === null, // si en BD es indefinido
-      frequency: prev.frequency, // si no la manejas en ingresos, mantenla
-    }));
+      date: item.date ? formatDate(item.date) : "",
+      categoryId: item.categoryId ?? 0,
+      notes: item.notes ?? "",
+      start_date: item.start_date ? formatDate(item.start_date) : "",   // normalizado
+      end_date: item.end_date ? formatDate(item.end_date) : "",         // normalizado
+      isIndefinite: item.end_date === null,
+      frequency: item.frequency ?? "monthly",
+    });
 
     setShowModal(true);
   };
@@ -166,7 +243,27 @@ export default function IncomePage() {
         setFormData={setFormData}
         onClose={handleCloseModal}
         onSubmit={handleSubmit}
+        categories={categories} 
+        setCategories={setCategories} 
       />
     </div>
   );
+}
+
+export interface IncomeDto {
+  id: number;
+  amount: number;
+  description: string;
+  date: string;          // ISO string
+  type: "Fixed" | "Variable" | "Temporary";
+  categoryId: number;
+  start_date?: string | null; // normalizado
+  end_date?: string | null;   // normalizado
+  notes?: string | null;
+  frequency?: string;
+}
+
+export interface CategoryDto {
+  id: number;
+  name: string;
 }

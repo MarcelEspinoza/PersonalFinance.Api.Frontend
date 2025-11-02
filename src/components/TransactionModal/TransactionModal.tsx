@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { CategoriesService } from "../../services/categoriesService";
 import { Input, Select, Textarea } from "./FormFields";
 
@@ -16,6 +16,8 @@ interface Props {
   setFormData: (data: any) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
+  categories?: Category[]; // nuevo prop
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>; // <-- agregar prop
 }
 
 export function TransactionModal({
@@ -26,36 +28,26 @@ export function TransactionModal({
   setFormData,
   onClose,
   onSubmit,
+  categories = [], // valor por defecto como arreglo vacío
+  setCategories,
 }: Props) {
-  const [categories, setCategories] = useState<Category[]>([]);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-
-  useEffect(() => {
-    if (showModal) loadCategories();
-  }, [showModal, type]);
-
-  const loadCategories = async () => {
-    try {
-      // Asumiendo que tu servicio acepta type para filtrar categorías
-      const { data } = await CategoriesService.getAll();
-      setCategories(data);
-      if (!formData.categoryId && data.length > 0) {
-        setFormData({ ...formData, categoryId: data[0].id });
-      }
-    } catch (error) {
-      console.error("Error cargando categorías:", error);
-    }
-  };
 
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) return;
+
+    if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      alert("Ya existe una categoría con ese nombre.");
+      return;
+    }
+
     try {
       const { data } = await CategoriesService.create({
         name,
         description: "",
-        isActive: true
+        isActive: true,
       });
       setCategories((prev) => [...prev, data]);
       setFormData({ ...formData, categoryId: data.id });
@@ -99,7 +91,8 @@ export function TransactionModal({
       <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-slate-800">
-            {editingId ? "Editar" : "Nuevo"} {type === "income" ? "Ingreso" : "Gasto"}
+            {editingId ? "Editar" : "Nuevo"}{" "}
+            {type === "income" ? "Ingreso" : "Gasto"}
           </h2>
           <button
             onClick={onClose}
@@ -109,7 +102,10 @@ export function TransactionModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form
+          onSubmit={onSubmit}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        >
           {/* Columna izquierda */}
           <div className="space-y-4">
             <Input
