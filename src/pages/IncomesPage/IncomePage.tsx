@@ -1,25 +1,30 @@
-import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { IncomesService } from '../../services/incomesService';
+import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
+import { useAuth } from "../../contexts/AuthContext";
+import { IncomesService } from "../../services/incomesService";
 import {
-    FixedIncome,
-    IncomeTab,
-    TemporaryIncome,
-    VariableIncome,
-} from './income.types';
-import { getInitialFormData } from './income.utils';
-import { IncomeList } from './IncomeList';
-import { IncomeModal } from './IncomeModal';
-import { IncomeTabs } from './IncomeTabs';
+  FixedIncome,
+  IncomeTab,
+  TemporaryIncome,
+  VariableIncome,
+} from "./income.types";
+import { getInitialFormData } from "./income.utils";
+import { IncomeList } from "./IncomeList";
+import { IncomeTabs } from "./IncomeTabs";
+
 
 export default function IncomePage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<IncomeTab>('fixed');
+  const [activeTab, setActiveTab] = useState<IncomeTab>("fixed");
   const [fixedIncomes, setFixedIncomes] = useState<FixedIncome[]>([]);
   const [variableIncomes, setVariableIncomes] = useState<VariableIncome[]>([]);
-  const [temporaryIncomes, setTemporaryIncomes] = useState<TemporaryIncome[]>([]);
+  const [temporaryIncomes, setTemporaryIncomes] = useState<TemporaryIncome[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
+
+  // Modal
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(getInitialFormData());
@@ -32,12 +37,11 @@ export default function IncomePage() {
     setLoading(true);
     try {
       const { data } = await IncomesService.getAll();
-
-      setFixedIncomes(data.filter((i: any) => i.type === 'Fixed'));
-      setVariableIncomes(data.filter((i: any) => i.type === 'Variable'));
-      setTemporaryIncomes(data.filter((i: any) => i.type === 'Temporary'));
+      setFixedIncomes(data.filter((i: any) => i.type === "Fixed"));
+      setVariableIncomes(data.filter((i: any) => i.type === "Variable"));
+      setTemporaryIncomes(data.filter((i: any) => i.type === "Temporary"));
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
@@ -48,50 +52,61 @@ export default function IncomePage() {
 
     const payload = {
       amount: parseFloat(formData.amount),
-      description: formData.name, // el backend espera description
-      date: formData.date || new Date().toISOString(),
+      description: formData.name,
+      date: formData.date || new Date().toISOString().split("T")[0],
       type:
-        activeTab === 'fixed'
-          ? 'Fixed'
-          : activeTab === 'variable'
-          ? 'Variable'
-          : 'Temporary',
+        activeTab === "fixed"
+          ? "Fixed"
+          : activeTab === "variable"
+          ? "Variable"
+          : "Temporary",
+      categoryId: formData.categoryId || null,
+      start_date: formData.start_date || null,
+      end_date: formData.isIndefinite ? null : formData.end_date || null,
+      notes: formData.notes || null,
     };
 
     try {
       if (editingId) {
-        await IncomesService.update(parseInt(editingId), payload);
+        await IncomesService.update(parseInt(editingId, 10), payload);
       } else {
         await IncomesService.create(payload);
       }
-
       setShowModal(false);
       setEditingId(null);
       setFormData(getInitialFormData());
       loadData();
     } catch (error) {
-      console.error('Error saving income:', error);
+      console.error("Error saving income:", error);
     }
   };
 
   const handleEdit = (item: FixedIncome | VariableIncome | TemporaryIncome) => {
-    setEditingId(item.id);
-    setFormData({
-      ...formData,
-      name: (item as any).description || (item as any).name,
-      amount: item.amount.toString(),
-      date: (item as any).date,
-    });
+    setEditingId(String(item.id));
+
+    setFormData((prev) => ({
+      ...prev,
+      name: (item as any).description || (item as any).name || "",
+      amount: String(item.amount ?? ""),
+      date: (item as any).date || prev.date,
+      categoryId: (item as any).categoryId ?? prev.categoryId,
+      notes: (item as any).notes ?? "",
+      start_date: (item as any).start_date ?? "",
+      end_date: (item as any).end_date ?? "",
+      isIndefinite: (item as any).end_date === null, // si en BD es indefinido
+      frequency: prev.frequency, // si no la manejas en ingresos, mantenla
+    }));
+
     setShowModal(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este ingreso?')) return;
+    if (!confirm("¿Estás seguro de eliminar este ingreso?")) return;
     try {
       await IncomesService.delete(id);
       loadData();
     } catch (error) {
-      console.error('Error deleting income:', error);
+      console.error("Error deleting income:", error);
     }
   };
 
@@ -102,17 +117,23 @@ export default function IncomePage() {
   };
 
   const getCurrentList = () => {
-    if (activeTab === 'fixed') return fixedIncomes;
-    if (activeTab === 'variable') return variableIncomes;
+    if (activeTab === "fixed") return fixedIncomes;
+    if (activeTab === "variable") return variableIncomes;
     return temporaryIncomes;
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Gestión de Ingresos</h1>
+        <h1 className="text-3xl font-bold text-slate-800">
+          Gestión de Ingresos
+        </h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingId(null);
+            setFormData(getInitialFormData());
+            setShowModal(true);
+          }}
           className="flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition"
         >
           <Plus className="w-5 h-5 mr-2" />
@@ -124,7 +145,9 @@ export default function IncomePage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Cargando ingresos...</div>
+          <div className="p-8 text-center text-slate-500">
+            Cargando ingresos...
+          </div>
         ) : (
           <IncomeList
             activeTab={activeTab}
@@ -135,8 +158,8 @@ export default function IncomePage() {
         )}
       </div>
 
-      <IncomeModal
-        activeTab={activeTab}
+      <TransactionModal
+        type="income"
         showModal={showModal}
         editingId={editingId}
         formData={formData}
