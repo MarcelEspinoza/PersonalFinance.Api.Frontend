@@ -5,6 +5,7 @@ export interface MonthlyData {
   income: number;
   expense: number;
   balance: number;
+  isCurrent?: boolean;
 }
 
 export interface Summary {
@@ -14,7 +15,12 @@ export interface Summary {
   savings: number;
 }
 
-export async function getDashboardData() {
-  const response = await apiClient.get<{ monthlyData: MonthlyData[]; summary: Summary }>('/dashboard');
-  return response.data;
-}
+
+export const getDashboardProjection = async () => {
+  const token = localStorage.getItem("token");
+  return apiClient.get("/Dashboard/projection", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+};

@@ -4,7 +4,7 @@ import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './pages/Dashboard';
 import { ExpensesPage } from './pages/ExpensesPage';
-import { IncomesPage } from './pages/IncomesPage';
+import IncomePage from './pages/IncomesPage/IncomePage';
 import { LoansPage } from './pages/LoansPage';
 import { Login } from './pages/Login';
 import { MonthlyView } from './pages/MonthlyView';
@@ -42,7 +42,7 @@ function AppRoutes() {
         path="/incomes"
         element={
           <PrivateRoute>
-            <Layout><IncomesPage /></Layout>
+            <Layout><IncomePage /></Layout>
           </PrivateRoute>
         }
       />
