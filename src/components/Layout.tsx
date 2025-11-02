@@ -1,27 +1,30 @@
-import { ReactNode } from 'react';
+// src/components/Layout.tsx
 import {
-  LayoutDashboard,
-  TrendingUp,
-  TrendingDown,
   Calendar,
   Coins,
-  Users,
+  LayoutDashboard,
   LogOut,
   Menu,
+  TrendingDown,
+  TrendingUp,
+  Users,
   X
 } from 'lucide-react';
+import { ReactNode, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useState } from 'react';
 
 interface LayoutProps {
   children: ReactNode;
-  currentPage: string;
-  onNavigate: (page: string) => void;
 }
 
-export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
+export function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location.pathname.replace('/', '') || 'dashboard';
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,6 +37,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   const handleSignOut = async () => {
     await signOut();
+    navigate('/login');
   };
 
   return (
@@ -56,9 +60,9 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => navigate(`/${item.id}`)}
                     className={`flex items-center px-4 py-2 rounded-lg transition ${
-                      currentPage === item.id
+                      currentPath === item.id
                         ? 'bg-emerald-50 text-emerald-600'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
@@ -102,11 +106,11 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <button
                     key={item.id}
                     onClick={() => {
-                      onNavigate(item.id);
+                      navigate(`/${item.id}`);
                       setMobileMenuOpen(false);
                     }}
                     className={`w-full flex items-center px-4 py-3 rounded-lg transition ${
-                      currentPage === item.id
+                      currentPath === item.id
                         ? 'bg-emerald-50 text-emerald-600'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}

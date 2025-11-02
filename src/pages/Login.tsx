@@ -1,17 +1,15 @@
 import { DollarSign } from 'lucide-react';
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-interface LoginProps {
-  onToggle: () => void;
-}
-
-export function Login({ onToggle }: LoginProps) {
+export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +20,8 @@ export function Login({ onToggle }: LoginProps) {
       const { error } = await signIn(email, password);
       if (error) {
         setError(error.message);
+      } else {
+        navigate('/dashboard');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al iniciar sesión');
@@ -94,12 +94,12 @@ export function Login({ onToggle }: LoginProps) {
           <div className="mt-6 text-center">
             <p className="text-slate-600">
               ¿No tienes cuenta?{' '}
-              <button
-                onClick={onToggle}
+              <Link
+                to="/register"
                 className="text-emerald-600 hover:text-emerald-700 font-medium"
               >
                 Regístrate
-              </button>
+              </Link>
             </p>
           </div>
         </div>

@@ -1,12 +1,9 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { DollarSign } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-interface RegisterProps {
-  onToggle: () => void;
-}
-
-export function Register({ onToggle }: RegisterProps) {
+export function Register() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,6 +11,7 @@ export function Register({ onToggle }: RegisterProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +28,16 @@ export function Register({ onToggle }: RegisterProps) {
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
-
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await signUp(email, password, fullName);
+      if (error) {
+        setError(error.message);
+      } else {
+        navigate('/login');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al registrarse');
+    } finally {
       setLoading(false);
     }
   };
@@ -130,12 +134,12 @@ export function Register({ onToggle }: RegisterProps) {
           <div className="mt-6 text-center">
             <p className="text-slate-600">
               ¿Ya tienes cuenta?{' '}
-              <button
-                onClick={onToggle}
+              <Link
+                to="/login"
                 className="text-emerald-600 hover:text-emerald-700 font-medium"
               >
                 Inicia sesión
-              </button>
+              </Link>
             </p>
           </div>
         </div>

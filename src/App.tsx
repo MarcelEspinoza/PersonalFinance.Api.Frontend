@@ -1,66 +1,86 @@
-import { useState } from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
+// App.tsx
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './pages/Dashboard';
-import { MonthlyView } from './pages/MonthlyView';
-import { IncomesPage } from './pages/IncomesPage';
 import { ExpensesPage } from './pages/ExpensesPage';
+import { IncomesPage } from './pages/IncomesPage';
 import { LoansPage } from './pages/LoansPage';
+import { Login } from './pages/Login';
+import { MonthlyView } from './pages/MonthlyView';
 import { PasanacoPage } from './pages/PasanacoPage';
+import { Register } from './pages/Register';
 
-function AuthenticatedApp() {
+function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  if (loading) return <div>Cargando...</div>;
+  return user ? children : <Navigate to="/login" />;
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-500"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return showRegister ? (
-      <Register onToggle={() => setShowRegister(false)} />
-    ) : (
-      <Login onToggle={() => setShowRegister(true)} />
-    );
-  }
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'monthly':
-        return <MonthlyView />;
-      case 'incomes':
-        return <IncomesPage />;
-      case 'expenses':
-        return <ExpensesPage />;
-      case 'loans':
-        return <LoansPage />;
-      case 'pasanaco':
-        return <PasanacoPage />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
+function AppRoutes() {
   return (
-    <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
-      {renderPage()}
-    </Layout>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/dashboard"
+        element={
+          <PrivateRoute>
+            <Layout><Dashboard /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/monthly"
+        element={
+          <PrivateRoute>
+            <Layout><MonthlyView /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/incomes"
+        element={
+          <PrivateRoute>
+            <Layout><IncomesPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <PrivateRoute>
+            <Layout><ExpensesPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/loans"
+        element={
+          <PrivateRoute>
+            <Layout><LoansPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/pasanaco"
+        element={
+          <PrivateRoute>
+            <Layout><PasanacoPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/dashboard" />} />
+    </Routes>
   );
 }
 
 function App() {
   return (
     <AuthProvider>
-      <AuthenticatedApp />
+      <Router>
+        <AppRoutes />
+      </Router>
     </AuthProvider>
   );
 }

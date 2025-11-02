@@ -7,4 +7,11 @@ export const authService = {
 
   login: (email: string, password: string) =>
     apiClient.post("/Auth/login", { email, password }),
+
+  getMe: (token: string) => 
+    apiClient.get('/Users/me', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
 };
