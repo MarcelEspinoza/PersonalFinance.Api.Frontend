@@ -1,4 +1,9 @@
-const formatDate = (d: Date) => d.toISOString().split("T")[0];
+// utils comunes para ingresos y gastos
+
+export const formatDate = (d: Date | string) => {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return !isNaN(date.getTime()) ? date.toISOString().split("T")[0] : "";
+};
 
 const addDays = (date: Date, days: number) => {
   const d = new Date(date);
@@ -8,7 +13,7 @@ const addDays = (date: Date, days: number) => {
 
 export const getInitialFormData = () => {
   const today = new Date();
-  const start = today; 
+  const start = today;
   const end = addDays(start, 5);
 
   return {
@@ -16,10 +21,10 @@ export const getInitialFormData = () => {
     amount: "",
     frequency: "monthly",
     start_date: formatDate(start),
-    end_date: formatDate(end),            
-    date: formatDate(today),             
+    end_date: formatDate(end),
+    date: formatDate(today),
     notes: "",
-    categoryId: 0,                      
+    categoryId: 0,
     isIndefinite: false,
   };
 };

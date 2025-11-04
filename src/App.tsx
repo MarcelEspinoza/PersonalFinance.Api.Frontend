@@ -2,14 +2,14 @@
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Dashboard } from './pages/Dashboard';
-import { ExpensesPage } from './pages/ExpensesPage';
+import { Login } from './pages/AuthPages/Login';
+import { Register } from './pages/AuthPages/Register';
+import { Dashboard } from './pages/DashboardPage/Dashboard';
+import ExpensesPage from './pages/ExpensesPage/ExpensesPage';
 import IncomePage from './pages/IncomesPage/IncomePage';
 import { LoansPage } from './pages/LoansPage';
-import { Login } from './pages/Login';
-import { MonthlyView } from './pages/MonthlyView';
-import { PasanacoPage } from './pages/PasanacoPage';
-import { Register } from './pages/Register';
+import { MonthlyView } from './pages/Monthly/MonthlyView';
+import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();

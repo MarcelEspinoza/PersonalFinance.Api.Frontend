@@ -1,9 +1,8 @@
-// src/services/monthlyService.ts
 import apiClient from "../lib/apiClient";
 
 export const MonthlyService = {
-  getMonthData: (userId: string, start: string, end: string) =>
-    apiClient.get(`/dashboard/monthly`, {
-      params: { userId, start, end },
+  getMonthData: (userId: string, startDate: string, endDate: string) =>
+    apiClient.get(`/monthly/${userId}`, {
+      params: { startDate, endDate },
     }),
 };

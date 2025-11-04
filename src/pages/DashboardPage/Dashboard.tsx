@@ -6,8 +6,8 @@ import {
   Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { MonthlyData, Summary, getDashboardProjection } from '../services/dashboardService';
+import { useAuth } from '../../contexts/AuthContext';
+import { MonthlyData, Summary, getDashboardProjection } from '../../services/dashboardService';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -128,7 +128,6 @@ export function Dashboard() {
                     {data.balance >= 0 ? '+' : ''}
                     {(data.balance ?? 0).toFixed(2)} €
                   </td>
-                  <td className="px-4 py-2">{(ahorro ?? 0).toFixed(2)} €</td>
                   <td className="px-4 py-2">{ahorro.toFixed(2)} €</td>
                 </tr>
               );
