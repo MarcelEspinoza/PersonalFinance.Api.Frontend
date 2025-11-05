@@ -89,6 +89,11 @@ export function TransactionPage({ mode, service }: Props) {
       end_date: formData.isIndefinite ? null : formData.end_date,
       notes: formData.notes || null,
       categoryId: formData.categoryId,
+      loanId:
+        mode === "expense" &&
+        (formData.categoryId === 100 || formData.categoryId === 101)
+          ? formData.loanId
+          : null,
     };
 
     try {
@@ -188,6 +193,7 @@ export function TransactionPage({ mode, service }: Props) {
         )}
       </div>
 
+      {user && (
       <TransactionModal
         type={mode}
         showModal={showModal}
@@ -198,7 +204,9 @@ export function TransactionPage({ mode, service }: Props) {
         onSubmit={handleSubmit}
         categories={categories}
         setCategories={setCategories}
+        userId={user.id}
       />
+    )}
 
       {user && (
         <ImportModal

@@ -1,14 +1,14 @@
-// src/services/loansService.ts
-import apiClient from "../lib/apiClient";
+import axios from "axios";
 
 export const LoansService = {
-  // --- LOANS ---
-  getLoans: (userId: string) => apiClient.get(`/loans/user/${userId}`),
-  createLoan: (data: any) => apiClient.post("/loans", data),
-  updateLoan: (id: string, data: any) => apiClient.put(`/loans/${id}`, data),
-  deleteLoan: (id: string) => apiClient.delete(`/loans/${id}`),
+  getLoans: (userId: string) => axios.get(`/api/loans?userId=${userId}`),
+  getPayments: (loanId: string) => axios.get(`/api/loans/${loanId}/payments`),
 
-  // --- PAYMENTS ---
-  getPayments: (loanId: string) => apiClient.get(`/loans/${loanId}/payments`),
-  createPayment: (loanId: string, data: any) => apiClient.post(`/loans/${loanId}/payments`, data),
+  createLoan: (payload: any) => axios.post(`/api/loans`, payload),
+  updateLoan: (id: string, payload: any) => axios.put(`/api/loans/${id}`, payload),
+  deleteLoan: (id: string) => axios.delete(`/api/loans/${id}`),
+
+  createPayment: (loanId: string, payload: any) =>
+    axios.post(`/api/loans/${loanId}/payments`, payload)
+
 };

@@ -7,7 +7,8 @@ import { Register } from './pages/AuthPages/Register';
 import { Dashboard } from './pages/DashboardPage/Dashboard';
 import ExpensesPage from './pages/ExpensesPage/ExpensesPage';
 import IncomePage from './pages/IncomesPage/IncomePage';
-import { LoansPage } from './pages/LoansPage';
+
+import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 

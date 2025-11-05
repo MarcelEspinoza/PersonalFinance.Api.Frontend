@@ -26,5 +26,6 @@ export const getInitialFormData = () => {
     notes: "",
     categoryId: 0,
     isIndefinite: false,
+    loanId: null,
   };
 };
