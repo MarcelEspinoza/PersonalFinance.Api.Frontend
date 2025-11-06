@@ -1,14 +1,12 @@
-// src/lib/apiClient.ts
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "https://localhost:7035/api", // cambia si usas otro puerto en tu .NET
+  baseURL: import.meta.env.VITE_API_URL, // ← ahora usa variable de entorno
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Incluir el token JWT si existe
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
