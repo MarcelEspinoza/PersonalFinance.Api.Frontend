@@ -11,6 +11,7 @@ import IncomePage from './pages/IncomesPage/IncomePage';
 import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
+import { SettingsPage } from './pages/SettingsPage/SettingsPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -68,6 +69,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><PasanacoPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <Layout><SettingsPage /></Layout>
           </PrivateRoute>
         }
       />

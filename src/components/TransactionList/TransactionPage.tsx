@@ -53,7 +53,7 @@ export function TransactionPage({ mode, service }: Props) {
 
   const loadCategories = async () => {
     try {
-      const { data } = await CategoriesService.getAll();
+      const data = await CategoriesService.getAll();
       setCategories((data || []) as Category[]);
     } catch (error) {
       console.error("Error loading categories:", error);

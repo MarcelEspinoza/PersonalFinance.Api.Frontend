@@ -92,7 +92,7 @@ export function TransactionModal({
       return;
     }
     try {
-      const { data } = await CategoriesService.create({
+      const data = await CategoriesService.create({
         name, description: "", isActive: true,
       });
       setCategories((prev) => [...prev, data]);
