@@ -1,9 +1,11 @@
 // utils comunes para ingresos y gastos
 
-export const formatDate = (d: Date | string) => {
+export const formatDate = (d?: Date | string | null) => {
+  if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
   return !isNaN(date.getTime()) ? date.toISOString().split("T")[0] : "";
 };
+
 
 const addDays = (date: Date, days: number) => {
   const d = new Date(date);
@@ -17,15 +19,16 @@ export const getInitialFormData = () => {
   const end = addDays(start, 5);
 
   return {
-    name: "",
+    description: "",
     amount: "",
     frequency: "monthly",
-    start_date: formatDate(start),
-    end_date: formatDate(end),
+    start_Date: formatDate(start),
+    end_Date: formatDate(end),
     date: formatDate(today),
     notes: "",
     categoryId: 0,
     isIndefinite: false,
     loanId: null,
+    userId: "",
   };
 };

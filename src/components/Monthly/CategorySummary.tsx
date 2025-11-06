@@ -9,7 +9,7 @@ export function CategorySummary({ transactions }: Props) {
   // Agrupar por categoría
   const grouped = transactions.reduce<Record<string, { income: number; expense: number }>>(
     (acc, tx) => {
-      const key = tx.category || "Sin categoría";
+      const key = tx.categoryName || "Sin categoría";
       if (!acc[key]) acc[key] = { income: 0, expense: 0 };
       if (tx.type === "income") acc[key].income += tx.amount;
       else acc[key].expense += tx.amount;

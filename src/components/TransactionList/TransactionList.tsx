@@ -17,13 +17,23 @@ interface Transaction {
 
 interface Props {
   activeTab: "fixed" | "variable" | "temporary";
-  mode: "income" | "expense"; // 👈 diferencia ingresos/gastos
+  mode: "income" | "expense";
   transactions: Transaction[];
   onEdit: (item: Transaction) => void;
   onDelete: (id: number) => void;
+  selectedIds: number[];
+  onToggleSelect: (id: number) => void;
 }
 
-export function TransactionList({ activeTab, mode, transactions, onEdit, onDelete }: Props) {
+export function TransactionList({
+  activeTab,
+  mode,
+  transactions,
+  onEdit,
+  onDelete,
+  selectedIds,
+  onToggleSelect,
+}: Props) {
   if (transactions.length === 0) {
     return (
       <div className="p-8 text-center text-slate-500">
@@ -35,18 +45,36 @@ export function TransactionList({ activeTab, mode, transactions, onEdit, onDelet
   return (
     <div className="divide-y divide-slate-200">
       {transactions.map((tx) => (
-        <div key={tx.id} className="p-4 hover:bg-slate-50 transition">
-          <div className="flex items-center justify-between">
+        <div
+          key={tx.id}
+          className="p-4 hover:bg-slate-50 transition flex items-center"
+        >
+          {/* Checkbox de selección */}
+          <input
+            type="checkbox"
+            checked={selectedIds.includes(tx.id)}
+            onChange={() => onToggleSelect(tx.id)}
+            className="mr-4"
+          />
+
+          <div className="flex-1 flex items-center justify-between">
             <div>
-              <p className="font-medium text-slate-800">{tx.name || tx.description}</p>
+              <p className="font-medium text-slate-800">
+                {tx.description}
+              </p>
               <div className="flex items-center space-x-2 text-sm text-slate-500">
                 {activeTab === "fixed" && (
                   <>
-                    {tx.frequency && <span className="capitalize">{tx.frequency}</span>}
+                    {tx.frequency && (
+                      <span className="capitalize">{tx.frequency}</span>
+                    )}
                     {tx.start_date && (
                       <>
                         <span>•</span>
-                        <span>Desde {new Date(tx.start_date).toLocaleDateString("es-ES")}</span>
+                        <span>
+                          Desde{" "}
+                          {new Date(tx.start_date).toLocaleDateString("es-ES")}
+                        </span>
                       </>
                     )}
                     {tx.end_date && (
@@ -55,7 +83,9 @@ export function TransactionList({ activeTab, mode, transactions, onEdit, onDelet
                         <span>Día {tx.end_date}</span>
                       </>
                     )}
-                    {tx.is_active === false && <span className="text-red-500">• Inactivo</span>}
+                    {tx.is_active === false && (
+                      <span className="text-red-500">• Inactivo</span>
+                    )}
                   </>
                 )}
                 {activeTab === "variable" && (
@@ -63,7 +93,9 @@ export function TransactionList({ activeTab, mode, transactions, onEdit, onDelet
                     {tx.date && (
                       <>
                         <Calendar className="w-3 h-3" />
-                        <span>{new Date(tx.date).toLocaleDateString("es-ES")}</span>
+                        <span>
+                          {new Date(tx.date).toLocaleDateString("es-ES")}
+                        </span>
                       </>
                     )}
                     {tx.category && (
@@ -76,11 +108,19 @@ export function TransactionList({ activeTab, mode, transactions, onEdit, onDelet
                 )}
                 {activeTab === "temporary" && (
                   <>
-                    {tx.frequency && <span className="capitalize">{tx.frequency}</span>}
+                    {tx.frequency && (
+                      <span className="capitalize">{tx.frequency}</span>
+                    )}
                     {tx.type && (
                       <>
                         <span>•</span>
-                        <span>{tx.type === "income" ? "Ingreso" : tx.type === "expense" ? "Gasto" : tx.type}</span>
+                        <span>
+                          {tx.type === "income"
+                            ? "Ingreso"
+                            : tx.type === "expense"
+                            ? "Gasto"
+                            : tx.type}
+                        </span>
                       </>
                     )}
                     {tx.start_date && tx.end_date && (
@@ -92,11 +132,15 @@ export function TransactionList({ activeTab, mode, transactions, onEdit, onDelet
                         </span>
                       </>
                     )}
-                    {tx.is_active === false && <span className="text-red-500">• Inactivo</span>}
+                    {tx.is_active === false && (
+                      <span className="text-red-500">• Inactivo</span>
+                    )}
                   </>
                 )}
               </div>
-              {tx.notes && <p className="text-sm text-slate-600 mt-1">{tx.notes}</p>}
+              {tx.notes && (
+                <p className="text-sm text-slate-600 mt-1">{tx.notes}</p>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <p

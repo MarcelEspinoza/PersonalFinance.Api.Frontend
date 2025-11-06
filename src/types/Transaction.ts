@@ -1,17 +1,17 @@
 export interface Transaction {
-  id: string; // o number, pero debe coincidir con el backend
-  name?: string;
-  description?: string;
+  id: number;
+  description: string;
   amount: number;
-  date?: string;
-  category?: string;
-  categoryId?: number;
-  categoryName?: string;
+  date: string;
+  categoryId: number;
+  categoryName: string;
   type: "income" | "expense";
   source: "fixed" | "variable" | "temporary";
   frequency?: string;
-  start_date?: string;
-  end_date?: string;
-  is_active?: boolean;
+  start_Date?: string;
+  end_Date?: string;
+  isIndefinite?: boolean;
   notes?: string;
+  loanId?: string | null;
+  userId: string;
 }
