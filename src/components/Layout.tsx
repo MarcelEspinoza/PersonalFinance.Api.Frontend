@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   TrendingDown,
   TrendingUp,
   Users,
@@ -33,6 +34,7 @@ export function Layout({ children }: LayoutProps) {
     { id: 'expenses', label: 'Gastos', icon: TrendingDown },
     { id: 'loans', label: 'Préstamos', icon: Coins },
     { id: 'pasanaco', label: 'Pasanaco', icon: Users },
+    { id: 'settings', label: 'Configuración', icon: Settings },
   ];
 
   const handleSignOut = async () => {
