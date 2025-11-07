@@ -18,23 +18,44 @@ export function PasanacoPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadAll = async () => {
-    if (!selectedId) return;
-    const pasanaco = pasanacos.find((p) => p.id === selectedId);
-    if (!pasanaco) return;
+  // Carga la lista de pasanacos y devuelve los datos (para uso por callers)
+  const loadPasanacos = async (): Promise<Pasanaco[]> => {
+    setLoading(true);
+    try {
+      const { data } = await pasanacoService.getAll();
+      setPasanacos(data);
+      return data;
+    } catch (err) {
+      console.error("Error al cargar pasanacos:", err);
+      return [] as Pasanaco[];
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const { month, year } = getCurrentGameMonth(
-      pasanaco.startMonth,
-      pasanaco.startYear,
-      pasanaco.currentRound
-    );
+  // Recarga la lista y, si hay un seleccionado, recarga participantes y pagos del seleccionado.
+  const refreshAll = async () => {
+    const data = await loadPasanacos();
+    if (!selectedId) {
+      setParticipants([]);
+      setPayments([]);
+      return;
+    }
 
-    if (isNaN(month) || isNaN(year)) {
-      console.warn("Mes o año inválido para pagos");
+    const pasanaco = data.find((p) => p.id === selectedId);
+    if (!pasanaco) {
+      setSelectedId(null);
+      setParticipants([]);
+      setPayments([]);
       return;
     }
 
     try {
+      const { month, year } = getCurrentGameMonth(
+        pasanaco.startMonth,
+        pasanaco.startYear,
+        pasanaco.currentRound
+      );
       const [partRes, payRes] = await Promise.all([
         pasanacoService.getParticipants(selectedId),
         pasanacoService.getPayments(selectedId, month, year),
@@ -42,20 +63,7 @@ export function PasanacoPage() {
       setParticipants(partRes.data);
       setPayments(payRes.data);
     } catch (err) {
-      console.error("Error al cargar datos:", err);
-    }
-  };
-
-
-  const loadPasanacos = async () => {
-    setLoading(true);
-    try {
-      const { data } = await pasanacoService.getAll();
-      setPasanacos(data);
-    } catch (err) {
-      console.error("Error al cargar pasanacos:", err);
-    } finally {
-      setLoading(false);
+      console.error("Error al cargar datos tras refresh:", err);
     }
   };
 
@@ -72,11 +80,18 @@ export function PasanacoPage() {
 
   useEffect(() => {
     if (user) loadPasanacos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
-    loadAll();
-  }, [selectedId, pasanacos]);
+    if (!selectedId) {
+      setParticipants([]);
+      setPayments([]);
+      return;
+    }
+    refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const selected = pasanacos.find((p) => p.id === selectedId);
 
@@ -87,8 +102,8 @@ export function PasanacoPage() {
         <PasanacoModal onCreated={loadPasanacos} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
           <h2 className="text-xl font-bold mb-2">Mis Pasanacos</h2>
           <PasanacoList
             pasanacos={pasanacos}
@@ -99,23 +114,31 @@ export function PasanacoPage() {
           />
         </div>
 
-        {selected && (
-          <div>
+        <div className="lg:col-span-2">
+          {selected ? (
             <PasanacoDetail
               pasanaco={selected}
               participants={participants}
               payments={payments}
-              onRefresh={loadAll}
+              onRefresh={refreshAll}
             />
-          </div>
-        )}
+          ) : (
+            <div className="p-6 bg-white rounded-2xl shadow-sm border text-slate-500">
+              Selecciona un pasanaco para ver detalles.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 // Reutilizamos la lógica del mes actual
-export function getCurrentGameMonth(startMonth: number, startYear: number, round: number) {
+export function getCurrentGameMonth(
+  startMonth: number,
+  startYear: number,
+  round: number
+) {
   if (
     typeof startMonth !== "number" ||
     typeof startYear !== "number" ||
@@ -132,5 +155,3 @@ export function getCurrentGameMonth(startMonth: number, startYear: number, round
   const current = new Date(base.setMonth(base.getMonth() + round - 1));
   return { month: current.getMonth() + 1, year: current.getFullYear() };
 }
-
-

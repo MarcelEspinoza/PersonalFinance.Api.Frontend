@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { Pasanaco } from "../../services/pasanacoService";
+import { getCurrentGameMonth } from "./PasanacoPage";
 
 interface Props {
   pasanacos: Pasanaco[];
@@ -15,7 +16,6 @@ export function PasanacoList({
   loading,
   onSelect,
   onDelete,
-  
 }: Props) {
   if (loading) return <p className="text-slate-500">Cargando pasanacos...</p>;
   if (pasanacos.length === 0)
@@ -67,24 +67,3 @@ export function PasanacoList({
     </div>
   );
 }
-
-// Reutilizamos la lógica del mes actual
-export function getCurrentGameMonth(startMonth: number, startYear: number, round: number) {
-  if (
-    typeof startMonth !== "number" ||
-    typeof startYear !== "number" ||
-    typeof round !== "number" ||
-    startMonth < 1 ||
-    startMonth > 12 ||
-    startYear < 2000 ||
-    round < 1
-  ) {
-    return { month: NaN, year: NaN };
-  }
-
-  const base = new Date(startYear, startMonth - 1);
-  const current = new Date(base.setMonth(base.getMonth() + round - 1));
-  return { month: current.getMonth() + 1, year: current.getFullYear() };
-}
-
-

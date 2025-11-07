@@ -32,6 +32,7 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
       onCreated();
     } catch (err) {
       console.error("Error al crear pasanaco:", err);
+      alert("No se pudo crear pasanaco");
     } finally {
       setLoading(false);
     }

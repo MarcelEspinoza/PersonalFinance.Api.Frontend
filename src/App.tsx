@@ -1,4 +1,4 @@
-// App.tsx
+// src/App.tsx
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -11,6 +11,9 @@ import IncomePage from './pages/IncomesPage/IncomePage';
 import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
+import SettingsPage from './pages/SettinggPage/SettingsPage';
+
+
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -71,6 +74,17 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+
+      {/* Nueva ruta de configuración */}
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <Layout><SettingsPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
   );
@@ -86,5 +100,4 @@ function App() {
   );
 }
 
-console.log("API URL:", import.meta.env.VITE_API_URL);
 export default App;

@@ -8,6 +8,7 @@ export interface Pasanaco {
   currentRound: number;
   startMonth: number; // 1–12
   startYear: number;
+  userId?: string;
 }
 
 export interface Participant {
@@ -24,12 +25,12 @@ export interface PasanacoPayment {
   month: number;
   year: number;
   paid: boolean;
-  paymentDate?: string;
-  transactionId?: number;
+  paymentDate?: string | null;
+  transactionId?: number | null;
+  paidByLoanId?: string | null;
 }
 
-// 🔹 SERVICIO
-
+// Servicio para consumir el backend (devuelve axios response objects)
 export const pasanacoService = {
   // Pasanacos
   getAll: () => apiClient.get<Pasanaco[]>("/pasanacos"),
@@ -42,24 +43,28 @@ export const pasanacoService = {
   // Participantes
   getParticipants: (id: string) =>
     apiClient.get<Participant[]>(`/pasanacos/${id}/participants`),
-  addParticipant: (id: string, data: Partial<Participant>) =>
+  addParticipant: (id: string, data: { name: string; assignedNumber: number }) =>
     apiClient.post(`/pasanacos/${id}/participants`, data),
   deleteParticipant: (id: string, participantId: string) =>
     apiClient.delete(`/pasanacos/${id}/participants/${participantId}`),
 
   // Pagos
   getPayments: (id: string, month: number, year: number) =>
-    apiClient.get<PasanacoPayment[]>(
-      `/pasanacos/${id}/payments?month=${month}&year=${year}`
-    ),
-  markPaymentAsPaid: (paymentId: string, transactionId?: number) =>
-    apiClient.post(`/pasanacos/payments/${paymentId}/mark-paid`, {
-      transactionId,
+    apiClient.get<PasanacoPayment[]>(`/pasanacos/${id}/payments`, {
+      params: { month, year },
     }),
-  generatePaymentsForMonth: (id: string, month: number, year: number) =>
-    apiClient.post(`/pasanacos/${id}/generate-payments`, { month, year }),
 
-  advanceRound: (id: string) =>
-    apiClient.post(`/pasanacos/${id}/advance`)
+  markPaymentAsPaid: (paymentId: string, transactionId?: number) =>
+    apiClient.post(`/pasanacos/payments/${paymentId}/mark-paid`, { transactionId }),
 
+  // Avanzar / retroceder ronda (createLoans pasa como query param)
+  advance: (id: string, createLoans = false) =>
+    apiClient.post(`/pasanacos/${id}/advance`, null, { params: { createLoans } }),
+  retreat: (id: string) => apiClient.post(`/pasanacos/${id}/retreat`),
+
+  // Crear préstamo manual para un participante
+  createLoanForParticipant: (pasanacoId: string, participantId: string, data: { amount: number; note?: string }) =>
+    apiClient.post(`/pasanacos/${pasanacoId}/participants/${participantId}/loan`, data),
 };
+
+export default pasanacoService;
