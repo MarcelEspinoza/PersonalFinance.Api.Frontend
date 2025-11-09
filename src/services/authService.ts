@@ -8,10 +8,6 @@ export const authService = {
   login: (email: string, password: string) =>
     apiClient.post("/Auth/login", { email, password }),
 
-  getMe: (token: string) => 
-    apiClient.get('/Users/me', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+  // No pasar token aquí: apiClient ya inyecta Authorization desde localStorage
+  getMe: () => apiClient.get("/Users/me"),
 };

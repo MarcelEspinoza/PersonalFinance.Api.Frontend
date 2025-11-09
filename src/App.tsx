@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -7,13 +6,10 @@ import { Register } from './pages/AuthPages/Register';
 import { Dashboard } from './pages/DashboardPage/Dashboard';
 import ExpensesPage from './pages/ExpensesPage/ExpensesPage';
 import IncomePage from './pages/IncomesPage/IncomePage';
-
 import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
-
-
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -26,6 +22,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
       <Route
         path="/dashboard"
         element={
@@ -74,8 +71,6 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-
-      {/* Nueva ruta de configuración */}
       <Route
         path="/settings"
         element={
@@ -85,18 +80,20 @@ function AppRoutes() {
         }
       />
 
+      <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
     </Routes>
   );
 }
 
 function App() {
+  // IMPORTANT: Router must be above AuthProvider because AuthProvider uses useNavigate()
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <AppRoutes />
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

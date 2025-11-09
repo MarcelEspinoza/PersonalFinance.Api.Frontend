@@ -69,12 +69,33 @@ export function PasanacoPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este pasanaco?")) return;
+
     try {
       await pasanacoService.remove(id);
+      // eliminado ok
       setPasanacos((prev) => prev.filter((p) => p.id !== id));
       if (selectedId === id) setSelectedId(null);
-    } catch (err) {
+    } catch (err: any) {
+      // si 400 con related summary -> mostrar confirm y permitir force
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      if (status === 400 && data?.related) {
+        const r = data.related;
+        const text = `No se puede eliminar: existen registros relacionados.\nPagos: ${r.paymentsCount}\nPréstamos: ${r.loansCount}\nGastos: ${r.expensesCount}\nIngresos: ${r.incomesCount}\n\n¿Deseas forzar el borrado (eliminar todo)? Esta acción es irreversible.`;
+        if (!confirm(text)) return;
+        try {
+          await pasanacoService.remove(id, true); // force=true
+          setPasanacos((prev) => prev.filter((p) => p.id !== id));
+          if (selectedId === id) setSelectedId(null);
+        } catch (err2: any) {
+          console.error("Error borrando con force:", err2);
+          alert(err2?.response?.data || "No se pudo forzar el borrado");
+        }
+        return;
+      }
+
       console.error("Error al eliminar:", err);
+      alert(err?.response?.data || "Error al eliminar pasanaco");
     }
   };
 

@@ -1,4 +1,3 @@
-// src/components/Layout.tsx
 import {
   Calendar,
   Coins,
@@ -34,12 +33,17 @@ export function Layout({ children }: LayoutProps) {
     { id: 'expenses', label: 'Gastos', icon: TrendingDown },
     { id: 'loans', label: 'Préstamos', icon: Coins },
     { id: 'pasanaco', label: 'Pasanaco', icon: Users },
-    { id: 'settings', label: 'Configuración', icon: Settings }, // <-- nueva entrada
+    { id: 'settings', label: 'Configuración', icon: Settings },
   ];
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  const onNavigate = (path: string) => {
+    setMobileMenuOpen(false);
+    navigate(`/${path}`);
   };
 
   return (
@@ -56,18 +60,20 @@ export function Layout({ children }: LayoutProps) {
               </span>
             </div>
 
+            {/* Desktop nav */}
             <div className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.id}
-                    onClick={() => navigate(`/${item.id}`)}
+                    onClick={() => onNavigate(item.id)}
                     className={`flex items-center px-4 py-2 rounded-lg transition ${
                       currentPath === item.id
                         ? 'bg-emerald-50 text-emerald-600'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
+                    aria-current={currentPath === item.id ? 'page' : undefined}
                   >
                     <Icon className="w-5 h-5 mr-2" />
                     {item.label}
@@ -76,6 +82,7 @@ export function Layout({ children }: LayoutProps) {
               })}
             </div>
 
+            {/* Desktop sign out */}
             <div className="hidden md:block">
               <button
                 onClick={handleSignOut}
@@ -86,9 +93,11 @@ export function Layout({ children }: LayoutProps) {
               </button>
             </div>
 
+            {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-slate-100"
+              aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
             >
               {mobileMenuOpen ? (
                 <X className="w-6 h-6 text-slate-600" />
@@ -98,7 +107,36 @@ export function Layout({ children }: LayoutProps) {
             </button>
           </div>
         </div>
-        {/* mobile menu omitted for brevity (keeps same behavior) */}
+
+        {/* Mobile menu (visible on small screens when open) */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-slate-200">
+            <div className="px-4 py-3 space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    className={`flex items-center w-full px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-50 ${
+                      currentPath === item.id ? 'bg-emerald-50 text-emerald-600' : ''
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    {item.label}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => { setMobileMenuOpen(false); handleSignOut(); }}
+                className="flex items-center w-full px-3 py-2 rounded-lg text-red-600 hover:bg-slate-50"
+              >
+                <LogOut className="w-5 h-5 mr-3" />
+                Salir
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

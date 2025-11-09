@@ -38,7 +38,9 @@ export const pasanacoService = {
   create: (data: Partial<Pasanaco>) => apiClient.post("/pasanacos", data),
   update: (id: string, data: Partial<Pasanaco>) =>
     apiClient.put(`/pasanacos/${id}`, data),
-  remove: (id: string) => apiClient.delete(`/pasanacos/${id}`),
+  // remove ahora acepta force flag (query param)
+  remove: (id: string, force = false) =>
+    apiClient.delete(`/pasanacos/${id}`, { params: { force } }),
 
   // Participantes
   getParticipants: (id: string) =>
