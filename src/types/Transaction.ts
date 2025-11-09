@@ -14,4 +14,6 @@ export interface Transaction {
   notes?: string;
   loanId?: string | null;
   userId: string;
+  bankId?: string;     
+  bankName?: string;   
 }

@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 
 import { MonthHeader } from "../../components/Monthly/MonthHeader";
 import { MonthlyList } from "../../components/Monthly/MonthlyList";
+import MonthlyReconciliation from "../../components/Monthly/MonthlyReconciliation";
 import { SummaryCards } from "../../components/Monthly/SummaryCards";
 import { useAuth } from "../../contexts/AuthContext";
 import { MonthlyService } from "../../services/monthlyService";
 import { Transaction } from "../../types/Transaction";
-
-
 
 export function MonthlyView() {
   const { user } = useAuth();
@@ -18,6 +17,7 @@ export function MonthlyView() {
 
   useEffect(() => {
     if (user) loadMonthData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate]);
 
   const loadMonthData = async () => {
@@ -73,6 +73,9 @@ export function MonthlyView() {
     );
   }
 
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1; // 1..12
+
   return (
     <div className="space-y-8">
       {/* Cabecera con navegación de meses */}
@@ -82,17 +85,25 @@ export function MonthlyView() {
         onToday={() => setCurrentDate(new Date())}
       />
 
-      {/* Resumen de ingresos, gastos y balance */}
-      <SummaryCards
-        income={summary.income}
-        expense={summary.expense}
-        balance={summary.balance}
-      />
+      {/* Grid: lista principal + panel de conciliación */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Resumen de ingresos, gastos y balance */}
+          <SummaryCards
+            income={summary.income}
+            expense={summary.expense}
+            balance={summary.balance}
+          />
 
-      {/* Lista de movimientos */}
-      <MonthlyList
-        transactions={transactions}
-      />
+          {/* Lista de movimientos */}
+          <MonthlyList transactions={transactions} />
+        </div>
+
+        {/* Panel de conciliación bancaria */}
+        <div className="lg:col-span-1">
+          <MonthlyReconciliation year={year} month={month} />
+        </div>
+      </div>
     </div>
   );
 }
