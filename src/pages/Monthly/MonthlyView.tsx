@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-
 import BanksChips from "../../components/Monthly/BanksChips";
 import { MonthHeader } from "../../components/Monthly/MonthHeader";
 import { MonthlyList } from "../../components/Monthly/MonthlyList";
 import MonthlyReconciliation from "../../components/Monthly/MonthlyReconciliation";
 import { SummaryCards } from "../../components/Monthly/SummaryCards";
 import { useAuth } from "../../contexts/AuthContext";
+import apiClient from "../../lib/apiClient";
 import { MonthlyService } from "../../services/monthlyService";
 import { Transaction } from "../../types/Transaction";
 
@@ -61,17 +61,19 @@ export function MonthlyView() {
   const [editingLast, setEditingLast] = useState(false);
   const [lastInputValue, setLastInputValue] = useState<string>("");
 
-  // centralized GET helper that uses Authorization if available
+  // centralized GET helper that uses apiClient (axios) and returns data
   const apiGet = async (url: string) => {
-    const token = (user as any)?.token ?? (localStorage.getItem("token") || undefined);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(url, { headers, credentials: token ? "same-origin" : "include" });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `HTTP ${res.status}`);
+    try {
+      const res = await apiClient.get(url);
+      return res.data;
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ??
+        err?.response?.data ??
+        err?.message ??
+        `HTTP ${err?.response?.status ?? "error"}`;
+      throw new Error(msg);
     }
-    return res.json();
   };
 
   // displayedRecons with labels and bank color — keep useMemo before returns
@@ -139,7 +141,8 @@ export function MonthlyView() {
 
   const loadBanks = async () => {
     try {
-      const arr: BankDto[] = await apiGet("/api/banks");
+      // apiClient baseURL should include the API base (see apiClient config)
+      const arr: BankDto[] = await apiGet("/banks");
       const map: Record<string, BankDto> = {};
       arr.forEach(b => (map[b.id] = b));
       setBanks(map);
@@ -155,7 +158,7 @@ export function MonthlyView() {
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      const data = await apiGet(`/api/reconciliations?year=${year}&month=${month}`);
+      const data = await apiGet(`/reconciliations?year=${year}&month=${month}`);
       const list: ReconSummary[] = (data || []).map((r: any) => ({
         id: r.id,
         bankId: r.bankId,
@@ -187,7 +190,7 @@ export function MonthlyView() {
       const month = currentDate.getMonth() + 1;
       const bankParam = bankId ?? selectedRecon?.bankId;
       const q = `?year=${year}&month=${month}${bankParam ? `&bankId=${bankParam}` : ""}`;
-      const dto = await apiGet(`/api/reconciliations/suggest${q}`);
+      const dto = await apiGet(`/reconciliations/suggest${q}`);
       setSuggestion({
         systemTotal: Number(dto.systemTotal ?? 0),
         closingBalance: Number(dto.closingBalance ?? 0),
@@ -219,25 +222,14 @@ export function MonthlyView() {
     setMarking(true);
     setRecError(null);
     try {
-      const token = (user as any)?.token ?? localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch(`/api/reconciliations/${selectedRecon.id}/mark`, {
-        method: "POST",
-        headers,
-        credentials: token ? "same-origin" : "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.message || `HTTP ${res.status}`);
-      }
+      await apiClient.post(`/reconciliations/${selectedRecon.id}/mark`);
       await loadReconciliations();
       await loadMonthData();
       alert("Mes marcado como conciliado");
     } catch (err: any) {
       console.error(err);
-      setRecError(err?.message || "Error marcando conciliación");
+      const msg = err?.response?.data?.message ?? err?.message ?? "Error marcando conciliación";
+      setRecError(msg);
     } finally {
       setMarking(false);
     }
@@ -251,11 +243,6 @@ export function MonthlyView() {
     setRecLoading(true);
     setRecError(null);
     try {
-      const token = (user as any)?.token ?? localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      // Use Create endpoint which updates existing recon for same bank/year/month
       const payload = {
         bankId: recon.bankId,
         year: recon.year,
@@ -264,23 +251,14 @@ export function MonthlyView() {
         notes: recon.notes ?? null,
       };
 
-      const res = await fetch(`/api/reconciliations`, {
-        method: "POST",
-        headers,
-        credentials: token ? "same-origin" : "include",
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
-      }
+      await apiClient.post(`/reconciliations`, payload);
       // reload reconciliations and suggestions for selected recon
       await loadReconciliations();
-      // refresh suggestion for selected recon after small delay to let server process
       setTimeout(() => fetchSuggestion(recon.bankId), 300);
     } catch (err: any) {
       console.error("Error updating closingBalance:", err);
-      setRecError(err?.message || "Error actualizando saldo bancario");
+      const msg = err?.response?.data?.message ?? err?.message ?? "Error actualizando saldo bancario";
+      setRecError(msg);
       throw err;
     } finally {
       setRecLoading(false);
@@ -295,24 +273,11 @@ export function MonthlyView() {
     // Try server endpoint if selectedRecon exists and API supports it:
     if (!selectedRecon) return;
     try {
-      const token = (user as any)?.token ?? localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      // Preferred endpoint on backend (implement server-side): PUT /api/reconciliations/{id}/set-last
-      const res = await fetch(`/api/reconciliations/${selectedRecon.id}/set-last`, {
-        method: "PUT",
-        headers,
-        credentials: token ? "same-origin" : "include",
-        body: JSON.stringify({ reconciledAt: iso }),
-      });
-      // if endpoint not found (404) or not implemented, ignore and keep localStorage as fallback
-      if (res.ok) {
-        await loadReconciliations();
-      }
+      await apiClient.put(`/reconciliations/${selectedRecon.id}/set-last`, { reconciledAt: iso });
+      await loadReconciliations();
     } catch (err) {
       // ignore network errors, fallback local storage is already set
-      console.debug("No backend endpoint for persisting lastReconciledAt", err);
+      console.debug("No backend endpoint for persisting lastReconciledAt or error calling it", err);
     }
   };
 
