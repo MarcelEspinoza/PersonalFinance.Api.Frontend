@@ -5,8 +5,9 @@ import { MonthlyList } from "../../components/Monthly/MonthlyList";
 import MonthlyReconciliation from "../../components/Monthly/MonthlyReconciliation";
 import { SummaryCards } from "../../components/Monthly/SummaryCards";
 import { useAuth } from "../../contexts/AuthContext";
-import apiClient from "../../lib/apiClient";
+import bankService from "../../services/bankService";
 import { MonthlyService } from "../../services/monthlyService";
+import { reconciliationService } from "../../services/reconciliationService";
 import { Transaction } from "../../types/Transaction";
 
 type ReconSummary = {
@@ -61,22 +62,11 @@ export function MonthlyView() {
   const [editingLast, setEditingLast] = useState(false);
   const [lastInputValue, setLastInputValue] = useState<string>("");
 
-  // centralized GET helper that uses apiClient (axios) and returns data
-  const apiGet = async (url: string) => {
-    try {
-      const res = await apiClient.get(url);
-      return res.data;
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ??
-        err?.response?.data ??
-        err?.message ??
-        `HTTP ${err?.response?.status ?? "error"}`;
-      throw new Error(msg);
-    }
-  };
+  // Helper to normalize axios errors
+  const normalizeAxiosError = (err: any) =>
+    err?.response?.data?.message ?? err?.response?.data ?? err?.message ?? `HTTP ${err?.response?.status ?? "error"}`;
 
-  // displayedRecons with labels and bank color — keep useMemo before returns
+  // displayedRecons with labels and bank color — keep useMemo
   const displayedRecons = useMemo(
     () =>
       recons.map(r => ({
@@ -102,6 +92,8 @@ export function MonthlyView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate]);
 
+  // ---------- Data loaders (use services only) ----------
+
   const loadMonthData = async () => {
     setLoading(true);
     try {
@@ -111,7 +103,9 @@ export function MonthlyView() {
       const startStr = startDate.toISOString().split("T")[0];
       const endStr = endDate.toISOString().split("T")[0];
 
-      const { data } = await MonthlyService.getMonthData(user!.id, startStr, endStr);
+      // MonthlyService already implemented in src/services/monthlyService.ts
+      const res = await MonthlyService.getMonthData(user!.id, startStr, endStr);
+      const data = res?.data ?? res;
       const allTransactions: Transaction[] = data.transactions || [];
 
       // Ordenar por fecha descendente
@@ -141,12 +135,13 @@ export function MonthlyView() {
 
   const loadBanks = async () => {
     try {
-      // apiClient baseURL should include the API base (see apiClient config)
-      const arr: BankDto[] = await apiGet("/banks");
+      // bankService should provide getAll()
+      const res = await bankService.getAll();
+      const arr: BankDto[] = res?.data ?? res ?? [];
       const map: Record<string, BankDto> = {};
       arr.forEach(b => (map[b.id] = b));
       setBanks(map);
-    } catch (err) {
+    } catch (err: any) {
       console.debug("Could not load banks:", err);
     }
   };
@@ -158,7 +153,8 @@ export function MonthlyView() {
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      const data = await apiGet(`/reconciliations?year=${year}&month=${month}`);
+      const res = await reconciliationService.getForMonth(year, month);
+      const data = res?.data ?? res ?? [];
       const list: ReconSummary[] = (data || []).map((r: any) => ({
         id: r.id,
         bankId: r.bankId,
@@ -174,7 +170,7 @@ export function MonthlyView() {
       setSelectedRecon(list.length ? list[0] : null);
     } catch (err: any) {
       console.error(err);
-      setRecError(err?.message || "Error cargando conciliaciones");
+      setRecError(normalizeAxiosError(err) || "Error cargando conciliaciones");
     } finally {
       setRecLoading(false);
     }
@@ -188,27 +184,43 @@ export function MonthlyView() {
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      const bankParam = bankId ?? selectedRecon?.bankId;
-      const q = `?year=${year}&month=${month}${bankParam ? `&bankId=${bankParam}` : ""}`;
-      const dto = await apiGet(`/reconciliations/suggest${q}`);
+      const res = await reconciliationService.suggest(year, month, bankId ?? selectedRecon?.bankId);
+      const dto = res?.data ?? res ?? {};
+
+      // Normalize details to an array to satisfy TS and UI expectations
+      const raw = dto.details;
+      let detailsArr: any[] = [];
+      if (Array.isArray(raw)) {
+        detailsArr = raw;
+      } else if (raw && typeof raw === "object") {
+        // If backend returns an object (e.g. totals), wrap or convert to pairs
+        // Choose representation: array of key/value pairs for easier display
+        detailsArr = Object.entries(raw).map(([k, v]) => ({ key: k, value: v }));
+      } else {
+        detailsArr = [];
+      }
+
       setSuggestion({
         systemTotal: Number(dto.systemTotal ?? 0),
         closingBalance: Number(dto.closingBalance ?? 0),
         difference: Number(dto.difference ?? 0),
-        details: dto.details ?? null,
+        details: detailsArr,
       });
     } catch (err: any) {
       console.error(err);
-      setRecError(err?.message || "Error obteniendo sugerencias");
+      setRecError(normalizeAxiosError(err) || "Error obteniendo sugerencias");
     } finally {
       setRecLoading(false);
     }
   };
 
+  // ---------- Actions (via services) ----------
+
   const onSelectRecon = (id: string) => {
     const found = recons.find(r => r.id === id) ?? null;
     setSelectedRecon(found);
     setSuggestion(null);
+    // fetch suggestion for that bank shortly after select
     setTimeout(() => fetchSuggestion(found?.bankId), 50);
   };
 
@@ -218,24 +230,21 @@ export function MonthlyView() {
       setRecError("No se puede marcar: la diferencia no está a 0. Revisa las sugerencias o corrige partidas.");
       return;
     }
-
     setMarking(true);
     setRecError(null);
     try {
-      await apiClient.post(`/reconciliations/${selectedRecon.id}/mark`);
+      await reconciliationService.markReconciled(selectedRecon.id);
       await loadReconciliations();
       await loadMonthData();
       alert("Mes marcado como conciliado");
     } catch (err: any) {
       console.error(err);
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error marcando conciliación";
-      setRecError(msg);
+      setRecError(normalizeAxiosError(err) || "Error marcando conciliación");
     } finally {
       setMarking(false);
     }
   };
 
-  // Persist closingBalance via POST /api/reconciliations (CreateAsync updates existing if present)
   const updateReconClosingBalance = async (id: string, newBalance: number) => {
     if (!id) throw new Error("Missing reconciliation id");
     const recon = recons.find(r => r.id === id);
@@ -250,37 +259,34 @@ export function MonthlyView() {
         closingBalance: newBalance,
         notes: recon.notes ?? null,
       };
-
-      await apiClient.post(`/reconciliations`, payload);
-      // reload reconciliations and suggestions for selected recon
+      await reconciliationService.create(payload); // backend Create acts as upsert
       await loadReconciliations();
       setTimeout(() => fetchSuggestion(recon.bankId), 300);
     } catch (err: any) {
       console.error("Error updating closingBalance:", err);
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error actualizando saldo bancario";
-      setRecError(msg);
+      setRecError(normalizeAxiosError(err) || "Error actualizando saldo bancario");
       throw err;
     } finally {
       setRecLoading(false);
     }
   };
 
-  // Assign manual last reconciled (tries server endpoint, falls back to localStorage)
   const assignLastReconciled = async (iso: string | null) => {
-    // iso = null clears
     setManualLastReconciled(iso);
     localStorage.setItem("lastReconciledAt", iso ?? "");
-    // Try server endpoint if selectedRecon exists and API supports it:
     if (!selectedRecon) return;
     try {
-      await apiClient.put(`/reconciliations/${selectedRecon.id}/set-last`, { reconciledAt: iso });
-      await loadReconciliations();
+      // optional endpoint; call if service provides it
+      if (typeof (reconciliationService as any).setLast === "function") {
+        await (reconciliationService as any).setLast(selectedRecon.id, iso);
+        await loadReconciliations();
+      }
     } catch (err) {
-      // ignore network errors, fallback local storage is already set
       console.debug("No backend endpoint for persisting lastReconciledAt or error calling it", err);
     }
   };
 
+  // ---------- UI helpers ----------
   const changeMonth = (delta: number) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
@@ -306,7 +312,6 @@ export function MonthlyView() {
     <div className="space-y-6">
       <MonthHeader monthName={monthName} onChangeMonth={changeMonth} onToday={() => setCurrentDate(new Date())} />
 
-      {/* Top row: banks chips + last reconciled (manual) */}
       <div className="flex items-center justify-between gap-4">
         <BanksChips
           recons={displayedRecons}
@@ -322,12 +327,11 @@ export function MonthlyView() {
             </span>
           </div>
 
-          {/* controls to set/clear manual last reconciled */}
           {!editingLast && (
             <>
               <button
                 onClick={() => {
-                  setLastInputValue(new Date().toISOString().slice(0, 16)); // default to now (local datetime-local value)
+                  setLastInputValue(new Date().toISOString().slice(0, 16));
                   setEditingLast(true);
                 }}
                 className="text-sm text-slate-600 underline"
