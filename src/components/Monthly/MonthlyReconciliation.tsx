@@ -1,119 +1,194 @@
 import { useEffect, useState } from "react";
-import { bankService } from "../../services/bankService";
-import { reconciliationService } from "../../services/reconciliationService";
-import { Bank, Reconciliation, ReconciliationSuggestion } from "../../types/bank";
 
-export default function MonthlyReconciliation({ year, month }: { year: number; month: number }) {
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [closing, setClosing] = useState<number | "">("");
-  const [suggestion, setSuggestion] = useState<ReconciliationSuggestion | null>(null);
-  const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
+type ReconSummary = {
+  id: string;
+  bankId: string;
+  year: number;
+  month: number;
+  closingBalance: number;
+  reconciled: boolean;
+  notes?: string | null;
+  createdAt: string;
+  bankName?: string;
+  bankEntity?: string;
+  bankColor?: string;
+  label?: string;
+};
 
-  useEffect(() => { loadBanks(); loadReconciliations(); }, [year, month]);
+type SuggestionDto = {
+  systemTotal: number;
+  closingBalance: number;
+  difference: number;
+  details?: any[];
+};
 
-  async function loadBanks() {
-    try {
-      const { data } = await bankService.getAll();
-      setBanks(data);
-      if (data.length > 0 && !selectedBank) setSelectedBank(data[0].id);
-    } catch (err) { console.error(err); }
-  }
+type Props = {
+  year: number;
+  month: number;
+  recons: ReconSummary[];
+  selectedRecon: ReconSummary | null;
+  recLoading: boolean;
+  recError: string | null;
+  suggestion: SuggestionDto | null;
+  marking: boolean;
+  onRefresh: () => Promise<void>;
+  onSelectRecon: (id: string) => void;
+  onFetchSuggestion: (bankId?: string) => Promise<void>;
+  onMarkReconciled: () => Promise<void>;
+  onUpdateClosingBalance?: (id: string, newBalance: number) => Promise<void>; // NEW prop
+};
 
-  async function loadReconciliations() {
-    try {
-      const { data } = await reconciliationService.getForMonth(year, month);
-      setReconciliations(data);
-    } catch (err) { console.error(err); }
-  }
+export default function MonthlyReconciliation({
+  year,
+  month,
+  recons,
+  selectedRecon,
+  recLoading,
+  recError,
+  suggestion,
+  marking,
+  onRefresh,
+  onSelectRecon,
+  onFetchSuggestion,
+  onMarkReconciled,
+  onUpdateClosingBalance,
+}: Props) {
+  const [bankBalance, setBankBalance] = useState<string>("");
+  const [savingBalance, setSavingBalance] = useState(false);
 
-  async function computeSuggestion(bankId?: string) {
-    try {
-      const id = bankId ?? selectedBank;
-      if (!id) return;
-      const { data } = await reconciliationService.suggest(year, month, id);
-      setSuggestion({
-        systemTotal: data.systemTotal ?? (data as any).systemTotal ?? 0,
-        closingBalance: data.closingBalance ?? 0,
-        difference: data.difference ?? 0,
-        details: (data as any).details
-      } as ReconciliationSuggestion);
-    } catch (err) {
-      console.error(err);
+  useEffect(() => {
+    setBankBalance(selectedRecon ? String(selectedRecon.closingBalance ?? "") : "");
+  }, [selectedRecon]);
+
+  const handleSaveBalance = async () => {
+    if (!selectedRecon) return;
+    const parsed = Number(bankBalance);
+    if (isNaN(parsed)) {
+      alert("Introduce un número válido para el saldo.");
+      return;
     }
-  }
-
-  async function saveClosing() {
-    if (!selectedBank || closing === "") return;
-    try {
-      await reconciliationService.create({ bankId: selectedBank, year, month, closingBalance: Number(closing), notes: "" });
-      await loadReconciliations();
-      await computeSuggestion(selectedBank);
-    } catch (err) {
-      console.error(err);
-      alert("No se pudo guardar");
+    if (!onUpdateClosingBalance) {
+      alert("El backend no permite guardar el saldo (endpoint no implementado).");
+      return;
     }
-  }
-
-  async function markReconciled(id: string) {
+    setSavingBalance(true);
     try {
-      await reconciliationService.markReconciled(id);
-      await loadReconciliations();
+      await onUpdateClosingBalance(selectedRecon.id, parsed);
+      // success -> onUpdateClosingBalance should reload reconciliations on parent
+      alert("Saldo bancario guardado");
     } catch (err) {
-      console.error(err);
+      console.error("Error guardando saldo bancario", err);
+      alert("No se pudo guardar el saldo bancario");
+    } finally {
+      setSavingBalance(false);
     }
-  }
+  };
+
+  const canMark = suggestion && Math.abs(suggestion.difference) <= 0.01 && !!selectedRecon && !selectedRecon.reconciled;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-      <h3 className="text-lg font-semibold mb-3">Conciliación — {month}/{year}</h3>
-
-      <div className="mb-4">
-        <label className="block text-sm text-slate-600 mb-1">Cuenta bancaria</label>
-        <select value={selectedBank ?? ""} onChange={e => setSelectedBank(e.target.value)} className="border px-2 py-1 w-full">
-          <option value="">-- seleccionar --</option>
-          {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm text-slate-600 mb-1">Saldo final (en cuenta)</label>
-        <input type="number" value={closing} onChange={e => setClosing(e.target.value === "" ? "" : Number(e.target.value))} className="border px-2 py-1 w-full" />
-      </div>
-
-      <div className="flex gap-2 mb-4">
-        <button onClick={() => computeSuggestion()} className="bg-sky-600 text-white px-3 py-1 rounded">Calcular sugerencia</button>
-        <button onClick={saveClosing} className="bg-emerald-600 text-white px-3 py-1 rounded">Guardar cierre</button>
-      </div>
-
-      {suggestion && (
-        <div className="mb-4 border p-3 rounded">
-          <div><strong>Total sistema:</strong> {suggestion.systemTotal.toFixed(2)}</div>
-          <div><strong>Saldo contable (banco):</strong> {suggestion.closingBalance.toFixed(2)}</div>
-          <div><strong>Diferencia:</strong> {suggestion.difference.toFixed(2)}</div>
-          <details className="mt-2 text-sm text-slate-600">
-            <summary>Ver detalles</summary>
-            <pre className="text-xs">{JSON.stringify(suggestion.details, null, 2)}</pre>
-          </details>
+    <aside className="bg-white rounded-lg p-5 shadow-lg border">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">Conciliación</h3>
+          <div className="text-xs text-slate-500">Mes: {month}/{year}</div>
         </div>
-      )}
+        <div>
+          <button className="text-sm text-slate-500" onClick={() => onRefresh()} disabled={recLoading}>
+            Actualizar
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-xs text-slate-500 mb-2">Selecciona reconciliación</label>
+        <div className="flex gap-2 items-center">
+          <select
+            className="flex-1 border px-3 py-2 rounded"
+            value={selectedRecon?.id ?? ""}
+            onChange={(e) => onSelectRecon(e.target.value)}
+          >
+            <option value="">{recons.length ? "Selecciona un banco" : "No hay conciliaciones"}</option>
+            {recons.map(r => (
+              <option key={r.id} value={r.id}>
+                {r.label ?? r.bankId} {r.reconciled ? " — Concil." : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Saldo bancario (editable) */}
+      <div className="mb-4">
+        <label className="block text-xs text-slate-500 mb-1">Saldo bancario (extracto)</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            step="0.01"
+            className="flex-1 border px-3 py-2 rounded"
+            value={bankBalance}
+            onChange={(e) => setBankBalance(e.target.value)}
+            disabled={!selectedRecon || recLoading}
+          />
+          <button
+            onClick={handleSaveBalance}
+            className="bg-slate-600 text-white px-3 py-2 rounded disabled:opacity-60 text-sm"
+            disabled={savingBalance || !selectedRecon || String(selectedRecon?.closingBalance) === bankBalance}
+          >
+            {savingBalance ? "Guardando..." : "Guardar saldo"}
+          </button>
+        </div>
+        <div className="text-xs text-slate-400 mt-2">Introduce el importe que aparece en tu extracto bancario.</div>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-slate-50 p-4 rounded mb-4 border">
+        <div className="text-sm text-slate-600 mb-1">Total del sistema</div>
+        <div className="text-xl font-medium">{suggestion ? suggestion.systemTotal.toFixed(2) : "—"}</div>
+        <div className="text-sm text-slate-600 mt-3">Saldo final (sistema)</div>
+        <div className="text-lg font-semibold">{suggestion ? suggestion.closingBalance.toFixed(2) : (selectedRecon ? selectedRecon.closingBalance.toFixed(2) : "—")}</div>
+        <div className="mt-3">
+          <div className="text-xs text-slate-600">Diferencia</div>
+          <div className={`font-semibold ${suggestion && Math.abs(suggestion.difference) <= 0.01 ? "text-emerald-600" : "text-rose-600"}`}>
+            {suggestion ? suggestion.difference.toFixed(2) : "—"}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        <button
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded disabled:opacity-50"
+          onClick={() => onFetchSuggestion(selectedRecon?.bankId)}
+          disabled={recLoading || !selectedRecon}
+        >
+          Obtener sugerencias
+        </button>
+        <button
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded disabled:opacity-50"
+          onClick={() => onMarkReconciled()}
+          disabled={!canMark || marking}
+          title={!canMark ? "La diferencia debe ser 0 para marcar como conciliado" : "Marcar como conciliado"}
+        >
+          {marking ? "Marcando..." : "Marcar conciliado"}
+        </button>
+      </div>
 
       <div>
-        <h4 className="font-medium mb-2">Histórico</h4>
-        <ul>
-          {reconciliations.map(r => (
-            <li key={r.id} className="border-b py-2 flex justify-between items-center">
-              <div>
-                <div>{banks.find(b => b.id === r.bankId)?.name ?? r.bankId} — {r.month}/{r.year}</div>
-                <div className="text-sm text-slate-500">Saldo: {r.closingBalance.toFixed(2)} {r.reconciled ? " — Conciliado" : ""}</div>
-              </div>
-              <div>
-                {!r.reconciled && <button onClick={() => markReconciled(r.id)} className="text-emerald-600 mr-2">Marcar conciliado</button>}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <h4 className="text-sm font-medium mb-2">Sugerencias</h4>
+        {!suggestion && <div className="text-xs text-slate-500">Pulsa 'Obtener sugerencias' para ver candidatos a revisar</div>}
+        {suggestion && Array.isArray(suggestion.details) && suggestion.details.length === 0 && (
+          <div className="text-xs text-slate-500">No se encontraron sugerencias concretas</div>
+        )}
+        {suggestion && Array.isArray(suggestion.details) && suggestion.details.map((d: any, idx: number) => (
+          <div key={idx} className="border rounded p-3 my-2 bg-white flex items-center justify-between">
+            <div>
+              <div className="text-xs text-slate-400">{d.Type ?? d.Reason ?? ""}</div>
+              <div className="text-sm">{d.Description ?? d.Reason ?? "Transacción candidata"}</div>
+            </div>
+            <div className="text-sm font-medium text-slate-700">{Number(d.Amount ?? 0).toFixed(2)}</div>
+          </div>
+        ))}
       </div>
-    </div>
+    </aside>
   );
 }

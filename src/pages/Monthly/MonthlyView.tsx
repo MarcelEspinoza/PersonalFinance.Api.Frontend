@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import BanksChips from "../../components/Monthly/BanksChips";
 import { MonthHeader } from "../../components/Monthly/MonthHeader";
 import { MonthlyList } from "../../components/Monthly/MonthlyList";
 import MonthlyReconciliation from "../../components/Monthly/MonthlyReconciliation";
@@ -8,6 +9,33 @@ import { useAuth } from "../../contexts/AuthContext";
 import { MonthlyService } from "../../services/monthlyService";
 import { Transaction } from "../../types/Transaction";
 
+type ReconSummary = {
+  id: string;
+  bankId: string;
+  year: number;
+  month: number;
+  closingBalance: number;
+  reconciled: boolean;
+  notes?: string | null;
+  createdAt: string;
+  reconciledAt?: string | null;
+};
+
+type SuggestionDto = {
+  systemTotal: number;
+  closingBalance: number;
+  difference: number;
+  details?: any[];
+};
+
+type BankDto = {
+  id: string;
+  name: string;
+  entity?: string | null;
+  accountNumber?: string | null;
+  color?: string | null;
+};
+
 export function MonthlyView() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -15,8 +43,60 @@ export function MonthlyView() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
 
+  // reconciliation state
+  const [recons, setRecons] = useState<ReconSummary[]>([]);
+  const [selectedRecon, setSelectedRecon] = useState<ReconSummary | null>(null);
+  const [suggestion, setSuggestion] = useState<SuggestionDto | null>(null);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [marking, setMarking] = useState(false);
+
+  // banks cache for name lookup
+  const [banks, setBanks] = useState<Record<string, BankDto>>({});
+
+  // local/manual last reconciled (fallback to localStorage if backend not available)
+  const [manualLastReconciled, setManualLastReconciled] = useState<string | null>(
+    () => localStorage.getItem("lastReconciledAt") || null
+  );
+  const [editingLast, setEditingLast] = useState(false);
+  const [lastInputValue, setLastInputValue] = useState<string>("");
+
+  // centralized GET helper that uses Authorization if available
+  const apiGet = async (url: string) => {
+    const token = (user as any)?.token ?? (localStorage.getItem("token") || undefined);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(url, { headers, credentials: token ? "same-origin" : "include" });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.json();
+  };
+
+  // displayedRecons with labels and bank color — keep useMemo before returns
+  const displayedRecons = useMemo(
+    () =>
+      recons.map(r => ({
+        ...r,
+        bankName: banks[r.bankId]?.name ?? r.bankId,
+        bankEntity: banks[r.bankId]?.entity ?? "",
+        bankColor: banks[r.bankId]?.color ?? "#CBD5E1",
+        label: `${banks[r.bankId]?.name ?? r.bankId}${banks[r.bankId]?.entity ? ` | ${banks[r.bankId]?.entity}` : ""}`,
+      })),
+    [recons, banks]
+  );
+
   useEffect(() => {
     if (user) loadMonthData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentDate]);
+
+  useEffect(() => {
+    if (user) {
+      loadReconciliations();
+      loadBanks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate]);
 
@@ -57,6 +137,185 @@ export function MonthlyView() {
     }
   };
 
+  const loadBanks = async () => {
+    try {
+      const arr: BankDto[] = await apiGet("/api/banks");
+      const map: Record<string, BankDto> = {};
+      arr.forEach(b => (map[b.id] = b));
+      setBanks(map);
+    } catch (err) {
+      console.debug("Could not load banks:", err);
+    }
+  };
+
+  const loadReconciliations = async () => {
+    setRecLoading(true);
+    setRecError(null);
+    setSuggestion(null);
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const data = await apiGet(`/api/reconciliations?year=${year}&month=${month}`);
+      const list: ReconSummary[] = (data || []).map((r: any) => ({
+        id: r.id,
+        bankId: r.bankId,
+        year: r.year,
+        month: r.month,
+        closingBalance: Number(r.closingBalance),
+        reconciled: !!r.reconciled,
+        notes: r.notes,
+        createdAt: r.createdAt,
+        reconciledAt: r.reconciledAt ?? null,
+      }));
+      setRecons(list);
+      setSelectedRecon(list.length ? list[0] : null);
+    } catch (err: any) {
+      console.error(err);
+      setRecError(err?.message || "Error cargando conciliaciones");
+    } finally {
+      setRecLoading(false);
+    }
+  };
+
+  const fetchSuggestion = async (bankId?: string) => {
+    if (!selectedRecon && !bankId) return;
+    setRecLoading(true);
+    setRecError(null);
+    setSuggestion(null);
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const bankParam = bankId ?? selectedRecon?.bankId;
+      const q = `?year=${year}&month=${month}${bankParam ? `&bankId=${bankParam}` : ""}`;
+      const dto = await apiGet(`/api/reconciliations/suggest${q}`);
+      setSuggestion({
+        systemTotal: Number(dto.systemTotal ?? 0),
+        closingBalance: Number(dto.closingBalance ?? 0),
+        difference: Number(dto.difference ?? 0),
+        details: dto.details ?? null,
+      });
+    } catch (err: any) {
+      console.error(err);
+      setRecError(err?.message || "Error obteniendo sugerencias");
+    } finally {
+      setRecLoading(false);
+    }
+  };
+
+  const onSelectRecon = (id: string) => {
+    const found = recons.find(r => r.id === id) ?? null;
+    setSelectedRecon(found);
+    setSuggestion(null);
+    setTimeout(() => fetchSuggestion(found?.bankId), 50);
+  };
+
+  const onMarkReconciled = async () => {
+    if (!selectedRecon) return;
+    if (!suggestion || Math.abs(suggestion.difference) > 0.01) {
+      setRecError("No se puede marcar: la diferencia no está a 0. Revisa las sugerencias o corrige partidas.");
+      return;
+    }
+
+    setMarking(true);
+    setRecError(null);
+    try {
+      const token = (user as any)?.token ?? localStorage.getItem("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/reconciliations/${selectedRecon.id}/mark`, {
+        method: "POST",
+        headers,
+        credentials: token ? "same-origin" : "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || `HTTP ${res.status}`);
+      }
+      await loadReconciliations();
+      await loadMonthData();
+      alert("Mes marcado como conciliado");
+    } catch (err: any) {
+      console.error(err);
+      setRecError(err?.message || "Error marcando conciliación");
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  // Persist closingBalance via POST /api/reconciliations (CreateAsync updates existing if present)
+  const updateReconClosingBalance = async (id: string, newBalance: number) => {
+    if (!id) throw new Error("Missing reconciliation id");
+    const recon = recons.find(r => r.id === id);
+    if (!recon) throw new Error("Reconciliation not found");
+    setRecLoading(true);
+    setRecError(null);
+    try {
+      const token = (user as any)?.token ?? localStorage.getItem("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // Use Create endpoint which updates existing recon for same bank/year/month
+      const payload = {
+        bankId: recon.bankId,
+        year: recon.year,
+        month: recon.month,
+        closingBalance: newBalance,
+        notes: recon.notes ?? null,
+      };
+
+      const res = await fetch(`/api/reconciliations`, {
+        method: "POST",
+        headers,
+        credentials: token ? "same-origin" : "include",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      // reload reconciliations and suggestions for selected recon
+      await loadReconciliations();
+      // refresh suggestion for selected recon after small delay to let server process
+      setTimeout(() => fetchSuggestion(recon.bankId), 300);
+    } catch (err: any) {
+      console.error("Error updating closingBalance:", err);
+      setRecError(err?.message || "Error actualizando saldo bancario");
+      throw err;
+    } finally {
+      setRecLoading(false);
+    }
+  };
+
+  // Assign manual last reconciled (tries server endpoint, falls back to localStorage)
+  const assignLastReconciled = async (iso: string | null) => {
+    // iso = null clears
+    setManualLastReconciled(iso);
+    localStorage.setItem("lastReconciledAt", iso ?? "");
+    // Try server endpoint if selectedRecon exists and API supports it:
+    if (!selectedRecon) return;
+    try {
+      const token = (user as any)?.token ?? localStorage.getItem("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // Preferred endpoint on backend (implement server-side): PUT /api/reconciliations/{id}/set-last
+      const res = await fetch(`/api/reconciliations/${selectedRecon.id}/set-last`, {
+        method: "PUT",
+        headers,
+        credentials: token ? "same-origin" : "include",
+        body: JSON.stringify({ reconciledAt: iso }),
+      });
+      // if endpoint not found (404) or not implemented, ignore and keep localStorage as fallback
+      if (res.ok) {
+        await loadReconciliations();
+      }
+    } catch (err) {
+      // ignore network errors, fallback local storage is already set
+      console.debug("No backend endpoint for persisting lastReconciledAt", err);
+    }
+  };
+
   const changeMonth = (delta: number) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
@@ -76,33 +335,101 @@ export function MonthlyView() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1..12
 
+  const canMark = suggestion && Math.abs(suggestion.difference) <= 0.01 && !selectedRecon?.reconciled;
+
   return (
-    <div className="space-y-8">
-      {/* Cabecera con navegación de meses */}
-      <MonthHeader
-        monthName={monthName}
-        onChangeMonth={changeMonth}
-        onToday={() => setCurrentDate(new Date())}
-      />
+    <div className="space-y-6">
+      <MonthHeader monthName={monthName} onChangeMonth={changeMonth} onToday={() => setCurrentDate(new Date())} />
 
-      {/* Grid: lista principal + panel de conciliación */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      {/* Top row: banks chips + last reconciled (manual) */}
+      <div className="flex items-center justify-between gap-4">
+        <BanksChips
+          recons={displayedRecons}
+          selectedId={selectedRecon?.id ?? ""}
+          onSelect={(id: string) => onSelectRecon(id)}
+        />
+
+        <div className="text-sm text-slate-500 flex items-center gap-3">
+          <div>
+            Última conciliación:
+            <span className="font-medium text-slate-700 ml-2">
+              {manualLastReconciled ? new Date(manualLastReconciled).toLocaleString() : "—"}
+            </span>
+          </div>
+
+          {/* controls to set/clear manual last reconciled */}
+          {!editingLast && (
+            <>
+              <button
+                onClick={() => {
+                  setLastInputValue(new Date().toISOString().slice(0, 16)); // default to now (local datetime-local value)
+                  setEditingLast(true);
+                }}
+                className="text-sm text-slate-600 underline"
+              >
+                Asignar fecha
+              </button>
+              {manualLastReconciled && (
+                <button
+                  onClick={() => assignLastReconciled(null)}
+                  className="text-sm text-rose-600 underline"
+                >
+                  Borrar
+                </button>
+              )}
+            </>
+          )}
+
+          {editingLast && (
+            <div className="flex items-center gap-2">
+              <input
+                type="datetime-local"
+                value={lastInputValue}
+                onChange={(e) => setLastInputValue(e.target.value)}
+                className="border px-2 py-1 rounded text-sm"
+              />
+              <button
+                onClick={() => {
+                  const iso = new Date(lastInputValue).toISOString();
+                  assignLastReconciled(iso);
+                  setEditingLast(false);
+                }}
+                className="bg-emerald-600 text-white px-3 py-1 rounded text-sm"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => setEditingLast(false)}
+                className="text-sm text-slate-600 underline"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6 mt-3">
         <div className="lg:col-span-2 space-y-6">
-          {/* Resumen de ingresos, gastos y balance */}
-          <SummaryCards
-            income={summary.income}
-            expense={summary.expense}
-            balance={summary.balance}
-          />
-
-          {/* Lista de movimientos */}
+          <SummaryCards income={summary.income} expense={summary.expense} balance={summary.balance} />
           <MonthlyList transactions={transactions} />
         </div>
 
-        {/* Panel de conciliación bancaria */}
-        <div className="lg:col-span-1">
-          <MonthlyReconciliation year={year} month={month} />
-        </div>
+        <MonthlyReconciliation
+          year={year}
+          month={month}
+          recons={displayedRecons as any}
+          selectedRecon={selectedRecon as any}
+          recLoading={recLoading}
+          recError={recError}
+          suggestion={suggestion}
+          marking={marking}
+          onRefresh={async () => await loadReconciliations()}
+          onSelectRecon={(id: string) => onSelectRecon(id)}
+          onFetchSuggestion={async (bankId?: string) => await fetchSuggestion(bankId)}
+          onMarkReconciled={async () => await onMarkReconciled()}
+          onUpdateClosingBalance={async (id: string, newBalance: number) => await updateReconClosingBalance(id, newBalance)}
+        />
       </div>
     </div>
   );

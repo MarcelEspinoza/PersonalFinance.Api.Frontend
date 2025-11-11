@@ -2,10 +2,11 @@ export interface Bank {
   id: string;
   userId?: string;
   name: string;
-  institution?: string;
+  entity?: string;
   accountNumber?: string;
   currency?: string;
   createdAt?: string;
+  color?: string;
 }
 
 export interface Reconciliation {
