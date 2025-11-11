@@ -1,4 +1,4 @@
-import axios from "axios";
+import apiClient from "../../lib/apiClient";
 
 interface Props {
   mode: "income" | "expense";
@@ -7,17 +7,30 @@ interface Props {
 export function ExportButton({ mode }: Props) {
   const handleExport = async () => {
     try {
-      const response = await axios.get("/api/template/export", { responseType: "blob" })
+      // Usar apiClient (baseURL configurado) y arraybuffer para no corromper el xlsx
+      const response = await apiClient.get("/template/export", {
+        responseType: "arraybuffer",
+      });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Determinar mime y nombre del archivo
+      const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      const filename = `${mode}-template.xlsx`;
+
+      // response puede ser axios response con .data o retorno directo
+      const data = (response && (response.data ?? response)) ?? response;
+
+      const blob = new Blob([data], { type: mime });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `${mode}-template.xlsx`);
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error exportando plantilla:", err);
+      // opcional: mostrar notificación al usuario
     }
   };
 
