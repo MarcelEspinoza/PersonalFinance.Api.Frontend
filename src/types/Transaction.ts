@@ -16,4 +16,9 @@ export interface Transaction {
   userId: string;
   bankId?: string;     
   bankName?: string;   
+
+  isTransfer?: boolean;
+  transferId?: string | null;
+  transferCounterpartyBankId?: string | null;
+  transferReference?: string | null;
 }

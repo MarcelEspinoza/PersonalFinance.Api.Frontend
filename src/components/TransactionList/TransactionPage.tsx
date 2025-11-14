@@ -5,6 +5,7 @@ import { ImportModal } from "../../components/TransactionImportExport/ImportModa
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
 import { useAuth } from "../../contexts/AuthContext";
 import { CategoriesService } from "../../services/categoriesService";
+import transferService from "../../services/transferService";
 import { TransactionList } from "./TransactionList";
 import { TransactionTabs } from "./TransactionTabs";
 import { formatDate, getInitialFormData } from "./transaction.utils";
@@ -83,6 +84,40 @@ export function TransactionPage({ mode, service }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Si es transferencia -> usar endpoint /transfers
+    if (formData.isTransfer) {
+      // Validaciones mínimas
+      if (!formData.bankId || !formData.counterpartyBankId) {
+        alert("Selecciona banco origen y banco destino para el traspaso.");
+        return;
+      }
+
+      const payload: any = {
+        date: formData.date,
+        amount: parseFloat(formData.amount),
+        fromBankId: formData.bankId,
+        toBankId: formData.counterpartyBankId,
+        description: formData.description,
+        notes: formData.notes || null,
+        reference: formData.transferReference || null,
+        categoryId: formData.categoryId || undefined
+      };
+
+      try {
+        await transferService.createTransfer(payload);
+        setShowModal(false);
+        setEditingId(null);
+        setFormData(getInitialFormData());
+        loadData();
+      } catch (error) {
+        console.error("Error creando transferencia:", error);
+        alert("Error creando transferencia. Revisa la consola.");
+      }
+
+      return;
+    }
+
+    // Flujo normal (income / expense)
     const payload: any = {
       amount: parseFloat(formData.amount),
       description: formData.description,
@@ -102,7 +137,8 @@ export function TransactionPage({ mode, service }: Props) {
         (formData.categoryId === 100 || formData.categoryId === 101)
           ? formData.loanId
           : null,
-      isIndefinite: formData.isIndefinite || false
+      isIndefinite: formData.isIndefinite || false,
+      bankId: formData.bankId || undefined
     };
 
     try {

@@ -1,9 +1,11 @@
 import { X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
 import { LoansService } from "../../services/loansService";
 import { formatDate } from "../../utils/date";
 import { Input, Select, Textarea } from "./FormFields";
+
 
 interface Category { id: number; name: string; }
 interface LoanItem {
@@ -12,6 +14,12 @@ interface LoanItem {
   name: string;
   outstandingAmount: number;
   status: "active" | "paid" | "overdue";
+}
+
+interface BankItem {
+  id: string;
+  name: string;
+  entity?: string;
 }
 
 interface Props {
@@ -42,6 +50,7 @@ export function TransactionModal({
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [loans, setLoans] = useState<LoanItem[]>([]);
+  const [banks, setBanks] = useState<BankItem[]>([]);
 
   const isLoanCategory = useMemo(
     () => formData.categoryId === 100 || formData.categoryId === 101,
@@ -49,6 +58,7 @@ export function TransactionModal({
   );
 
   useEffect(() => {
+    // Cargar préstamos si corresponde
     if (isLoanCategory && type === "expense" && userId) {
       LoansService.getLoans(userId)
         .then(({ data }) => {
@@ -61,17 +71,29 @@ export function TransactionModal({
         setFormData((prev: any) => ({ ...prev, loanId: null }));
       }
     }
-  }, [isLoanCategory, type, userId])
+    // Cargar bancos
+    (async () => {
+      try {
+        const { data } = await bankService.getAll();
+        setBanks(data || []);
+      } catch (err) {
+        console.error("Error loading banks", err);
+        setBanks([]);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoanCategory, type, userId]);
 
   useEffect(() => {
     if (editingId && showModal && formData) {
       setFormData((prev: any) => ({
         ...prev,
         date: formatDate(prev.date),
-        start_date: formatDate(prev.start_Date), // 👈 corregido
-        end_date: formatDate(prev.end_Date),     // 👈 corregido
-    }));
+        start_Date: formatDate(prev.start_Date ?? prev.start_date ?? null),
+        end_Date: formatDate(prev.end_Date ?? prev.end_date ?? null),
+      }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, showModal]);
 
   const filteredLoans = useMemo(() => {
@@ -84,6 +106,7 @@ export function TransactionModal({
     }
     return [];
   }, [isLoanCategory, loans, formData.categoryId]);
+
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -152,6 +175,7 @@ export function TransactionModal({
             <Select label="Frecuencia" value={formData.frequency} onChange={(v) => setFormData({ ...formData, frequency: v })} options={["monthly", "weekly", "biweekly", "yearly"]} />
             <Textarea label="Notas (opcional)" value={formData.notes} onChange={(v) => setFormData({ ...formData, notes: v })} />
           </div>
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Categoría</label>
@@ -226,11 +250,58 @@ export function TransactionModal({
               )}
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Banco</label>
+              <select
+                value={formData.bankId || ""}
+                onChange={(e) => setFormData({ ...formData, bankId: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+              >
+                <option value="">Selecciona banco</option>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} {b.entity ? `| ${b.entity}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                id="isTransfer"
+                type="checkbox"
+                checked={!!formData.isTransfer}
+                onChange={(e) => setFormData({ ...formData, isTransfer: e.target.checked })}
+              />
+              <label htmlFor="isTransfer" className="text-sm text-slate-700">Es traspaso</label>
+            </div>
+
+            {formData.isTransfer && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Banco destino</label>
+                  <select
+                    value={formData.counterpartyBankId || ""}
+                    onChange={(e) => setFormData({ ...formData, counterpartyBankId: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  >
+                    <option value="">Selecciona banco destino</option>
+                    {banks.filter(b => b.id !== formData.bankId).map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.entity ? `| ${b.entity}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input label="Referencia (opcional)" value={formData.transferReference || ""} onChange={(v) => setFormData({ ...formData, transferReference: v })} />
+              </>
+            )}
+
             <Input
               label="Fecha de inicio"
               type="date"
-              value={formData.start_date}
-              onChange={(v) => setFormData({ ...formData, start_date: v })}
+              value={formData.start_Date}
+              onChange={(v) => setFormData({ ...formData, start_Date: v })}
             />
 
             <div className="flex items-center space-x-2">
@@ -245,8 +316,8 @@ export function TransactionModal({
             <Input
               label="Fecha de fin"
               type="date"
-              value={formData.end_date}
-              onChange={(v) => setFormData({ ...formData, end_date: v })}
+              value={formData.end_Date}
+              onChange={(v) => setFormData({ ...formData, end_Date: v })}
               disabled={formData.isIndefinite}
             />
 

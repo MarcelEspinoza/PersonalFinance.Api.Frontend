@@ -30,5 +30,11 @@ export const getInitialFormData = () => {
     isIndefinite: false,
     loanId: null,
     userId: "",
+
+    // Campos añadidos para bancos/transferencias
+    bankId: "",
+    isTransfer: false,
+    counterpartyBankId: "", // banco destino en caso de traspaso
+    transferReference: ""
   };
 };
