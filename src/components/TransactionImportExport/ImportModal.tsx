@@ -1,6 +1,6 @@
-import axios from "axios";
 import { useState } from "react";
 import { useDropzone } from "react-dropzone";
+import { excelService } from "../../services/excelService";
 
 interface Props {
   mode: "income" | "expense";
@@ -14,6 +14,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
   const [pending, setPending] = useState<any[]>([]);
   const [imported, setImported] = useState<any[]>([]);
   const [step, setStep] = useState<"upload" | "result">("upload");
+  const [loading, setLoading] = useState(false);
 
   const onDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) setFile(acceptedFiles[0]);
@@ -29,22 +30,24 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
 
   const handleImport = async () => {
     if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-
+    setLoading(true);
     try {
-      const response = await axios.post(`/api/template/import?userId=${userId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-        })
+      // ahora excelService.importFile sube al backend y devuelve la respuesta axios
+      const response = await excelService.importFile(file, userId);
 
-      setPending(response.data.pending || []);
-      setImported(response.data.imported || []);
+      // response is AxiosResponse; backend returns { imported: [...], pending: [...] }
+      const data = response.data ?? {};
+
+      setPending(data.pending || []);
+      setImported(data.imported || []);
       setStep("result");
     } catch (err) {
       console.error("Error importando:", err);
       setPending([{ description: "Error al procesar el archivo", errors: ["Error inesperado"] }]);
       setImported([]);
       setStep("result");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,10 +92,10 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
               </button>
               <button
                 onClick={handleImport}
-                disabled={!file}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg"
+                disabled={!file || loading}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg disabled:opacity-50"
               >
-                Importar
+                {loading ? "Importando..." : "Importar"}
               </button>
             </div>
           </>
@@ -138,7 +141,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
                           <td className="px-3 py-2 border border-slate-200">{p.description || "-"}</td>
                           <td className="px-3 py-2 border border-slate-200">{p.amount ?? "-"}</td>
                           <td className="px-3 py-2 border border-slate-200">{p.date ?? "-"}</td>
-                          <td className="px-3 py-2 border border-slate-200">{p.categoryId ?? "-"}</td>
+                          <td className="px-3 py-2 border border-slate-200">{p.category ?? p.categoryId ?? "-"}</td>
                           <td className="px-3 py-2 border border-slate-200">{p.type ?? "-"}</td>
                           <td className="px-3 py-2 border border-slate-200 text-red-600">
                             {p.errors && p.errors.length > 0 ? (

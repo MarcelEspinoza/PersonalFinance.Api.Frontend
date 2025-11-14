@@ -1,10 +1,12 @@
+import { AxiosResponse } from "axios";
 import * as XLSX from "xlsx";
+import apiClient from "../lib/apiClient";
 
 export const excelService = {
+  // Mantengo la exportación local (útil para plantillas rápidas)
   exportTemplate: (mode: "income" | "expense") => {
     const headers = [
-      ["description", "amount", "date", "categoryId", "notes", "type"], 
-      // type: Fixed | Variable | Temporary
+      ["description", "amount", "date", "category", "notes", "type", "movementType", "bank", "isTransfer", "counterpartyBank", "transferReference"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
@@ -12,11 +14,17 @@ export const excelService = {
     XLSX.writeFile(wb, `${mode}-template.xlsx`);
   },
 
-  importFile: async (file: File) => {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet);
-    return rows;
+  // IMPORT -> subir al backend y devolver la respuesta axios (con data.pending / data.imported)
+  importFile: async (file: File, userId: string): Promise<AxiosResponse<any>> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // usar apiClient (configurado con baseURL/proxy)
+    const res = await apiClient.post(`/template/import?userId=${encodeURIComponent(userId)}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      // responseType: "json" por defecto
+    });
+
+    return res;
   }
 };
