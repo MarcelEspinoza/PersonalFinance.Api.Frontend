@@ -1,4 +1,3 @@
-import { AxiosResponse } from "axios";
 import { useEffect, useState } from "react";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
 import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
@@ -13,34 +12,27 @@ import { formatDate, getInitialFormData } from "./transaction.utils";
 interface Props {
   mode: "income" | "expense";
   service: {
-    getAll: () => Promise<AxiosResponse<any[]>>;
-    getById?: (id: number) => Promise<AxiosResponse<any>>;
-    create: (payload: any) => Promise<AxiosResponse<any>>;
-    update: (id: number, payload: any) => Promise<AxiosResponse<any>>;
-    delete: (id: number) => Promise<AxiosResponse<any>>;
+    getAll: () => Promise<any>;
+    getById?: (id: number) => Promise<any>;
+    create: (payload: any) => Promise<any>;
+    update: (id: number, payload: any) => Promise<any>;
+    delete: (id: number) => Promise<any>;
   };
 }
 
 type Tab = "fixed" | "variable" | "temporary";
-
-interface Category {
-  id: number;
-  name: string;
-}
+interface Category { id: number; name: string; }
 
 export function TransactionPage({ mode, service }: Props) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("fixed");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(getInitialFormData());
   const [categories, setCategories] = useState<Category[]>([]);
-
   const [showImportModal, setShowImportModal] = useState(false);
-
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
 
@@ -49,13 +41,12 @@ export function TransactionPage({ mode, service }: Props) {
       loadData();
       loadCategories();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   const loadCategories = async () => {
     try {
       const { data } = await CategoriesService.getAll();
-      setCategories((data || []) as Category[]);
+      setCategories(data || []);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -81,80 +72,38 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
+  // ✅ Limpio y delegado
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Si es transferencia -> usar endpoint /transfers
-    if (formData.isTransfer) {
-      // Validaciones mínimas
-      if (!formData.bankId || !formData.counterpartyBankId) {
-        alert("Selecciona banco origen y banco destino para el traspaso.");
-        return;
-      }
-
-      const payload: any = {
-        date: formData.date,
-        amount: parseFloat(formData.amount),
-        fromBankId: formData.bankId,
-        toBankId: formData.counterpartyBankId,
-        description: formData.description,
-        notes: formData.notes || null,
-        reference: formData.transferReference || null,
-        categoryId: formData.categoryId || undefined
-      };
-
-      try {
-        await transferService.createTransfer(payload);
-        setShowModal(false);
-        setEditingId(null);
-        setFormData(getInitialFormData());
-        loadData();
-      } catch (error) {
-        console.error("Error creando transferencia:", error);
-        alert("Error creando transferencia. Revisa la consola.");
-      }
-
-      return;
-    }
-
-    // Flujo normal (income / expense)
-    const payload: any = {
-      amount: parseFloat(formData.amount),
-      description: formData.description,
-      date: formData.date,
-      type:
-        activeTab === "fixed"
-          ? "Fixed"
-          : activeTab === "variable"
-          ? "Variable"
-          : "Temporary",
-      start_date: formData.start_Date,
-      end_date: formData.isIndefinite ? null : formData.end_Date,
-      notes: formData.notes || null,
-      categoryId: formData.categoryId,
-      loanId:
-        mode === "expense" &&
-        (formData.categoryId === 100 || formData.categoryId === 101)
-          ? formData.loanId
-          : null,
-      isIndefinite: formData.isIndefinite || false,
-      bankId: formData.bankId || undefined
-    };
-
     try {
-      if (editingId) {
-        await service.update(parseInt(editingId), payload);
+      if (formData.isTransfer) {
+        await transferService.createTransfer({
+          date: formData.date,
+          amount: parseFloat(formData.amount),
+          fromBankId: parseFloat(formData.amount) < 0 ? formData.bankId : formData.counterpartyBankId,
+          toBankId: parseFloat(formData.amount) < 0 ? formData.counterpartyBankId : formData.bankId,
+          description: formData.description,
+          notes: formData.notes,
+          reference: formData.transferReference,
+          categoryId: formData.categoryId
+        });
+      } else if (editingId) {
+        await service.update(parseInt(editingId), formData);
       } else {
-        await service.create(payload);
+        await service.create(formData);
       }
+
       setShowModal(false);
       setEditingId(null);
       setFormData(getInitialFormData());
       loadData();
     } catch (error) {
-      console.error("Error saving:", error);
+      console.error("Error guardando transacción:", error);
+      alert("Ocurrió un error al guardar. Revisa la consola.");
     }
   };
+
   const handleEdit = (item: any) => {
     setEditingId(String(item.id));
     setFormData({
@@ -164,18 +113,23 @@ export function TransactionPage({ mode, service }: Props) {
       date: formatDate(item.date),
       categoryId: item.categoryId ?? 0,
       notes: item.notes ?? "",
-      start_Date: formatDate(item.start_Date ?? item.start_Date ?? null),
-      end_Date: formatDate(item.end_Date ?? item.end_Date ?? null),
-      isIndefinite: item.IsIndefinite ?? !item.end_Date,
+      start_Date: formatDate(item.start_Date ?? item.start_date ?? null),
+      end_Date: formatDate(item.end_Date ?? item.end_date ?? null),
+      isIndefinite: item.isIndefinite ?? !item.end_date,
       frequency: item.frequency ?? "monthly",
       loanId: item.loanId ?? null,
-      userId: item.userId ?? ""
+      userId: item.userId ?? "",
+      isTransfer: item.isTransfer ?? false,
+      transferReference: item.transferReference ?? "",
+      counterpartyBankId:
+        item.transferCounterpartyBankId ?? item.counterpartyBankId ?? "",
+      bankId: item.bankId ?? "",
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm(`¿Estás seguro de eliminar este ${mode === "income" ? "ingreso" : "gasto"}?`)) return;
+    if (!confirm(`¿Eliminar este ${mode === "income" ? "ingreso" : "gasto"}?`)) return;
     try {
       await service.delete(id);
       loadData();
@@ -191,11 +145,7 @@ export function TransactionPage({ mode, service }: Props) {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === items.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(items.map((i) => i.id));
-    }
+    setSelectedIds(selectedIds.length === items.length ? [] : items.map((i) => i.id));
   };
 
   const handleDeleteSelected = async () => {
@@ -208,7 +158,7 @@ export function TransactionPage({ mode, service }: Props) {
       setSelectedIds([]);
       loadData();
     } catch (error) {
-      console.error("Error deleting multiple:", error);
+      console.error("Error eliminando múltiples:", error);
     } finally {
       setDeleting(false);
     }
@@ -265,7 +215,6 @@ export function TransactionPage({ mode, service }: Props) {
 
       <TransactionTabs activeTab={activeTab} setActiveTab={setActiveTab} mode={mode} />
 
-      {/* Botón seleccionar todo debajo de los tabs */}
       {items.length > 0 && (
         <div className="flex justify-end mb-2">
           <button

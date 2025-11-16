@@ -6,7 +6,6 @@ import { LoansService } from "../../services/loansService";
 import { formatDate } from "../../utils/date";
 import { Input, Select, Textarea } from "./FormFields";
 
-
 interface Category { id: number; name: string; }
 interface LoanItem {
   id: string;
@@ -57,13 +56,11 @@ export function TransactionModal({
     [formData.categoryId]
   );
 
+  // 🔹 Cargar préstamos y bancos
   useEffect(() => {
-    // Cargar préstamos si corresponde
     if (isLoanCategory && type === "expense" && userId) {
       LoansService.getLoans(userId)
-        .then(({ data }) => {
-          setLoans(data || []);
-        })
+        .then(({ data }) => setLoans(data || []))
         .catch(() => setLoans([]));
     } else {
       setLoans([]);
@@ -71,7 +68,7 @@ export function TransactionModal({
         setFormData((prev: any) => ({ ...prev, loanId: null }));
       }
     }
-    // Cargar bancos
+
     (async () => {
       try {
         const { data } = await bankService.getAll();
@@ -84,6 +81,7 @@ export function TransactionModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoanCategory, type, userId]);
 
+  // 🔹 Formatear datos al abrir modal
   useEffect(() => {
     if (editingId && showModal && formData) {
       setFormData((prev: any) => ({
@@ -91,11 +89,16 @@ export function TransactionModal({
         date: formatDate(prev.date),
         start_Date: formatDate(prev.start_Date ?? prev.start_date ?? null),
         end_Date: formatDate(prev.end_Date ?? prev.end_date ?? null),
+        isTransfer: prev.isTransfer ?? false,
+        transferReference: prev.transferReference ?? "",
+        counterpartyBankId:
+          prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, showModal]);
 
+  // 🔹 Filtrado de préstamos
   const filteredLoans = useMemo(() => {
     if (!isLoanCategory) return [];
     if (formData.categoryId === 101) {
@@ -107,6 +110,7 @@ export function TransactionModal({
     return [];
   }, [isLoanCategory, loans, formData.categoryId]);
 
+  // 🔹 Categorías
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -115,9 +119,7 @@ export function TransactionModal({
       return;
     }
     try {
-      const { data } = await CategoriesService.create({
-        name, description: "", isActive: true,
-      });
+      const { data } = await CategoriesService.create({ name, description: "", isActive: true });
       setCategories((prev) => [...prev, data]);
       setFormData({ ...formData, categoryId: data.id });
       setNewCategoryName("");
@@ -177,6 +179,7 @@ export function TransactionModal({
           </div>
 
           <div className="space-y-4">
+            {/* Categoría */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Categoría</label>
               <div className="flex space-x-2">
@@ -195,9 +198,7 @@ export function TransactionModal({
                 >
                   {categories.length === 0 && <option value="">Sin categorías</option>}
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
                 <button
@@ -250,6 +251,7 @@ export function TransactionModal({
               )}
             </div>
 
+            {/* Banco */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Banco</label>
               <select
@@ -266,6 +268,7 @@ export function TransactionModal({
               </select>
             </div>
 
+            {/* Traspaso */}
             <div className="flex items-center gap-3">
               <input
                 id="isTransfer"
@@ -279,21 +282,32 @@ export function TransactionModal({
             {formData.isTransfer && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Banco destino</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    {formData.amount < 0 ? "Banco destino" : "Banco origen"}
+                  </label>
                   <select
                     value={formData.counterpartyBankId || ""}
                     onChange={(e) => setFormData({ ...formData, counterpartyBankId: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                   >
-                    <option value="">Selecciona banco destino</option>
-                    {banks.filter(b => b.id !== formData.bankId).map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} {b.entity ? `| ${b.entity}` : ""}
-                      </option>
-                    ))}
+                    <option value="">
+                      {formData.amount < 0 ? "Selecciona banco destino" : "Selecciona banco origen"}
+                    </option>
+                    {banks
+                      .filter(b => b.id !== formData.bankId)
+                      .map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} {b.entity ? `| ${b.entity}` : ""}
+                        </option>
+                      ))}
                   </select>
                 </div>
-                <Input label="Referencia (opcional)" value={formData.transferReference || ""} onChange={(v) => setFormData({ ...formData, transferReference: v })} />
+
+                <Input
+                  label="Referencia del traspaso"
+                  value={formData.transferReference || ""}
+                  onChange={(v) => setFormData({ ...formData, transferReference: v })}
+                />
               </>
             )}
 
