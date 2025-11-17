@@ -28,8 +28,11 @@ interface Props {
   formData: any;
   setFormData: (data: any) => void;
   onClose: () => void;
-  // onSubmit receives a normalized payload object (not the raw event).
-  onSubmit: (payload: any) => Promise<void> | void;
+  // onSubmit can be either:
+  // - an "event-style" handler: (e: React.FormEvent) => void  (old behavior), OR
+  // - a "payload-style" handler: (payload: any) => Promise<void> | void (new behavior)
+  // The modal will attempt payload-style first, and gracefully fall back to event-style if needed.
+  onSubmit: ((payload: any) => Promise<void> | void) | ((e: React.FormEvent) => Promise<void> | void);
   onSaved?: () => void;
   categories?: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
@@ -237,12 +240,41 @@ export function TransactionModal({
       if (payload[k] === undefined) delete payload[k];
     });
 
+    // Try to call onSubmit as payload-style first. If the parent provided an old event-style handler (that expects the event
+    // and does e.preventDefault()), calling the handler with a payload will cause a TypeError inside the parent (payload.preventDefault is not a function).
+    // We catch that specific error and fall back to invoking onSubmit with the event.
     try {
-      await onSubmit(payload);
-      if (onSaved) onSaved();
+      const result = (onSubmit as (p: any) => any)(payload);
+      // await if it returns a promise
+      if (result && typeof (result as Promise<any>).then === "function") {
+        await result;
+      }
     } catch (err: any) {
-      console.error("Error in submit handler:", err);
-      alert(err?.response?.data?.error ?? err?.message ?? "Error guardando transacción");
+      const msg = String(err?.message ?? err);
+      if (msg.includes("preventDefault is not a function") || msg.includes("ae.preventDefault is not a function")) {
+        // Fallback: parent expected the event instead. Call onSubmit with event.
+        try {
+          const result2 = (onSubmit as (e: React.FormEvent) => any)(e);
+          if (result2 && typeof (result2 as Promise<any>).then === "function") {
+            await result2;
+          }
+        } catch (err2: any) {
+          console.error("Error calling fallback event-style onSubmit:", err2);
+          alert(err2?.response?.data?.error ?? err2?.message ?? "Error guardando transacción");
+          return;
+        }
+      } else {
+        console.error("Error in submit handler:", err);
+        alert(err?.response?.data?.error ?? err?.message ?? "Error guardando transacción");
+        return;
+      }
+    }
+
+    // If we reached here, submission succeeded via one of the two paths
+    try {
+      if (onSaved) onSaved();
+    } catch (ignore) {
+      // ignore errors in onSaved
     }
   };
 
