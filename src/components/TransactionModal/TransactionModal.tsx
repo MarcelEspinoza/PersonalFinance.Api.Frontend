@@ -27,8 +27,9 @@ interface Props {
   editingId: string | null;
   formData: any;
   setFormData: (data: any) => void;
-  onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void; // restored to match callers
+  // NOTE: onSubmit receives a normalized payload object (not the raw event).
+  onSubmit: (payload: any) => Promise<void> | void;
   categories?: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   userId: string;
@@ -56,6 +57,23 @@ export function TransactionModal({
     [formData.categoryId]
   );
 
+  // Helper: convert a YYYY-MM-DD date string (or Date) to ISO UTC string ("2025-11-17T00:00:00.000Z")
+  const makeIsoUtcFromDateString = (d?: string | null) => {
+    if (!d) return null;
+    // If it's already an ISO-ish string, try to construct Date and toISOString
+    // If it's "YYYY-MM-DD", explicitly append 'T00:00:00Z' to avoid local timezone conversion variations
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      return new Date(`${d}T00:00:00Z`).toISOString();
+    }
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return null;
+      return dt.toISOString();
+    } catch {
+      return null;
+    }
+  };
+
   // 🔹 Cargar préstamos y bancos
   useEffect(() => {
     if (isLoanCategory && type === "expense" && userId) {
@@ -81,16 +99,18 @@ export function TransactionModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoanCategory, type, userId]);
 
-  // 🔹 Formatear datos al abrir modal
+  // 🔹 Formatear datos al abrir modal (para mostrar en inputs)
   useEffect(() => {
     if (editingId && showModal && formData) {
       setFormData((prev: any) => ({
         ...prev,
+        // formatDate returns YYYY-MM-DD for display, so inputs[type=date] show correctly
         date: formatDate(prev.date),
         start_Date: formatDate(prev.start_Date ?? prev.start_date ?? null),
         end_Date: formatDate(prev.end_Date ?? prev.end_date ?? null),
         isTransfer: prev.isTransfer ?? false,
         transferReference: prev.transferReference ?? "",
+        // keep counterparty field name consistent in UI state
         counterpartyBankId:
           prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
       }));
@@ -157,6 +177,64 @@ export function TransactionModal({
 
   if (!showModal) return null;
 
+  // --- Normalized submit handler: prepares payload (numbers, ISO dates, nulls) and calls onSubmit(payload)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // parse/normalize amount
+    const rawAmount = formData.amount ?? formData.amount === 0 ? formData.amount : "";
+    const amountNum = Number(String(rawAmount).replace(",", "."));
+    if (isNaN(amountNum)) {
+      alert("Introduce una cantidad válida.");
+      return;
+    }
+
+    // prepare ISO dates (or null)
+    const dateIso = makeIsoUtcFromDateString(formData.date ?? formData.start_Date);
+    const startIso = makeIsoUtcFromDateString(formData.start_Date);
+    const endIso = makeIsoUtcFromDateString(formData.end_Date);
+
+    // categoryId numeric or undefined
+    const categoryIdNum = formData.categoryId ? Number(formData.categoryId) : undefined;
+
+    // loanId: null if empty
+    const loanId = formData.loanId ? formData.loanId : null;
+
+    // bankId: null if empty
+    const bankId = formData.bankId ? formData.bankId : null;
+
+    // counterparty / transfer fields
+    const transferReference = formData.transferReference ? String(formData.transferReference).trim() : null;
+    const transferCounterpartyBankId = formData.counterpartyBankId ? formData.counterpartyBankId : null;
+
+    const payload: any = {
+      description: formData.description ?? "",
+      amount: amountNum,
+      // normalized date fields (ISO UTC strings) - backend model binding will parse them to DateTime UTC
+      date: dateIso,
+      start_Date: startIso,
+      end_Date: endIso,
+      type: formData.frequency ?? formData.type ?? (type === "income" ? "fixed" : "variable"),
+      categoryId: categoryIdNum,
+      notes: formData.notes ?? "",
+      loanId: loanId,
+      isIndefinite: !!formData.isIndefinite,
+      bankId: bankId,
+      isTransfer: !!formData.isTransfer,
+      transferReference: transferReference,
+      transferCounterpartyBankId: transferCounterpartyBankId,
+      // Do NOT send userId: backend infers from the token.
+    };
+
+    try {
+      await onSubmit(payload);
+    } catch (err) {
+      console.error("Error in submit handler:", err);
+      // optionally surface error to user
+      alert("Error guardando transacción");
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -169,13 +247,13 @@ export function TransactionModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <Input label="Nombre" value={formData.description} onChange={(v) => setFormData({ ...formData, description: v })} />
-            <Input label="Cantidad" type="number" value={formData.amount} onChange={(v) => setFormData({ ...formData, amount: v })} />
-            <Input label="Fecha" type="date" value={formData.date} onChange={(v) => setFormData({ ...formData, date: v })} />
-            <Select label="Frecuencia" value={formData.frequency} onChange={(v) => setFormData({ ...formData, frequency: v })} options={["monthly", "weekly", "biweekly", "yearly"]} />
-            <Textarea label="Notas (opcional)" value={formData.notes} onChange={(v) => setFormData({ ...formData, notes: v })} />
+            <Input label="Nombre" value={formData.description || ""} onChange={(v) => setFormData({ ...formData, description: v })} />
+            <Input label="Cantidad" type="number" value={formData.amount ?? ""} onChange={(v) => setFormData({ ...formData, amount: v })} />
+            <Input label="Fecha" type="date" value={formData.date ?? ""} onChange={(v) => setFormData({ ...formData, date: v })} />
+            <Select label="Frecuencia" value={formData.frequency ?? ""} onChange={(v) => setFormData({ ...formData, frequency: v })} options={["monthly", "weekly", "biweekly", "yearly"]} />
+            <Textarea label="Notas (opcional)" value={formData.notes ?? ""} onChange={(v) => setFormData({ ...formData, notes: v })} />
           </div>
 
           <div className="space-y-4">
@@ -184,7 +262,7 @@ export function TransactionModal({
               <label className="block text-sm font-medium text-slate-700 mb-2">Categoría</label>
               <div className="flex space-x-2">
                 <select
-                  value={formData.categoryId || ""}
+                  value={formData.categoryId ?? ""}
                   onChange={(e) => {
                     const newCategoryId = Number(e.target.value);
                     const isLoan = newCategoryId === 100 || newCategoryId === 101;
@@ -283,7 +361,7 @@ export function TransactionModal({
               <>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    {formData.amount < 0 ? "Banco destino" : "Banco origen"}
+                    {Number(formData.amount) < 0 ? "Banco destino" : "Banco origen"}
                   </label>
                   <select
                     value={formData.counterpartyBankId || ""}
@@ -291,7 +369,7 @@ export function TransactionModal({
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                   >
                     <option value="">
-                      {formData.amount < 0 ? "Selecciona banco destino" : "Selecciona banco origen"}
+                      {Number(formData.amount) < 0 ? "Selecciona banco destino" : "Selecciona banco origen"}
                     </option>
                     {banks
                       .filter(b => b.id !== formData.bankId)
@@ -314,7 +392,7 @@ export function TransactionModal({
             <Input
               label="Fecha de inicio"
               type="date"
-              value={formData.start_Date}
+              value={formData.start_Date ?? ""}
               onChange={(v) => setFormData({ ...formData, start_Date: v })}
             />
 
@@ -330,7 +408,7 @@ export function TransactionModal({
             <Input
               label="Fecha de fin"
               type="date"
-              value={formData.end_Date}
+              value={formData.end_Date ?? ""}
               onChange={(v) => setFormData({ ...formData, end_Date: v })}
               disabled={formData.isIndefinite}
             />
