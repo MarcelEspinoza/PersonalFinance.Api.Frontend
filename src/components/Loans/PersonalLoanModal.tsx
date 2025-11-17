@@ -10,31 +10,35 @@ interface Props {
   onSaved: () => void;
 }
 
+const toInputDate = (iso?: string | null) =>
+  iso ? new Date(iso).toISOString().split("T")[0] : "";
+
 export default function PersonalLoanModal({ userId, initial, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     type: initial?.type ?? "given",
     name: initial?.name ?? "",
-    principal_amount: initial ? initial.principalAmount.toString() : "",
-    outstanding_amount: initial ? initial.outstandingAmount.toString() : "",
-    start_date: initial?.startDate ?? new Date().toISOString().split("T")[0],
-    due_date: initial?.dueDate ?? "",
+    principalAmount: initial ? initial.principalAmount.toString() : "",
+    outstandingAmount: initial ? initial.outstandingAmount.toString() : "",
+    startDate: toInputDate(initial?.startDate) || new Date().toISOString().split("T")[0],
+    dueDate: toInputDate(initial?.dueDate),
     status: initial?.status ?? "active",
-    categoryId: 100
+    categoryId: initial?.categoryId ?? 100
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const payload = {
-    UserId: userId, 
-    Type: form.type === "given" ? "Given" : "Received",
-    Name: form.name,
-    PrincipalAmount: parseFloat(form.principal_amount || "0"),
-    OutstandingAmount: parseFloat(form.outstanding_amount || "0"),
-    StartDate: form.start_date, // "2025-11-04"
-    DueDate: form.due_date ? form.due_date : null,
-    Status: form.status,
-    CategoryId: 100
+      userId: userId,
+      type: form.type === "given" ? "Given" : "Received",
+      name: form.name,
+      principalAmount: parseFloat(form.principalAmount || "0"),
+      outstandingAmount: parseFloat(form.outstandingAmount || "0"),
+      // enviar fechas en ISO para backend
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
+      dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+      status: form.status,
+      categoryId: form.categoryId
     };
 
     try {
@@ -89,13 +93,13 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
               <input
                 type="number"
                 step="0.01"
-                value={form.principal_amount}
+                value={form.principalAmount}
                 onChange={(e) => {
                   const value = e.target.value;
                   setForm({
                     ...form,
-                    principal_amount: value,
-                    outstanding_amount: initial ? form.outstanding_amount : value,
+                    principalAmount: value,
+                    outstandingAmount: initial ? form.outstandingAmount : value,
                   });
                 }}
                 required
@@ -108,8 +112,8 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
               <input
                 type="number"
                 step="0.01"
-                value={form.outstanding_amount}
-                onChange={(e) => setForm({ ...form, outstanding_amount: e.target.value })}
+                value={form.outstandingAmount}
+                onChange={(e) => setForm({ ...form, outstandingAmount: e.target.value })}
                 required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                 placeholder="0.00"
@@ -122,8 +126,8 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
               <label className="block text-sm font-medium text-slate-700 mb-2">Fecha inicio</label>
               <input
                 type="date"
-                value={form.start_date}
-                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 required
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               />
@@ -132,8 +136,8 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
               <label className="block text-sm font-medium text-slate-700 mb-2">Fecha devolución (opcional)</label>
               <input
                 type="date"
-                value={form.due_date ?? ""}
-                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                value={form.dueDate ?? ""}
+                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>

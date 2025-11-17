@@ -10,6 +10,9 @@ interface Props {
   onSaved: () => void;
 }
 
+const toInputDate = (iso?: string | null) =>
+  iso ? new Date(iso).toISOString().split("T")[0] : "";
+
 export default function BankLoanModal({ userId, initial, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     type: "bank" as const,
@@ -21,33 +24,34 @@ export default function BankLoanModal({ userId, initial, onClose, onSaved }: Pro
     installmentsPaid: initial?.installmentsPaid?.toString() ?? "",
     installmentsRemaining: initial?.installmentsRemaining?.toString() ?? "",
     nextPaymentAmount: initial?.nextPaymentAmount?.toString() ?? "",
-    nextPaymentDate: initial?.nextPaymentDate ?? "",
-    startDate: initial?.startDate ?? new Date().toISOString().split("T")[0],
-    dueDate: initial?.dueDate ?? "",
+    nextPaymentDate: toInputDate(initial?.nextPaymentDate),
+    startDate: toInputDate(initial?.startDate) || new Date().toISOString().split("T")[0],
+    dueDate: toInputDate(initial?.dueDate),
     status: initial?.status ?? "active",
-    categoryId: 101
+    categoryId: initial?.categoryId ?? 101
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Construimos el payload con camelCase y fechas en ISO (Z)
     const payload = {
       userId: userId,
       type: "bank",
       name: form.name,
-      principalAmount: parseFloat(form.principalAmount),
-      outstandingAmount: parseFloat(form.outstandingAmount),
-      interest_rate: parseFloat(form.interestRate),
+      principalAmount: parseFloat(form.principalAmount || "0"),
+      outstandingAmount: parseFloat(form.outstandingAmount || "0"),
+      interestRate: form.interestRate ? parseFloat(form.interestRate) : null,
       tae: form.tae ? parseFloat(form.tae) : null,
-      installments_paid: form.installmentsPaid ? parseInt(form.installmentsPaid) : null,
-      installments_remaining: form.installmentsRemaining
-        ? parseInt(form.installmentsRemaining)
-        : null,
+      installmentsPaid: form.installmentsPaid ? parseInt(form.installmentsPaid) : null,
+      installmentsRemaining: form.installmentsRemaining ? parseInt(form.installmentsRemaining) : null,
       nextPaymentAmount: form.nextPaymentAmount ? parseFloat(form.nextPaymentAmount) : null,
-      nextPaymentDate: form.nextPaymentDate || null,
-      startDate: form.startDate,
-      dueDate: form.dueDate || null,
+      // Enviar fechas como ISO completos para evitar problemas de Kind/offset
+      nextPaymentDate: form.nextPaymentDate ? new Date(form.nextPaymentDate).toISOString() : null,
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
+      dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
       status: form.status as "active" | "paid" | "overdue",
-      CategoryId: 101
+      categoryId: form.categoryId
     };
 
     try {

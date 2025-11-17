@@ -18,6 +18,7 @@ export interface BaseLoan {
   startDate: string;
   dueDate?: string;
   status: "active" | "paid" | "overdue";
+  categoryId: number;
 }
 
 export interface PersonalLoan extends BaseLoan {
