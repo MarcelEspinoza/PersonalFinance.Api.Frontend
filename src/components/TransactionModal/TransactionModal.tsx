@@ -27,9 +27,10 @@ interface Props {
   editingId: string | null;
   formData: any;
   setFormData: (data: any) => void;
-  onClose: () => void; // restored to match callers
-  // NOTE: onSubmit receives a normalized payload object (not the raw event).
+  onClose: () => void;
+  // onSubmit receives a normalized payload object (not the raw event).
   onSubmit: (payload: any) => Promise<void> | void;
+  onSaved?: () => void;
   categories?: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   userId: string;
@@ -43,6 +44,7 @@ export function TransactionModal({
   setFormData,
   onClose,
   onSubmit,
+  onSaved,
   categories = [],
   setCategories,
   userId,
@@ -60,8 +62,7 @@ export function TransactionModal({
   // Helper: convert a YYYY-MM-DD date string (or Date) to ISO UTC string ("2025-11-17T00:00:00.000Z")
   const makeIsoUtcFromDateString = (d?: string | null) => {
     if (!d) return null;
-    // If it's already an ISO-ish string, try to construct Date and toISOString
-    // If it's "YYYY-MM-DD", explicitly append 'T00:00:00Z' to avoid local timezone conversion variations
+    // If it's date-only "YYYY-MM-DD", treat as UTC midnight
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
       return new Date(`${d}T00:00:00Z`).toISOString();
     }
@@ -194,6 +195,11 @@ export function TransactionModal({
     const startIso = makeIsoUtcFromDateString(formData.start_Date);
     const endIso = makeIsoUtcFromDateString(formData.end_Date);
 
+    if (!dateIso) {
+      alert("La fecha es obligatoria y debe ser válida.");
+      return;
+    }
+
     // categoryId numeric or undefined
     const categoryIdNum = formData.categoryId ? Number(formData.categoryId) : undefined;
 
@@ -216,7 +222,7 @@ export function TransactionModal({
       end_Date: endIso,
       type: formData.frequency ?? formData.type ?? (type === "income" ? "fixed" : "variable"),
       categoryId: categoryIdNum,
-      notes: formData.notes ?? "",
+      notes: formData.notes ?? null,
       loanId: loanId,
       isIndefinite: !!formData.isIndefinite,
       bankId: bankId,
@@ -226,12 +232,17 @@ export function TransactionModal({
       // Do NOT send userId: backend infers from the token.
     };
 
+    // remove undefined keys
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === undefined) delete payload[k];
+    });
+
     try {
       await onSubmit(payload);
-    } catch (err) {
+      if (onSaved) onSaved();
+    } catch (err: any) {
       console.error("Error in submit handler:", err);
-      // optionally surface error to user
-      alert("Error guardando transacción");
+      alert(err?.response?.data?.error ?? err?.message ?? "Error guardando transacción");
     }
   };
 
