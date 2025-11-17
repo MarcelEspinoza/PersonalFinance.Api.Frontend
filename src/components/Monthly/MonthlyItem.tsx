@@ -8,7 +8,7 @@ export function MonthlyItem({ transaction }: Props) {
   return (
     <div className="p-4 hover:bg-slate-50 transition flex justify-between">
       <div>
-        <p className="font-medium text-slate-800">{transaction.description || transaction.description}</p>
+        <p className="font-medium text-slate-800">{transaction.name}</p>
         <p className="text-sm text-slate-500">
           {transaction.categoryName} • {transaction.source} •{" "}
           {transaction.date && new Date(transaction.date).toLocaleDateString("es-ES")}
