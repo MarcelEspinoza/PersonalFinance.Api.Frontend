@@ -179,15 +179,21 @@ export default function MonthlyReconciliation({
         {suggestion && Array.isArray(suggestion.details) && suggestion.details.length === 0 && (
           <div className="text-xs text-slate-500">No se encontraron sugerencias concretas</div>
         )}
-        {suggestion && Array.isArray(suggestion.details) && suggestion.details.map((d: any, idx: number) => (
-          <div key={idx} className="border rounded p-3 my-2 bg-white flex items-center justify-between">
-            <div>
-              <div className="text-xs text-slate-400">{d.Type ?? d.Reason ?? ""}</div>
-              <div className="text-sm">{d.Description ?? d.Reason ?? "Transacción candidata"}</div>
+        {suggestion && Array.isArray(suggestion.details) && suggestion.details.map((d: any, idx: number) => {
+          // Normalizamos las distintas variantes de clave que pueda devolver el backend
+          const type = d.Type ?? d.type ?? d.Reason ?? d.reason ?? "";
+          const desc = d.Description ?? d.description ?? d.Reason ?? d.reason ?? "Transacción candidata";
+          const amount = Number(d.Amount ?? d.amount ?? d.Value ?? d.value ?? 0);
+          return (
+            <div key={idx} className="border rounded p-3 my-2 bg-white flex items-center justify-between">
+              <div>
+                <div className="text-xs text-slate-400">{type}</div>
+                <div className="text-sm">{desc}</div>
+              </div>
+              <div className="text-sm font-medium text-slate-700">{amount.toFixed(2)}</div>
             </div>
-            <div className="text-sm font-medium text-slate-700">{Number(d.Amount ?? 0).toFixed(2)}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </aside>
   );
