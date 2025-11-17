@@ -265,7 +265,24 @@ export function MonthlyView() {
       const raw = dto.details;
       let detailsArr: any[] = [];
       if (Array.isArray(raw)) {
-        detailsArr = raw;
+        // Normalize the shape so the UI consumes a consistent format
+        detailsArr = raw.map((d: any) => {
+          const amount = Number(d.amount ?? d.Amount ?? d.Value ?? d.value ?? 0);
+          const type = d.type ?? d.Type ?? d.reason ?? d.Reason ?? "";
+          const description = d.description ?? d.Description ?? d.Reason ?? d.reason ?? "Transacción candidata";
+          const transactionId = d.transactionId ?? d.TransactionId ?? d.TransactionID ?? null;
+          const date = d.date ?? d.Date ?? null;
+          const category = d.category ?? d.Category ?? null;
+          return {
+            raw: d,
+            type,
+            description,
+            amount,
+            transactionId,
+            date,
+            category,
+          };
+        });
       } else if (raw && typeof raw === "object") {
         // convert to key/value pairs for consistent UI consumption
         detailsArr = Object.entries(raw).map(([k, v]) => ({ key: k, value: v }));
@@ -294,7 +311,8 @@ export function MonthlyView() {
     setTimeout(() => fetchSuggestion(found?.bankId), 50);
   };
 
-  const onMarkReconciled = async () => {
+  // Accept an optional reconciledAt ISO date (frontend will pass manualLastReconciled if present)
+  const onMarkReconciled = async (reconciledAtIso?: string | null) => {
     if (!selectedRecon) return;
     if (!suggestion || Math.abs(suggestion.difference) > 0.01) {
       setRecError("No se puede marcar: la diferencia no está a 0. Revisa las sugerencias o corrige partidas.");
@@ -318,11 +336,12 @@ export function MonthlyView() {
         await Promise.all([loadBanksAndReconsOnce()]);
       }
 
-      // find the real reconciliaton for this bank/month
+      // find the real reconciliation for this bank/month
       const real = recons.find((r) => r.bankId === selectedRecon.bankId && r.year === selectedRecon.year && r.month === selectedRecon.month);
       const idToMark = real ? real.id : selectedRecon.id;
 
-      await reconciliationService.markReconciled(idToMark);
+      // Pass reconciledAtIso (may be null)
+      await reconciliationService.markReconciled(idToMark, reconciledAtIso);
       // reload data
       await Promise.all([loadBanksAndReconsOnce(), loadMonthDataOnce()]);
       alert("Mes marcado como conciliado");
@@ -554,7 +573,7 @@ export function MonthlyView() {
           }}
           onSelectRecon={(id: string) => onSelectRecon(id)}
           onFetchSuggestion={async (bankId?: string) => await fetchSuggestion(bankId)}
-          onMarkReconciled={async () => await onMarkReconciled()}
+          onMarkReconciled={async () => await onMarkReconciled(manualLastReconciled)}
           onUpdateClosingBalance={async (id: string, newBalance: number) => await updateReconClosingBalance(id, newBalance)}
         />
       </div>
