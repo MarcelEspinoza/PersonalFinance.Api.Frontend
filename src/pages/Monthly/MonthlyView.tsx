@@ -142,15 +142,7 @@ export function MonthlyView() {
 
         if (!mounted) return;
         setTransactions(allTransactions);
-
-        const totalIncome = allTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-        const totalExpense = allTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-
-        setSummary({
-          income: totalIncome,
-          expense: totalExpense,
-          balance: totalIncome - totalExpense,
-        });
+        // summary calculation moved to separate effect that also depends on banks
       } catch (err) {
         console.error("Error loading month data:", err);
       } finally {
@@ -164,6 +156,32 @@ export function MonthlyView() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate]);
+
+  // Recompute summary whenever transactions or banks change.
+  // Exclude internal transfers: transactions with isTransfer=true and transferCounterpartyBankId is one of the user's banks
+  useEffect(() => {
+    // helper to detect internal transfer
+    const isInternalTransfer = (t: Transaction) => {
+      if (!t || !t.isTransfer) return false;
+      const cp = (t.transferCounterpartyBankId ?? t.counterpartyBankId) as string | undefined | null;
+      if (!cp) return false;
+      return !!(banks && banks[cp]);
+    };
+
+    const totalIncome = transactions
+      .filter((t) => t.type === "income" && !isInternalTransfer(t))
+      .reduce((s, t) => s + (t.amount ?? 0), 0);
+
+    const totalExpense = transactions
+      .filter((t) => t.type === "expense" && !isInternalTransfer(t))
+      .reduce((s, t) => s + (t.amount ?? 0), 0);
+
+    setSummary({
+      income: totalIncome,
+      expense: totalExpense,
+      balance: totalIncome - totalExpense,
+    });
+  }, [transactions, banks]);
 
   // Unified loader: load banks and reconciliations together to avoid race conditions
   useEffect(() => {
@@ -408,15 +426,6 @@ export function MonthlyView() {
       });
 
       setTransactions(allTransactions);
-
-      const totalIncome = allTransactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-      const totalExpense = allTransactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-
-      setSummary({
-        income: totalIncome,
-        expense: totalExpense,
-        balance: totalIncome - totalExpense,
-      });
     } catch (err) {
       console.error("Error reloading month data:", err);
     }
