@@ -30,7 +30,6 @@ export interface PasanacoPayment {
   paidByLoanId?: string | null;
 }
 
-// Servicio para consumir el backend (devuelve axios response objects)
 export const pasanacoService = {
   // Pasanacos
   getAll: () => apiClient.get<Pasanaco[]>("/pasanacos"),

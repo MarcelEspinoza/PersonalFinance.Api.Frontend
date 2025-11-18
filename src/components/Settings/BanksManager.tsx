@@ -27,7 +27,6 @@ export default function BanksManager() {
     setLoading(true);
     try {
       const res = await bankService.getAll();
-      // Normalizamos: si el servicio devuelve axios Response -> res.data, si devuelve directamente data -> res
       const data = (res as any)?.data ?? res;
       setBanks(Array.isArray(data) ? data : []);
     } catch (err) {

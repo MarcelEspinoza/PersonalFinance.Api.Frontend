@@ -16,7 +16,6 @@ export function ExportButton({ mode }: Props) {
       const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       const filename = `${mode}-template.xlsx`;
 
-      // response puede ser axios response con .data o retorno directo
       const data = (response && (response.data ?? response)) ?? response;
 
       const blob = new Blob([data], { type: mime });

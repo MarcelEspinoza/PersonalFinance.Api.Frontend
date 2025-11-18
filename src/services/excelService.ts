@@ -13,8 +13,6 @@ export const excelService = {
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
     XLSX.writeFile(wb, `${mode}-template.xlsx`);
   },
-
-  // IMPORT -> subir al backend y devolver la respuesta axios (con data.pending / data.imported)
   importFile: async (file: File, userId: string): Promise<AxiosResponse<any>> => {
     const formData = new FormData();
     formData.append("file", file);

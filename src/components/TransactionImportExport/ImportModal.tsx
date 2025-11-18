@@ -65,7 +65,6 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
     setErrorMessage(null);
 
     try {
-      // Excel service should upload file and return { imported: [], pending: [] } (axios response)
       const response = await excelService.importFile(file, userId);
       const data = response?.data ?? response ?? {};
 
@@ -82,7 +81,6 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
     }
   };
 
-  // Small helper to convert axios errors to string
   function normalizeError(err: any) {
     return err?.response?.data?.message ?? err?.message ?? String(err);
   }

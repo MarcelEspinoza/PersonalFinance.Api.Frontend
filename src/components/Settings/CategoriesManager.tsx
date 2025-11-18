@@ -23,7 +23,6 @@ export default function CategoriesManager() {
     setError(null);
     try {
       const resp = await CategoriesService.getAll();
-      // CategoriesService.getAll() returns axios response — adapt a tu implementación:
       const data = resp?.data ?? resp;
       setCategories(data || []);
     } catch (e) {
