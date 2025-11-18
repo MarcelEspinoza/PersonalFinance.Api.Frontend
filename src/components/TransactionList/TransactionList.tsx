@@ -12,7 +12,9 @@ interface Transaction {
   end_date?: string;
   is_active?: boolean;
   notes?: string;
-  type?: string; // "income" | "expense" o "Fixed"/"Variable"/"Temporary"
+  type?: string; // this now usually holds the source (fixed|variable|temporary)
+  bankName?: string; // added: human-readable bank name
+  transferReference?: string;
 }
 
 interface Props {
@@ -62,7 +64,18 @@ export function TransactionList({
               <p className="font-medium text-slate-800">
                 {tx.description}
               </p>
-              <div className="flex items-center space-x-2 text-sm text-slate-500">
+
+              {/* NEW: show bank name if available */}
+              <div className="flex items-center space-x-2 text-sm text-slate-500 mt-1">
+                {tx.bankName && (
+                  <>
+                    <span className="font-medium text-slate-600">Banco:</span>
+                    <span>{tx.bankName}</span>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2 text-sm text-slate-500 mt-2">
                 {activeTab === "fixed" && (
                   <>
                     {tx.frequency && (

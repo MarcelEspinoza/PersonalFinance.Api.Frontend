@@ -30,7 +30,7 @@ export const getInitialFormData = () => {
     isIndefinite: false,
     loanId: null,
     userId: "",
-
+    source: "",
     // Campos añadidos para bancos/transferencias
     bankId: "",
     isTransfer: false,
