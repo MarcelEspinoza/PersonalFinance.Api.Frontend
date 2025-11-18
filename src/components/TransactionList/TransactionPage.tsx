@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
 import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
@@ -27,7 +27,7 @@ interface Category { id: number; name: string; }
 export function TransactionPage({ mode, service }: Props) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("fixed");
-  const [items, setItems] = useState<any[]>([]);
+  const [allRaw, setAllRaw] = useState<any[]>([]); // raw data from API
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -37,18 +37,31 @@ export function TransactionPage({ mode, service }: Props) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
 
-  // New: searchTerm and bank map
+  // Search and bank map
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [bankMap, setBankMap] = useState<Record<string, string>>({});
+
+  // Debounce searchTerm -> debouncedSearch (250ms)
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(searchTerm.trim().toLowerCase()), 250);
+    return () => clearTimeout(id);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (user) {
-      loadBanks(); // load bank names first or concurrently
+      loadBanks();
       loadData();
       loadCategories();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeTab]);
+  }, [user]);
+
+  // reload data when activeTab changes to keep view in sync
+  useEffect(() => {
+    if (user) loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const loadBanks = async () => {
     try {
@@ -77,61 +90,67 @@ export function TransactionPage({ mode, service }: Props) {
     setLoading(true);
     try {
       const { data } = await service.getAll();
-      const all = (data || []).map((i: any) => {
-        // normalize property names to expected shape for the list
-        return {
-          ...i,
-          bankName: i.bankName ?? i.bank?.name ?? bankMap[i.bankId] ?? "",
-          // sometimes payload uses different names:
-          start_date: i.start_Date ?? i.start_date ?? i.startDate ?? null,
-          end_date: i.end_Date ?? i.end_date ?? i.endDate ?? null,
-          date: i.date ?? i.Date ?? null,
-          category: i.categoryName ?? i.category ?? i.CategoryName ?? null,
-          // ensure type/source present
-          type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
-        };
-      });
-
-      // first filter by active tab (Fixed/Variable/Temporary). Keep original behavior:
-      const filteredByTab = all.filter((i: any) =>
-        activeTab === "fixed"
-          ? (String(i.type).toLowerCase() === "fixed" || String(i.type).toLowerCase() === "fixed")
-          : activeTab === "variable"
-          ? (String(i.type).toLowerCase() === "variable" || String(i.type).toLowerCase() === "variable")
-          : (String(i.type).toLowerCase() === "temporary" || String(i.type).toLowerCase() === "temporary" || String(i.frequency ?? "").toLowerCase() === "temporary")
-      );
-
-      // apply search filter over visible fields
-      const q = searchTerm.trim().toLowerCase();
-      const final = q
-        ? filteredByTab.filter((i: any) => {
-            const parts = [
-              i.description,
-              i.name,
-              i.notes,
-              i.category,
-              i.bankName,
-              i.transferReference,
-              i.date,
-              String(i.amount),
-            ];
-            return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
-          })
-        : filteredByTab;
-
-      setItems(final);
+      setAllRaw(Array.isArray(data) ? data : []);
       setSelectedIds([]);
     } catch (error) {
       console.error("Error loading data:", error);
+      setAllRaw([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Limpio y delegado (create/update flows use same handler)
+  // Derived items: normalize, resolve bankName, filter by tab and search
+  const items = useMemo(() => {
+    const normalized = (allRaw || []).map((i: any) => ({
+      ...i,
+      id: i.id ?? i.Id,
+      description: i.description ?? i.name ?? "",
+      amount: i.amount ?? i.Amount ?? 0,
+      date: i.date ?? i.Date ?? null,
+      start_date: i.start_Date ?? i.start_date ?? i.startDate ?? null,
+      end_date: i.end_Date ?? i.end_date ?? i.endDate ?? null,
+      category: i.categoryName ?? i.category ?? i.CategoryName ?? "",
+      frequency: i.frequency ?? i.Frequency ?? null,
+      is_active: i.isActive ?? i.is_active ?? null,
+      notes: i.notes ?? i.Notes ?? "",
+      type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
+      bankId: i.bankId ?? i.BankId ?? null,
+      bankName:
+        i.bankName ??
+        (i.bank && i.bank.name
+          ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}`
+          : (i.bankId ? bankMap[i.bankId] ?? "" : "")),
+      transferReference: i.transferReference ?? i.TransferReference ?? ""
+    }));
+
+    const byTab = normalized.filter((i: any) => {
+      const t = String((i.type ?? "").toLowerCase());
+      if (activeTab === "fixed") return t === "fixed";
+      if (activeTab === "variable") return t === "variable";
+      return t === "temporary" || String(i.frequency ?? "").toLowerCase() === "temporary";
+    });
+
+    if (!debouncedSearch) return byTab;
+
+    const q = debouncedSearch;
+    return byTab.filter((i: any) => {
+      const parts = [
+        i.description,
+        i.notes,
+        i.category,
+        i.bankName,
+        i.transferReference,
+        i.date ? new Date(i.date).toLocaleDateString("es-ES") : "",
+        String(i.amount),
+      ];
+      return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
+    });
+  }, [allRaw, bankMap, activeTab, debouncedSearch]);
+
+  // submit handler (create/update/transfer)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       if (formData.isTransfer) {
         await transferService.createTransfer({
@@ -188,7 +207,7 @@ export function TransactionPage({ mode, service }: Props) {
     if (!confirm(`¿Eliminar este ${mode === "income" ? "ingreso" : "gasto"}?`)) return;
     try {
       await service.delete(id);
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Error deleting:", error);
     }
@@ -212,7 +231,7 @@ export function TransactionPage({ mode, service }: Props) {
       setDeleting(true);
       await Promise.all(selectedIds.map((id) => service.delete(id)));
       setSelectedIds([]);
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Error eliminando múltiples:", error);
     } finally {
@@ -271,7 +290,7 @@ export function TransactionPage({ mode, service }: Props) {
 
       <TransactionTabs activeTab={activeTab} setActiveTab={setActiveTab} mode={mode} />
 
-      {/* Search bar (visible under tabs) */}
+      {/* ===== SEARCH BAR: always visible under tabs ===== */}
       <div className="flex items-center justify-between mt-3">
         <input
           type="text"
