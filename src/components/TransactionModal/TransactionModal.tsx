@@ -28,10 +28,6 @@ interface Props {
   formData: any;
   setFormData: (data: any) => void;
   onClose: () => void;
-  // onSubmit can be either:
-  // - an "event-style" handler: (e: React.FormEvent) => void  (old behavior), OR
-  // - a "payload-style" handler: (payload: any) => Promise<void> | void (new behavior)
-  // The modal will attempt payload-style first, and gracefully fall back to event-style if needed.
   onSubmit: ((payload: any) => Promise<void> | void) | ((e: React.FormEvent) => Promise<void> | void);
   onSaved?: () => void;
   categories?: Category[];
@@ -62,10 +58,8 @@ export function TransactionModal({
     [formData.categoryId]
   );
 
-  // Helper: convert a YYYY-MM-DD date string (or Date) to ISO UTC string ("2025-11-17T00:00:00.000Z")
   const makeIsoUtcFromDateString = (d?: string | null) => {
     if (!d) return null;
-    // If it's date-only "YYYY-MM-DD", treat as UTC midnight
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
       return new Date(`${d}T00:00:00Z`).toISOString();
     }
@@ -103,20 +97,17 @@ export function TransactionModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoanCategory, type, userId]);
 
-  // 🔹 Formatear datos al abrir modal (para mostrar en inputs)
+  // 🔹 Formatear datos al abrir modal
   useEffect(() => {
     if (editingId && showModal && formData) {
       setFormData((prev: any) => ({
         ...prev,
-        // formatDate returns YYYY-MM-DD for display, so inputs[type=date] show correctly
         date: formatDate(prev.date),
         start_Date: formatDate(prev.start_Date ?? prev.start_date ?? null),
         end_Date: formatDate(prev.end_Date ?? prev.end_date ?? null),
         isTransfer: prev.isTransfer ?? false,
         transferReference: prev.transferReference ?? "",
-        // keep counterparty field name consistent in UI state
-        counterpartyBankId:
-          prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
+        counterpartyBankId: prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,11 +172,10 @@ export function TransactionModal({
 
   if (!showModal) return null;
 
-  // --- Normalized submit handler: prepares payload (numbers, ISO dates, nulls) and calls onSubmit(payload)
+  // --- Normalized submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // parse/normalize amount
     const rawAmount = formData.amount ?? formData.amount === 0 ? formData.amount : "";
     const amountNum = Number(String(rawAmount).replace(",", "."));
     if (isNaN(amountNum)) {
@@ -193,7 +183,6 @@ export function TransactionModal({
       return;
     }
 
-    // prepare ISO dates (or null)
     const dateIso = makeIsoUtcFromDateString(formData.date ?? formData.start_Date);
     const startIso = makeIsoUtcFromDateString(formData.start_Date);
     const endIso = makeIsoUtcFromDateString(formData.end_Date);
@@ -203,61 +192,43 @@ export function TransactionModal({
       return;
     }
 
-    // categoryId numeric or undefined
     const categoryIdNum = formData.categoryId ? Number(formData.categoryId) : undefined;
-
-    // loanId: null if empty
     const loanId = formData.loanId ? formData.loanId : null;
-
-    // bankId: null if empty
     const bankId = formData.bankId ? formData.bankId : null;
-
-    // counterparty / transfer fields
     const transferReference = formData.transferReference ? String(formData.transferReference).trim() : null;
     const transferCounterpartyBankId = formData.counterpartyBankId ? formData.counterpartyBankId : null;
 
     const payload: any = {
       description: formData.description ?? "",
       amount: amountNum,
-      // normalized date fields (ISO UTC strings) - backend model binding will parse them to DateTime UTC
       date: dateIso,
       start_Date: startIso,
       end_Date: endIso,
-      type: formData.frequency ?? formData.type ?? (type === "income" ? "fixed" : "variable"),
+      type: type, // income | expense
+      source: formData.source ?? (type === "income" ? "fixed" : "variable"), // fijo, variable, temporal
       categoryId: categoryIdNum,
       notes: formData.notes ?? null,
-      loanId: loanId,
+      loanId,
       isIndefinite: !!formData.isIndefinite,
-      bankId: bankId,
+      bankId,
       isTransfer: !!formData.isTransfer,
-      transferReference: transferReference,
-      transferCounterpartyBankId: transferCounterpartyBankId,
-      // Do NOT send userId: backend infers from the token.
+      transferReference,
+      transferCounterpartyBankId,
     };
 
-    // remove undefined keys
     Object.keys(payload).forEach((k) => {
       if (payload[k] === undefined) delete payload[k];
     });
 
-    // Try to call onSubmit as payload-style first. If the parent provided an old event-style handler (that expects the event
-    // and does e.preventDefault()), calling the handler with a payload will cause a TypeError inside the parent (payload.preventDefault is not a function).
-    // We catch that specific error and fall back to invoking onSubmit with the event.
     try {
       const result = (onSubmit as (p: any) => any)(payload);
-      // await if it returns a promise
-      if (result && typeof (result as Promise<any>).then === "function") {
-        await result;
-      }
+      if (result && typeof (result as Promise<any>).then === "function") await result;
     } catch (err: any) {
       const msg = String(err?.message ?? err);
       if (msg.includes("preventDefault is not a function") || msg.includes("ae.preventDefault is not a function")) {
-        // Fallback: parent expected the event instead. Call onSubmit with event.
         try {
           const result2 = (onSubmit as (e: React.FormEvent) => any)(e);
-          if (result2 && typeof (result2 as Promise<any>).then === "function") {
-            await result2;
-          }
+          if (result2 && typeof (result2 as Promise<any>).then === "function") await result2;
         } catch (err2: any) {
           console.error("Error calling fallback event-style onSubmit:", err2);
           alert(err2?.response?.data?.error ?? err2?.message ?? "Error guardando transacción");
@@ -270,12 +241,9 @@ export function TransactionModal({
       }
     }
 
-    // If we reached here, submission succeeded via one of the two paths
     try {
       if (onSaved) onSaved();
-    } catch (ignore) {
-      // ignore errors in onSaved
-    }
+    } catch { }
   };
 
   return (
@@ -295,7 +263,12 @@ export function TransactionModal({
             <Input label="Nombre" value={formData.description || ""} onChange={(v) => setFormData({ ...formData, description: v })} />
             <Input label="Cantidad" type="number" value={formData.amount ?? ""} onChange={(v) => setFormData({ ...formData, amount: v })} />
             <Input label="Fecha" type="date" value={formData.date ?? ""} onChange={(v) => setFormData({ ...formData, date: v })} />
-            <Select label="Frecuencia" value={formData.frequency ?? ""} onChange={(v) => setFormData({ ...formData, frequency: v })} options={["monthly", "weekly", "biweekly", "yearly"]} />
+            <Select
+              label="Tipo"
+              value={formData.source ?? ""}
+              onChange={(v) => setFormData({ ...formData, source: v })}
+              options={["fixed", "variable", "temporary"]}
+            />
             <Textarea label="Notas (opcional)" value={formData.notes ?? ""} onChange={(v) => setFormData({ ...formData, notes: v })} />
           </div>
 
@@ -414,13 +387,11 @@ export function TransactionModal({
                     <option value="">
                       {Number(formData.amount) < 0 ? "Selecciona banco destino" : "Selecciona banco origen"}
                     </option>
-                    {banks
-                      .filter(b => b.id !== formData.bankId)
-                      .map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} {b.entity ? `| ${b.entity}` : ""}
-                        </option>
-                      ))}
+                    {banks.filter(b => b.id !== formData.bankId).map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.entity ? `| ${b.entity}` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -468,30 +439,18 @@ export function TransactionModal({
                   <option value="">Selecciona préstamo</option>
                   {filteredLoans.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {(l.type === "bank" ? "Bancario" : "Personal")} — {l.name} — Pendiente: {l.outstandingAmount} €
+                      {(l.type === "bank" ? "Bancario" : l.type === "given" ? "Prestado" : "Recibido")}: {l.name} | ${l.outstandingAmount}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Al guardar, se registrará un pago en el préstamo por el importe del gasto.
-                </p>
               </div>
             )}
-          </div>
 
-          <div className="col-span-1 md:col-span-2 flex space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
-            >
-              Cancelar
-            </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition"
+              className="w-full py-2 mt-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition"
             >
-              {editingId ? "Actualizar" : "Guardar"}
+              Guardar
             </button>
           </div>
         </form>

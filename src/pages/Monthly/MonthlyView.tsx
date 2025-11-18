@@ -52,10 +52,10 @@ export function MonthlyView() {
   const [recError, setRecError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
 
-  // banks cache for name lookup (map by id)
+  // banks cache for name lookup
   const [banks, setBanks] = useState<Record<string, BankDto>>({});
 
-  // local/manual last reconciled (fallback to localStorage if backend not available)
+  // local/manual last reconciled
   const [manualLastReconciled, setManualLastReconciled] = useState<string | null>(
     () => localStorage.getItem("lastReconciledAt") || null
   );
@@ -66,23 +66,19 @@ export function MonthlyView() {
   const normalizeAxiosError = (err: any) =>
     err?.response?.data?.message ?? err?.response?.data ?? err?.message ?? `HTTP ${err?.response?.status ?? "error"}`;
 
-  // year/month derived
   const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1; // 1..12
+  const month = currentDate.getMonth() + 1;
 
-  // Build displayedRecons from banks: show a chip per bank (existing recon if present, otherwise placeholder)
+  // Build displayedRecons for UI
   const displayedRecons = useMemo(() => {
     const bankArr = Object.values(banks);
-    // keep order: existing reconciliations first (by bank order), then banks without reconciliation
     const list: any[] = [];
 
-    // map existing recons by bankId for quick lookup
     const reconsByBank: Record<string, ReconSummary> = {};
     recons.forEach((r) => {
       if (r.year === year && r.month === month) reconsByBank[r.bankId] = r;
     });
 
-    // include banks in defined order
     bankArr.forEach((b) => {
       const existing = reconsByBank[b.id];
       if (existing) {
@@ -95,7 +91,7 @@ export function MonthlyView() {
         });
       } else {
         list.push({
-          id: `bank-${b.id}`, // temp id for a placeholder
+          id: `bank-${b.id}`,
           bankId: b.id,
           year,
           month,
@@ -115,7 +111,7 @@ export function MonthlyView() {
     return list;
   }, [banks, recons, year, month]);
 
-  // Load month transactions whenever user or date changes
+  // Load month transactions
   useEffect(() => {
     if (!user) return;
 
@@ -123,8 +119,8 @@ export function MonthlyView() {
     const load = async () => {
       setLoading(true);
       try {
-        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+        const startDate = new Date(year, currentDate.getMonth(), 1);
+        const endDate = new Date(year, currentDate.getMonth() + 1, 0);
         const startStr = startDate.toISOString().split("T")[0];
         const endStr = endDate.toISOString().split("T")[0];
 
@@ -132,7 +128,6 @@ export function MonthlyView() {
         const data = (res && (res.data ?? res)) ?? {};
         const allTransactions: Transaction[] = data.transactions || [];
 
-        // sort desc by date
         allTransactions.sort((a, b) => {
           if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime();
           if (a.date) return -1;
@@ -142,7 +137,6 @@ export function MonthlyView() {
 
         if (!mounted) return;
         setTransactions(allTransactions);
-        // summary calculation moved to separate effect that also depends on banks
       } catch (err) {
         console.error("Error loading month data:", err);
       } finally {
@@ -151,21 +145,16 @@ export function MonthlyView() {
     };
 
     load();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, currentDate]);
+    return () => { mounted = false; };
+  }, [user, currentDate, year]);
 
-  // Recompute summary whenever transactions or banks change.
-  // Exclude internal transfers: transactions with isTransfer=true and transferCounterpartyBankId is one of the user's banks
+  // Recompute summary: ignore internal transfers, count external transfers as expense
   useEffect(() => {
-    // helper to detect internal transfer
     const isInternalTransfer = (t: Transaction) => {
       if (!t || !t.isTransfer) return false;
-      const cp = (t.transferCounterpartyBankId ?? t.counterpartyBankId) as string | undefined | null;
+      const cp = t.transferCounterpartyBankId;
       if (!cp) return false;
-      return !!(banks && banks[cp]);
+      return !!banks[cp];
     };
 
     const totalIncome = transactions
@@ -173,7 +162,7 @@ export function MonthlyView() {
       .reduce((s, t) => s + (t.amount ?? 0), 0);
 
     const totalExpense = transactions
-      .filter((t) => t.type === "expense" && !isInternalTransfer(t))
+      .filter((t) => t.type === "expense" || (t.isTransfer && !isInternalTransfer(t)))
       .reduce((s, t) => s + (t.amount ?? 0), 0);
 
     setSummary({
@@ -182,11 +171,9 @@ export function MonthlyView() {
       balance: totalIncome - totalExpense,
     });
   }, [transactions, banks]);
-
-  // Unified loader: load banks and reconciliations together to avoid race conditions
+  // Load banks and reconciliations
   useEffect(() => {
     if (!user) return;
-
     let mounted = true;
 
     const loadAll = async () => {
@@ -200,7 +187,6 @@ export function MonthlyView() {
 
         if (!mounted) return;
 
-        // normalize banks to map
         const bankMap: Record<string, BankDto> = {};
         (banksRes || []).forEach((b: any) => {
           bankMap[b.id] = {
@@ -213,7 +199,6 @@ export function MonthlyView() {
         });
         setBanks(bankMap);
 
-        // normalize reconciliations
         const list: ReconSummary[] = (reconsRes || []).map((r: any) => ({
           id: r.id,
           bankId: r.bankId,
@@ -227,7 +212,7 @@ export function MonthlyView() {
         }));
         setRecons(list);
 
-        // select initial recon: prefer persisted reconciliation, else first bank placeholder
+        // Select initial recon
         if (list.length > 0) {
           setSelectedRecon(list[0]);
           setTimeout(() => fetchSuggestion(list[0].bankId), 50);
@@ -256,7 +241,7 @@ export function MonthlyView() {
           }
         }
       } catch (err: any) {
-        console.error("Error loading banks/reconciliations:", err);
+        console.error("Error loading banks/recons:", err);
         setRecError(normalizeAxiosError(err) || "Error cargando datos");
       } finally {
         if (mounted) setRecLoading(false);
@@ -264,11 +249,8 @@ export function MonthlyView() {
     };
 
     loadAll();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, year, month, currentDate]);
+    return () => { mounted = false; };
+  }, [user, year, month]);
 
   const fetchSuggestion = async (bankId?: string) => {
     const bankParam = bankId ?? selectedRecon?.bankId;
@@ -280,32 +262,17 @@ export function MonthlyView() {
       const res = await reconciliationService.suggest(year, month, bankParam);
       const dto = (res && (res.data ?? res)) ?? {};
 
-      const raw = dto.details;
       let detailsArr: any[] = [];
-      if (Array.isArray(raw)) {
-        // Normalize the shape so the UI consumes a consistent format
-        detailsArr = raw.map((d: any) => {
-          const amount = Number(d.amount ?? d.Amount ?? d.Value ?? d.value ?? 0);
-          const type = d.type ?? d.Type ?? d.reason ?? d.Reason ?? "";
-          const description = d.description ?? d.Description ?? d.Reason ?? d.reason ?? "Transacción candidata";
-          const transactionId = d.transactionId ?? d.TransactionId ?? d.TransactionID ?? null;
-          const date = d.date ?? d.Date ?? null;
-          const category = d.category ?? d.Category ?? null;
-          return {
-            raw: d,
-            type,
-            description,
-            amount,
-            transactionId,
-            date,
-            category,
-          };
-        });
-      } else if (raw && typeof raw === "object") {
-        // convert to key/value pairs for consistent UI consumption
-        detailsArr = Object.entries(raw).map(([k, v]) => ({ key: k, value: v }));
-      } else {
-        detailsArr = [];
+      if (Array.isArray(dto.details)) {
+        detailsArr = dto.details.map((d: any) => ({
+          raw: d,
+          type: d.type ?? d.Type ?? d.reason ?? d.Reason ?? "",
+          description: d.description ?? d.Description ?? "Transacción candidata",
+          amount: Number(d.amount ?? d.Amount ?? d.Value ?? d.value ?? 0),
+          transactionId: d.transactionId ?? d.TransactionId ?? null,
+          date: d.date ?? d.Date ?? null,
+          category: d.category ?? d.Category ?? null,
+        }));
       }
 
       setSuggestion({
@@ -329,18 +296,16 @@ export function MonthlyView() {
     setTimeout(() => fetchSuggestion(found?.bankId), 50);
   };
 
-  // Accept an optional reconciledAt ISO date (frontend will pass manualLastReconciled if present)
   const onMarkReconciled = async (reconciledAtIso?: string | null) => {
     if (!selectedRecon) return;
     if (!suggestion || Math.abs(suggestion.difference) > 0.01) {
-      setRecError("No se puede marcar: la diferencia no está a 0. Revisa las sugerencias o corrige partidas.");
+      setRecError("No se puede marcar: la diferencia no está a 0.");
       return;
     }
 
     setMarking(true);
     setRecError(null);
     try {
-      // if it's a placeholder (id starts with bank-), create the reconciliation first
       if (selectedRecon.id.startsWith("bank-")) {
         const payload = {
           bankId: selectedRecon.bankId,
@@ -350,17 +315,18 @@ export function MonthlyView() {
           notes: selectedRecon.notes ?? null,
         };
         await reconciliationService.create(payload);
-        // reload reconciliations to get the real id
-        await Promise.all([loadBanksAndReconsOnce()]);
+        await loadBanksAndReconsOnce();
       }
 
-      // find the real reconciliation for this bank/month
-      const real = recons.find((r) => r.bankId === selectedRecon.bankId && r.year === selectedRecon.year && r.month === selectedRecon.month);
+      const real = recons.find(
+        (r) =>
+          r.bankId === selectedRecon.bankId &&
+          r.year === selectedRecon.year &&
+          r.month === selectedRecon.month
+      );
       const idToMark = real ? real.id : selectedRecon.id;
 
-      // Pass reconciledAtIso (may be null)
       await reconciliationService.markReconciled(idToMark, reconciledAtIso);
-      // reload data
       await Promise.all([loadBanksAndReconsOnce(), loadMonthDataOnce()]);
       alert("Mes marcado como conciliado");
     } catch (err: any) {
@@ -371,7 +337,6 @@ export function MonthlyView() {
     }
   };
 
-  // helper wrappers to reuse loaders inside actions
   const loadBanksAndReconsOnce = async () => {
     try {
       const [banksRes, reconsRes] = await Promise.all([
@@ -410,8 +375,8 @@ export function MonthlyView() {
 
   const loadMonthDataOnce = async () => {
     try {
-      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      const startDate = new Date(year, currentDate.getMonth(), 1);
+      const endDate = new Date(year, currentDate.getMonth() + 1, 0);
       const startStr = startDate.toISOString().split("T")[0];
       const endStr = endDate.toISOString().split("T")[0];
       const res = await MonthlyService.getMonthData(user!.id, startStr, endStr);
@@ -436,7 +401,6 @@ export function MonthlyView() {
     setRecLoading(true);
     setRecError(null);
     try {
-      // determine bank id
       let bankId = id;
       if (id.startsWith("bank-")) bankId = id.replace(/^bank-/, "");
       const payload = {
@@ -446,7 +410,7 @@ export function MonthlyView() {
         closingBalance: newBalance,
         notes: null,
       };
-      await reconciliationService.create(payload); // backend create acts as upsert
+      await reconciliationService.create(payload);
       await loadBanksAndReconsOnce();
       setTimeout(() => fetchSuggestion(bankId), 300);
     } catch (err: any) {
@@ -468,11 +432,10 @@ export function MonthlyView() {
         await loadBanksAndReconsOnce();
       }
     } catch (err) {
-      console.debug("No backend endpoint for persisting lastReconciledAt or error calling it", err);
+      console.debug("No backend endpoint for persisting lastReconciledAt or error", err);
     }
   };
 
-  // ---------- UI helpers ----------
   const changeMonth = (delta: number) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
@@ -499,7 +462,7 @@ export function MonthlyView() {
         <BanksChips
           recons={displayedRecons as any}
           selectedId={selectedRecon?.id ?? ""}
-          onSelect={(id: string) => onSelectRecon(id)}
+          onSelect={onSelectRecon}
         />
 
         <div className="text-sm text-slate-500 flex items-center gap-3">
@@ -580,10 +543,10 @@ export function MonthlyView() {
             await loadBanksAndReconsOnce();
             await loadMonthDataOnce();
           }}
-          onSelectRecon={(id: string) => onSelectRecon(id)}
-          onFetchSuggestion={async (bankId?: string) => await fetchSuggestion(bankId)}
+          onSelectRecon={onSelectRecon}
+          onFetchSuggestion={fetchSuggestion}
           onMarkReconciled={async () => await onMarkReconciled(manualLastReconciled)}
-          onUpdateClosingBalance={async (id: string, newBalance: number) => await updateReconClosingBalance(id, newBalance)}
+          onUpdateClosingBalance={updateReconClosingBalance}
         />
       </div>
     </div>
