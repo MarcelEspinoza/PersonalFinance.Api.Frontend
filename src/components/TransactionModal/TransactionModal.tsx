@@ -72,7 +72,7 @@ export function TransactionModal({
     }
   };
 
-  // 🔹 Cargar préstamos y bancos
+  // Load loans (if needed) and banks
   useEffect(() => {
     if (isLoanCategory && type === "expense" && userId) {
       LoansService.getLoans(userId)
@@ -97,7 +97,7 @@ export function TransactionModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoanCategory, type, userId]);
 
-  // 🔹 Formatear datos al abrir modal
+  // When opening the modal in edit mode, normalize fields for the form
   useEffect(() => {
     if (editingId && showModal && formData) {
       setFormData((prev: any) => ({
@@ -108,12 +108,16 @@ export function TransactionModal({
         isTransfer: prev.isTransfer ?? false,
         transferReference: prev.transferReference ?? "",
         counterpartyBankId: prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
+        // Ensure source is available: prefer stored source, fall back to type or default
+        source: prev.source ?? prev.type ?? (type === "income" ? "fixed" : "variable"),
+        // normalize bankId to string or null
+        bankId: prev.bankId ?? null,
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, showModal]);
 
-  // 🔹 Filtrado de préstamos
+  // Filter loans to present valid options
   const filteredLoans = useMemo(() => {
     if (!isLoanCategory) return [];
     if (formData.categoryId === 101) {
@@ -125,7 +129,7 @@ export function TransactionModal({
     return [];
   }, [isLoanCategory, loans, formData.categoryId]);
 
-  // 🔹 Categorías
+  // Category manager actions
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -172,7 +176,7 @@ export function TransactionModal({
 
   if (!showModal) return null;
 
-  // --- Normalized submit handler
+  // Submit handler: build payload normalized for backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -194,9 +198,14 @@ export function TransactionModal({
 
     const categoryIdNum = formData.categoryId ? Number(formData.categoryId) : undefined;
     const loanId = formData.loanId ? formData.loanId : null;
+    // Normalize bankId: empty -> null, otherwise string GUID
     const bankId = formData.bankId ? formData.bankId : null;
     const transferReference = formData.transferReference ? String(formData.transferReference).trim() : null;
     const transferCounterpartyBankId = formData.counterpartyBankId ? formData.counterpartyBankId : null;
+
+    // The backend expects the "Type" field to hold the source (fixed|variable|temporary).
+    // Use formData.source for that purpose and ensure a sensible default.
+    const sourceType = formData.source ?? (type === "income" ? "fixed" : "variable");
 
     const payload: any = {
       description: formData.description ?? "",
@@ -204,8 +213,10 @@ export function TransactionModal({
       date: dateIso,
       start_Date: startIso,
       end_Date: endIso,
-      type: type, // income | expense
-      source: formData.source ?? (type === "income" ? "fixed" : "variable"), // fijo, variable, temporal
+      // Send the movement's source in the "type" field (what backend uses)
+      type: sourceType,
+      // keep 'source' too for compatibility with older endpoints (no harm)
+      source: sourceType,
       categoryId: categoryIdNum,
       notes: formData.notes ?? null,
       loanId,
@@ -216,6 +227,7 @@ export function TransactionModal({
       transferCounterpartyBankId,
     };
 
+    // Clean up undefined values
     Object.keys(payload).forEach((k) => {
       if (payload[k] === undefined) delete payload[k];
     });
@@ -273,7 +285,7 @@ export function TransactionModal({
           </div>
 
           <div className="space-y-4">
-            {/* Categoría */}
+            {/* Category */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Categoría</label>
               <div className="flex space-x-2">
@@ -345,12 +357,12 @@ export function TransactionModal({
               )}
             </div>
 
-            {/* Banco */}
+            {/* Bank */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Banco</label>
               <select
                 value={formData.bankId || ""}
-                onChange={(e) => setFormData({ ...formData, bankId: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, bankId: e.target.value || null })}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               >
                 <option value="">Selecciona banco</option>
@@ -362,7 +374,7 @@ export function TransactionModal({
               </select>
             </div>
 
-            {/* Traspaso */}
+            {/* Transfer */}
             <div className="flex items-center gap-3">
               <input
                 id="isTransfer"
@@ -381,7 +393,7 @@ export function TransactionModal({
                   </label>
                   <select
                     value={formData.counterpartyBankId || ""}
-                    onChange={(e) => setFormData({ ...formData, counterpartyBankId: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, counterpartyBankId: e.target.value || null })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                   >
                     <option value="">
