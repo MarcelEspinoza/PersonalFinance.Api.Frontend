@@ -56,10 +56,10 @@ export function MonthlyView() {
   const [recError, setRecError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
 
-  // banks cache for name lookup
+  // banks cache for name lookup (map by id)
   const [banks, setBanks] = useState<Record<string, BankDto>>({});
 
-  // local/manual last reconciled
+  // local/manual last reconciled (fallback to localStorage if backend not available)
   const [manualLastReconciled, setManualLastReconciled] = useState<string | null>(
     () => localStorage.getItem("lastReconciledAt") || null
   );
@@ -70,43 +70,83 @@ export function MonthlyView() {
   const normalizeAxiosError = (err: any) =>
     err?.response?.data?.message ?? err?.response?.data ?? err?.message ?? `HTTP ${err?.response?.status ?? "error"}`;
 
+  // year/month derived
   const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1;
+  const month = currentDate.getMonth() + 1; // 1..12
+
+  // Normalize raw transaction objects from backend to the canonical Transaction shape
+  const normalizeRawTransaction = (raw: any): Transaction => {
+    const transferCounterpartyBankId =
+      raw.transferCounterpartyBankId ??
+      raw.TransferCounterpartyBankId ??
+      raw.transferCounterparty ??
+      raw.counterpartyBankId ??
+      raw.counterpartyBank ??
+      null;
+
+    return {
+      id: Number(raw.id ?? raw.Id ?? 0),
+      name: raw.name ?? raw.description ?? raw.Description ?? "",
+      amount: Number(raw.amount ?? raw.Amount ?? 0),
+      date: raw.date ?? raw.Date ?? "",
+      categoryId: Number(raw.categoryId ?? raw.CategoryId ?? 0),
+      categoryName: raw.categoryName ?? raw.Category ?? "",
+      type: (raw.type ?? raw.Type ?? (raw.amount < 0 ? "expense" : "income")) as "income" | "expense",
+      source: (raw.source ?? raw.Source ?? raw.frequency ?? "temporary") as "fixed" | "variable" | "temporary",
+      frequency: raw.frequency ?? raw.Frequency,
+      start_Date: raw.start_Date ?? raw.startDate ?? null,
+      end_Date: raw.end_Date ?? raw.endDate ?? null,
+      isIndefinite: !!(raw.isIndefinite ?? raw.IsIndefinite),
+      notes: raw.notes ?? raw.Notes ?? null,
+      loanId: raw.loanId ?? raw.LoanId ?? null,
+      userId: raw.userId ?? raw.UserId ?? "",
+      bankId: raw.bankId ?? raw.BankId ?? null,
+      bankName: raw.bankName ?? raw.BankName ?? null,
+      isTransfer: !!(raw.isTransfer ?? raw.IsTransfer),
+      transferId: raw.transferId ?? raw.TransferId ?? null,
+      transferCounterpartyBankId: transferCounterpartyBankId ?? null,
+      transferReference: raw.transferReference ?? raw.TransferReference ?? null,
+    } as Transaction;
+  };
 
   // Build displayedRecons for UI
-  // IMPORTANT: show the latest reconciliation per bank (createdAt DESC)
+  // Preference: show reconciled entry if exists for that bank; otherwise the latest one (createdAt desc)
   const displayedRecons = useMemo(() => {
     const bankArr = Object.values(banks);
-    const list: any[] = [];
+    const result: any[] = [];
 
-    // ensure recons are processed latest-first
-    const sorted = [...recons].slice().sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime();
-      const tb = new Date(b.createdAt).getTime();
-      return tb - ta; // descending
-    });
-
-    // preserve only the first (latest) reconciliation per bank
-    const reconsByBank: Record<string, ReconSummary> = {};
-    sorted.forEach((r) => {
+    // Group recons by bankId for current month/year
+    const grouped: Record<string, ReconSummary[]> = {};
+    recons.forEach((r) => {
       if (r.year === year && r.month === month) {
-        if (!reconsByBank[r.bankId]) reconsByBank[r.bankId] = r;
+        grouped[r.bankId] = grouped[r.bankId] || [];
+        grouped[r.bankId].push(r);
       }
     });
 
     bankArr.forEach((b) => {
-      const existing = reconsByBank[b.id];
-      if (existing) {
-        list.push({
-          ...existing,
+      const group = (grouped[b.id] || []).slice().sort((a, b2) => {
+        return new Date(b2.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      // choose: latest reconciled if exists, else latest overall
+      let chosen: ReconSummary | null = null;
+      if (group.length > 0) {
+        const latestReconciled = group.find((x) => !!x.reconciled);
+        chosen = latestReconciled ?? group[0];
+      }
+
+      if (chosen) {
+        result.push({
+          ...chosen,
           bankName: b.name,
           bankEntity: b.entity ?? "",
           bankColor: b.color ?? "#CBD5E1",
           label: `${b.name}${b.entity ? ` | ${b.entity}` : ""}`,
         });
       } else {
-        list.push({
-          id: `bank-${b.id}`,
+        result.push({
+          id: `bank-${b.id}`, // placeholder id
           bankId: b.id,
           year,
           month,
@@ -123,10 +163,10 @@ export function MonthlyView() {
       }
     });
 
-    return list;
+    return result;
   }, [banks, recons, year, month]);
 
-  // Load month transactions
+  // Load month transactions whenever user or date changes
   useEffect(() => {
     if (!user) return;
 
@@ -134,15 +174,19 @@ export function MonthlyView() {
     const load = async () => {
       setLoading(true);
       try {
-        const startDate = new Date(year, currentDate.getMonth(), 1);
-        const endDate = new Date(year, currentDate.getMonth() + 1, 0);
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
         const startStr = startDate.toISOString().split("T")[0];
         const endStr = endDate.toISOString().split("T")[0];
 
         const res = await MonthlyService.getMonthData(user!.id, startStr, endStr);
         const data = (res && (res.data ?? res)) ?? {};
-        const allTransactions: Transaction[] = data.transactions || [];
+        const rawTransactions: any[] = data.transactions || [];
 
+        // normalize shape so we always have transferCounterpartyBankId/isTransfer
+        const allTransactions: Transaction[] = rawTransactions.map(normalizeRawTransaction);
+
+        // sort desc by date
         allTransactions.sort((a, b) => {
           if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime();
           if (a.date) return -1;
@@ -160,16 +204,22 @@ export function MonthlyView() {
     };
 
     load();
-    return () => { mounted = false; };
-  }, [user, currentDate, year]);
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentDate]);
 
-  // Recompute summary: ignore internal transfers, count external transfers as expense
+  // Recompute summary whenever transactions or banks change.
+  // Exclude internal transfers: transactions with isTransfer=true and transferCounterpartyBankId belongs to user's banks
   useEffect(() => {
+    const userBankIds = new Set(Object.keys(banks));
+
     const isInternalTransfer = (t: Transaction) => {
       if (!t || !t.isTransfer) return false;
-      const cp = t.transferCounterpartyBankId;
+      const cp = t.transferCounterpartyBankId ?? null;
       if (!cp) return false;
-      return !!banks[cp];
+      return userBankIds.has(cp);
     };
 
     const totalIncome = transactions
@@ -177,7 +227,7 @@ export function MonthlyView() {
       .reduce((s, t) => s + (t.amount ?? 0), 0);
 
     const totalExpense = transactions
-      .filter((t) => t.type === "expense" || (t.isTransfer && !isInternalTransfer(t)))
+      .filter((t) => t.type === "expense" && !isInternalTransfer(t))
       .reduce((s, t) => s + (t.amount ?? 0), 0);
 
     setSummary({
@@ -187,9 +237,10 @@ export function MonthlyView() {
     });
   }, [transactions, banks]);
 
-  // Load banks and reconciliations (initial and refresh)
+  // Unified loader: load banks and reconciliations together to avoid race conditions
   useEffect(() => {
     if (!user) return;
+
     let mounted = true;
 
     const loadAll = async () => {
@@ -216,7 +267,7 @@ export function MonthlyView() {
         });
         setBanks(bankMap);
 
-        // ensure recons are ordered descending by createdAt (latest first)
+        // normalize reconciliations, ensure createdAt present and convert types
         const sortedRecons = (reconsRes || []).slice().sort((a: any, b: any) => {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
@@ -234,34 +285,50 @@ export function MonthlyView() {
           bankName: (bankMap[r.bankId] && bankMap[r.bankId].name) ?? undefined,
           bankEntity: (bankMap[r.bankId] && bankMap[r.bankId].entity) ?? undefined,
           bankColor: (bankMap[r.bankId] && bankMap[r.bankId].color) ?? undefined,
-          label: `${(bankMap[r.bankId] && bankMap[r.bankId].name) ?? r.bankId}${(bankMap[r.bankId] && bankMap[r.bankId].entity) ? ` | ${bankMap[r.bankId].entity}` : ""}`
         }));
         setRecons(list);
 
-        // Select initial recon: prefer latest reconciliation for the first bank in bankMap (if exists)
-        if (list.length > 0) {
-          // pick the first bank in bankMap order and prefer its latest recon if present
-          const firstBank = Object.values(bankMap)[0];
-          if (firstBank) {
-            const latestForFirstBank = list.find((r) => r.bankId === firstBank.id);
-            if (latestForFirstBank) {
-              setSelectedRecon(latestForFirstBank);
-              setTimeout(() => fetchSuggestion(latestForFirstBank.bankId), 50);
-            } else {
-              // fallback: pick the first reconciliation in list
-              setSelectedRecon(list[0]);
-              setTimeout(() => fetchSuggestion(list[0].bankId), 50);
-            }
-          } else {
-            setSelectedRecon(list[0]);
-            setTimeout(() => fetchSuggestion(list[0].bankId), 50);
+        // Select initial recon:
+        // 1) If previously selectedRecon exists, try to preserve it (pick latest for that bank)
+        if (selectedRecon) {
+          const foundPrev = list.find((r) => r.bankId === selectedRecon.bankId && r.year === selectedRecon.year && r.month === selectedRecon.month);
+          if (foundPrev) {
+            setSelectedRecon(foundPrev);
+            setTimeout(() => fetchSuggestion(foundPrev.bankId), 50);
+            return;
           }
+        }
+
+        // 2) Prefer any reconciliation that is marked reconciled (latest reconciled)
+        const latestReconciled = list.find((r) => r.reconciled);
+        if (latestReconciled) {
+          setSelectedRecon(latestReconciled);
+          setTimeout(() => fetchSuggestion(latestReconciled.bankId), 50);
+          return;
+        }
+
+        // 3) Else pick latest reconciliation for the first bank in bankMap
+        const firstBank = Object.values(bankMap)[0];
+        if (firstBank) {
+          const latestForFirstBank = list.find((r) => r.bankId === firstBank.id);
+          if (latestForFirstBank) {
+            setSelectedRecon(latestForFirstBank);
+            setTimeout(() => fetchSuggestion(latestForFirstBank.bankId), 50);
+            return;
+          }
+        }
+
+        // fallback: pick first element of list
+        if (list.length > 0) {
+          setSelectedRecon(list[0]);
+          setTimeout(() => fetchSuggestion(list[0].bankId), 50);
         } else {
-          const firstBank = Object.values(bankMap)[0];
-          if (firstBank) {
+          // no reconciliations: pick first bank placeholder
+          const fb = Object.values(bankMap)[0];
+          if (fb) {
             const placeholder: any = {
-              id: `bank-${firstBank.id}`,
-              bankId: firstBank.id,
+              id: `bank-${fb.id}`,
+              bankId: fb.id,
               year,
               month,
               closingBalance: 0,
@@ -269,19 +336,19 @@ export function MonthlyView() {
               notes: null,
               createdAt: new Date().toISOString(),
               reconciledAt: null,
-              bankName: firstBank.name,
-              bankEntity: firstBank.entity ?? "",
-              bankColor: firstBank.color ?? "#CBD5E1",
-              label: `${firstBank.name}${firstBank.entity ? ` | ${firstBank.entity}` : ""}`,
+              bankName: fb.name,
+              bankEntity: fb.entity ?? "",
+              bankColor: fb.color ?? "#CBD5E1",
+              label: `${fb.name}${fb.entity ? ` | ${fb.entity}` : ""}`,
             };
             setSelectedRecon(placeholder);
-            setTimeout(() => fetchSuggestion(firstBank.id), 50);
+            setTimeout(() => fetchSuggestion(fb.id), 50);
           } else {
             setSelectedRecon(null);
           }
         }
       } catch (err: any) {
-        console.error("Error loading banks/recons:", err);
+        console.error("Error loading banks/reconciliations:", err);
         setRecError(normalizeAxiosError(err) || "Error cargando datos");
       } finally {
         if (mounted) setRecLoading(false);
@@ -289,7 +356,10 @@ export function MonthlyView() {
     };
 
     loadAll();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, year, month]);
 
   const fetchSuggestion = async (bankId?: string) => {
@@ -307,7 +377,7 @@ export function MonthlyView() {
         detailsArr = dto.details.map((d: any) => ({
           raw: d,
           type: d.type ?? d.Type ?? d.reason ?? d.Reason ?? "",
-          description: d.description ?? d.Description ?? "Transacción candidata",
+          description: d.description ?? d.Description ?? d.Reason ?? d.reason ?? "Transacción candidata",
           amount: Number(d.amount ?? d.Amount ?? d.Value ?? d.value ?? 0),
           transactionId: d.transactionId ?? d.TransactionId ?? null,
           date: d.date ?? d.Date ?? null,
@@ -336,16 +406,18 @@ export function MonthlyView() {
     setTimeout(() => fetchSuggestion(found?.bankId), 50);
   };
 
+  // Accept an optional reconciledAt ISO date (frontend will pass manualLastReconciled if present)
   const onMarkReconciled = async (reconciledAtIso?: string | null) => {
     if (!selectedRecon) return;
     if (!suggestion || Math.abs(suggestion.difference) > 0.01) {
-      setRecError("No se puede marcar: la diferencia no está a 0.");
+      setRecError("No se puede marcar: la diferencia no está a 0. Revisa las sugerencias o corrige partidas.");
       return;
     }
 
     setMarking(true);
     setRecError(null);
     try {
+      // if it's a placeholder (id starts with bank-), create the reconciliation first
       if (selectedRecon.id.startsWith("bank-")) {
         const payload = {
           bankId: selectedRecon.bankId,
@@ -355,18 +427,17 @@ export function MonthlyView() {
           notes: selectedRecon.notes ?? null,
         };
         await reconciliationService.create(payload);
+        // reload reconciliations to get the real id
         await loadBanksAndReconsOnce();
       }
 
-      const real = recons.find(
-        (r) =>
-          r.bankId === selectedRecon.bankId &&
-          r.year === selectedRecon.year &&
-          r.month === selectedRecon.month
-      );
+      // find the real reconciliation for this bank/month
+      const real = recons.find((r) => r.bankId === selectedRecon.bankId && r.year === selectedRecon.year && r.month === selectedRecon.month);
       const idToMark = real ? real.id : selectedRecon.id;
 
+      // Pass reconciledAtIso (may be null)
       await reconciliationService.markReconciled(idToMark, reconciledAtIso);
+      // reload data
       await Promise.all([loadBanksAndReconsOnce(), loadMonthDataOnce()]);
       alert("Mes marcado como conciliado");
     } catch (err: any) {
@@ -436,13 +507,15 @@ export function MonthlyView() {
 
   const loadMonthDataOnce = async () => {
     try {
-      const startDate = new Date(year, currentDate.getMonth(), 1);
-      const endDate = new Date(year, currentDate.getMonth() + 1, 0);
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
       const startStr = startDate.toISOString().split("T")[0];
       const endStr = endDate.toISOString().split("T")[0];
       const res = await MonthlyService.getMonthData(user!.id, startStr, endStr);
       const data = (res && (res.data ?? res)) ?? {};
-      const allTransactions: Transaction[] = data.transactions || [];
+      const rawTransactions: any[] = data.transactions || [];
+
+      const allTransactions: Transaction[] = rawTransactions.map(normalizeRawTransaction);
 
       allTransactions.sort((a, b) => {
         if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -516,6 +589,7 @@ export function MonthlyView() {
     }
   };
 
+  // ---------- UI helpers ----------
   const changeMonth = (delta: number) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
