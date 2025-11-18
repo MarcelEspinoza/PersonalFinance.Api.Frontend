@@ -20,6 +20,10 @@ type ReconSummary = {
   notes?: string | null;
   createdAt: string;
   reconciledAt?: string | null;
+  bankName?: string;
+  bankEntity?: string;
+  bankColor?: string;
+  label?: string;
 };
 
 type SuggestionDto = {
@@ -70,13 +74,24 @@ export function MonthlyView() {
   const month = currentDate.getMonth() + 1;
 
   // Build displayedRecons for UI
+  // IMPORTANT: show the latest reconciliation per bank (createdAt DESC)
   const displayedRecons = useMemo(() => {
     const bankArr = Object.values(banks);
     const list: any[] = [];
 
+    // ensure recons are processed latest-first
+    const sorted = [...recons].slice().sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      return tb - ta; // descending
+    });
+
+    // preserve only the first (latest) reconciliation per bank
     const reconsByBank: Record<string, ReconSummary> = {};
-    recons.forEach((r) => {
-      if (r.year === year && r.month === month) reconsByBank[r.bankId] = r;
+    sorted.forEach((r) => {
+      if (r.year === year && r.month === month) {
+        if (!reconsByBank[r.bankId]) reconsByBank[r.bankId] = r;
+      }
     });
 
     bankArr.forEach((b) => {
@@ -171,7 +186,8 @@ export function MonthlyView() {
       balance: totalIncome - totalExpense,
     });
   }, [transactions, banks]);
-  // Load banks and reconciliations
+
+  // Load banks and reconciliations (initial and refresh)
   useEffect(() => {
     if (!user) return;
     let mounted = true;
@@ -187,6 +203,7 @@ export function MonthlyView() {
 
         if (!mounted) return;
 
+        // normalize banks to map
         const bankMap: Record<string, BankDto> = {};
         (banksRes || []).forEach((b: any) => {
           bankMap[b.id] = {
@@ -199,7 +216,12 @@ export function MonthlyView() {
         });
         setBanks(bankMap);
 
-        const list: ReconSummary[] = (reconsRes || []).map((r: any) => ({
+        // ensure recons are ordered descending by createdAt (latest first)
+        const sortedRecons = (reconsRes || []).slice().sort((a: any, b: any) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        const list: ReconSummary[] = sortedRecons.map((r: any) => ({
           id: r.id,
           bankId: r.bankId,
           year: r.year,
@@ -209,13 +231,31 @@ export function MonthlyView() {
           notes: r.notes,
           createdAt: r.createdAt,
           reconciledAt: r.reconciledAt ?? null,
+          bankName: (bankMap[r.bankId] && bankMap[r.bankId].name) ?? undefined,
+          bankEntity: (bankMap[r.bankId] && bankMap[r.bankId].entity) ?? undefined,
+          bankColor: (bankMap[r.bankId] && bankMap[r.bankId].color) ?? undefined,
+          label: `${(bankMap[r.bankId] && bankMap[r.bankId].name) ?? r.bankId}${(bankMap[r.bankId] && bankMap[r.bankId].entity) ? ` | ${bankMap[r.bankId].entity}` : ""}`
         }));
         setRecons(list);
 
-        // Select initial recon
+        // Select initial recon: prefer latest reconciliation for the first bank in bankMap (if exists)
         if (list.length > 0) {
-          setSelectedRecon(list[0]);
-          setTimeout(() => fetchSuggestion(list[0].bankId), 50);
+          // pick the first bank in bankMap order and prefer its latest recon if present
+          const firstBank = Object.values(bankMap)[0];
+          if (firstBank) {
+            const latestForFirstBank = list.find((r) => r.bankId === firstBank.id);
+            if (latestForFirstBank) {
+              setSelectedRecon(latestForFirstBank);
+              setTimeout(() => fetchSuggestion(latestForFirstBank.bankId), 50);
+            } else {
+              // fallback: pick the first reconciliation in list
+              setSelectedRecon(list[0]);
+              setTimeout(() => fetchSuggestion(list[0].bankId), 50);
+            }
+          } else {
+            setSelectedRecon(list[0]);
+            setTimeout(() => fetchSuggestion(list[0].bankId), 50);
+          }
         } else {
           const firstBank = Object.values(bankMap)[0];
           if (firstBank) {
@@ -337,6 +377,7 @@ export function MonthlyView() {
     }
   };
 
+  // helper wrappers to reuse loaders inside actions
   const loadBanksAndReconsOnce = async () => {
     try {
       const [banksRes, reconsRes] = await Promise.all([
@@ -356,7 +397,12 @@ export function MonthlyView() {
       });
       setBanks(bankMap);
 
-      const list: ReconSummary[] = (reconsRes || []).map((r: any) => ({
+      // ensure recons ordered latest-first
+      const sortedRecons = (reconsRes || []).slice().sort((a: any, b: any) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      const list: ReconSummary[] = sortedRecons.map((r: any) => ({
         id: r.id,
         bankId: r.bankId,
         year: r.year,
@@ -366,10 +412,25 @@ export function MonthlyView() {
         notes: r.notes,
         createdAt: r.createdAt,
         reconciledAt: r.reconciledAt ?? null,
+        bankName: (bankMap[r.bankId] && bankMap[r.bankId].name) ?? undefined,
+        bankEntity: (bankMap[r.bankId] && bankMap[r.bankId].entity) ?? undefined,
+        bankColor: (bankMap[r.bankId] && bankMap[r.bankId].color) ?? undefined,
+        label: `${(bankMap[r.bankId] && bankMap[r.bankId].name) ?? r.bankId}${(bankMap[r.bankId] && bankMap[r.bankId].entity) ? ` | ${bankMap[r.bankId].entity}` : ""}`
       }));
       setRecons(list);
+
+      // If a recon was previously selected, update selectedRecon to the latest for that bank/year/month
+      if (selectedRecon) {
+        const found = list.find((rr) => rr.bankId === selectedRecon.bankId && rr.year === selectedRecon.year && rr.month === selectedRecon.month);
+        if (found) {
+          setSelectedRecon(found);
+        }
+      }
+
+      return list;
     } catch (err) {
       console.error("Error reloading banks/recons:", err);
+      throw err;
     }
   };
 
@@ -410,9 +471,28 @@ export function MonthlyView() {
         closingBalance: newBalance,
         notes: null,
       };
-      await reconciliationService.create(payload);
-      await loadBanksAndReconsOnce();
-      setTimeout(() => fetchSuggestion(bankId), 300);
+
+      // Use the response so we can locate the created/updated reconciliation
+      const res = await reconciliationService.create(payload);
+      const createdRec = (res && (res.data ?? res)) ?? null;
+
+      // reload list of recons (ensures state is in sync)
+      const list = await loadBanksAndReconsOnce();
+
+      // Prefer the createdRec from the API response if present
+      let found: ReconSummary | undefined;
+      if (createdRec && createdRec.id) {
+        found = list.find((r) => r.id === createdRec.id);
+      }
+      // fallback: find latest for bank/year/month
+      if (!found) {
+        found = list.find((r) => r.bankId === bankId && r.year === year && r.month === month);
+      }
+      if (found) {
+        setSelectedRecon(found);
+        // refresh suggestion for this bank
+        setTimeout(() => fetchSuggestion(found!.bankId), 200);
+      }
     } catch (err: any) {
       console.error("Error updating closingBalance:", err);
       setRecError(normalizeAxiosError(err) || "Error actualizando saldo bancario");
