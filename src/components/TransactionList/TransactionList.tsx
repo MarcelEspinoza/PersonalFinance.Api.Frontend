@@ -1,4 +1,4 @@
-import { Calendar, Edit2, Trash2 } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Edit2, Trash2 } from "lucide-react";
 
 interface Transaction {
   id: number;
@@ -12,8 +12,9 @@ interface Transaction {
   end_date?: string;
   is_active?: boolean;
   notes?: string;
-  type?: string; // this now usually holds the source (fixed|variable|temporary)
-  bankName?: string; // added: human-readable bank name
+  type?: string;
+  bankName?: string;
+  counterpartyBankName?: string;
   transferReference?: string;
 }
 
@@ -25,6 +26,15 @@ interface Props {
   onDelete: (id: number) => void;
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
+  // sorting
+  sortBy: "description" | "bank" | "counterparty" | "date" | "amount";
+  sortDir: "asc" | "desc";
+  onRequestSort: (col: "description" | "bank" | "counterparty" | "date" | "amount") => void;
+}
+
+function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) return <ArrowUpDown className="w-4 h-4 text-slate-400" />;
+  return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
 }
 
 export function TransactionList({
@@ -35,6 +45,9 @@ export function TransactionList({
   onDelete,
   selectedIds,
   onToggleSelect,
+  sortBy,
+  sortDir,
+  onRequestSort,
 }: Props) {
   if (transactions.length === 0) {
     return (
@@ -45,140 +58,108 @@ export function TransactionList({
   }
 
   return (
-    <div className="divide-y divide-slate-200">
-      {transactions.map((tx) => (
-        <div
-          key={tx.id}
-          className="p-4 hover:bg-slate-50 transition flex items-center"
-        >
-          {/* Checkbox de selección */}
-          <input
-            type="checkbox"
-            checked={selectedIds.includes(tx.id)}
-            onChange={() => onToggleSelect(tx.id)}
-            className="mr-4"
-          />
+    <table className="min-w-full">
+      <thead className="bg-slate-50">
+        <tr>
+          <th className="px-4 py-3 text-left w-10"></th>
+          <th className="px-4 py-3 text-left">
+            <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
+              Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
+            </button>
+          </th>
+          <th className="px-4 py-3 text-left w-48">
+            <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
+              Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
+            </button>
+          </th>
+          <th className="px-4 py-3 text-left w-48">
+            <button className="flex items-center gap-2" onClick={() => onRequestSort("counterparty")}>
+              Banco destino <SortIcon active={sortBy === "counterparty"} dir={sortDir} />
+            </button>
+          </th>
+          <th className="px-4 py-3 text-left w-36">
+            <button className="flex items-center gap-2" onClick={() => onRequestSort("date")}>
+              Fecha <SortIcon active={sortBy === "date"} dir={sortDir} />
+            </button>
+          </th>
+          <th className="px-4 py-3 text-left w-40">Categoría / Tipo</th>
+          <th className="px-4 py-3 text-left hidden md:table-cell">Notas</th>
+          <th className="px-4 py-3 text-right w-36">
+            <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
+              Importe <SortIcon active={sortBy === "amount"} dir={sortDir} />
+            </button>
+          </th>
+          <th className="px-4 py-3 w-28"></th>
+        </tr>
+      </thead>
 
-          <div className="flex-1 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-800">
-                {tx.description}
-              </p>
+      <tbody className="bg-white divide-y divide-slate-100">
+        {transactions.map((tx) => (
+          <tr key={tx.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(tx.id)}
+                onChange={() => onToggleSelect(tx.id)}
+              />
+            </td>
 
-              {/* NEW: show bank name if available */}
-              <div className="flex items-center space-x-2 text-sm text-slate-500 mt-1">
-                {tx.bankName && (
-                  <>
-                    <span className="font-medium text-slate-600">Banco:</span>
-                    <span>{tx.bankName}</span>
-                  </>
-                )}
+            <td className="px-4 py-3 align-top">
+              <div className="font-medium text-slate-800">{tx.description}</div>
+              <div className="text-sm text-slate-500 mt-1">
+                {activeTab === "fixed" && tx.frequency && <span className="capitalize">{tx.frequency} · </span>}
+                {activeTab !== "fixed" && tx.type && <span className="capitalize">{tx.type} · </span>}
+                {tx.transferReference && <span>Ref: {tx.transferReference}</span>}
               </div>
+            </td>
 
-              <div className="flex items-center space-x-2 text-sm text-slate-500 mt-2">
-                {activeTab === "fixed" && (
-                  <>
-                    {tx.frequency && (
-                      <span className="capitalize">{tx.frequency}</span>
-                    )}
-                    {tx.start_date && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          Desde{" "}
-                          {new Date(tx.start_date).toLocaleDateString("es-ES")}
-                        </span>
-                      </>
-                    )}
-                    {tx.end_date && (
-                      <>
-                        <span>•</span>
-                        <span>Día {tx.end_date}</span>
-                      </>
-                    )}
-                    {tx.is_active === false && (
-                      <span className="text-red-500">• Inactivo</span>
-                    )}
-                  </>
-                )}
-                {activeTab === "variable" && (
-                  <>
-                    {tx.date && (
-                      <>
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {new Date(tx.date).toLocaleDateString("es-ES")}
-                        </span>
-                      </>
-                    )}
-                    {tx.category && (
-                      <>
-                        <span>•</span>
-                        <span className="capitalize">{tx.category}</span>
-                      </>
-                    )}
-                  </>
-                )}
-                {activeTab === "temporary" && (
-                  <>
-                    {tx.frequency && (
-                      <span className="capitalize">{tx.frequency}</span>
-                    )}
-                    {tx.type && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          {tx.type === "income"
-                            ? "Ingreso"
-                            : tx.type === "expense"
-                            ? "Gasto"
-                            : tx.type}
-                        </span>
-                      </>
-                    )}
-                    {tx.start_date && tx.end_date && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          {new Date(tx.start_date).toLocaleDateString("es-ES")} →{" "}
-                          {new Date(tx.end_date).toLocaleDateString("es-ES")}
-                        </span>
-                      </>
-                    )}
-                    {tx.is_active === false && (
-                      <span className="text-red-500">• Inactivo</span>
-                    )}
-                  </>
-                )}
+            <td className="px-4 py-3 align-top">
+              <div className="text-sm text-slate-600">{tx.bankName ?? "-"}</div>
+            </td>
+
+            <td className="px-4 py-3 align-top">
+              <div className="text-sm text-slate-600">{(tx as any).counterpartyBankName ?? "-"}</div>
+            </td>
+
+            <td className="px-4 py-3 align-top">
+              <div className="text-sm text-slate-600">
+                {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
               </div>
-              {tx.notes && (
-                <p className="text-sm text-slate-600 mt-1">{tx.notes}</p>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <p
-                className={`text-xl font-bold ${
-                  mode === "income" ? "text-green-600" : "text-red-600"
-                }`}
-              >
+            </td>
+
+            <td className="px-4 py-3 align-top text-sm text-slate-600">
+              {tx.category ?? "-"}
+            </td>
+
+            <td className="px-4 py-3 align-top text-sm text-slate-600 hidden md:table-cell">
+              {tx.notes ?? "-"}
+            </td>
+
+            <td className="px-4 py-3 align-top text-right font-bold">
+              <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
                 {tx.amount.toFixed(2)} €
-              </p>
+              </span>
+            </td>
+
+            <td className="px-4 py-3 align-top text-right">
               <button
                 onClick={() => onEdit(tx)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                className="p-2 hover:bg-slate-100 rounded-lg transition mr-2"
+                title="Editar"
               >
                 <Edit2 className="w-4 h-4 text-slate-600" />
               </button>
               <button
                 onClick={() => onDelete(tx.id)}
                 className="p-2 hover:bg-red-50 rounded-lg transition"
+                title="Eliminar"
               >
                 <Trash2 className="w-4 h-4 text-red-600" />
               </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
