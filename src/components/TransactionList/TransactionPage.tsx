@@ -146,7 +146,7 @@ export function TransactionPage({ mode, service }: Props) {
       };
     });
 
-    // apply filters
+    // filters
     let filtered = normalized;
     if (originFilter) filtered = filtered.filter((r: any) => (r.bankId ?? "") === originFilter);
     if (destFilter) filtered = filtered.filter((r: any) => (r.counterpartyBankId ?? "") === destFilter);
@@ -211,7 +211,7 @@ export function TransactionPage({ mode, service }: Props) {
     return sorted;
   }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
-  // infinite scroll: observe sentinel and increase visibleCount
+  // infinite scroll observer
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -237,10 +237,9 @@ export function TransactionPage({ mode, service }: Props) {
 
   const visibleItems = items.slice(0, visibleCount);
 
-  // Export visible/current view to Excel (.xlsx) using SheetJS, with numeric formatting and summary sheet
+  // Export to Excel with summary
   const exportVisibleToExcel = () => {
     try {
-      // Map visible items to simple objects for SheetJS
       const rows = visibleItems.map((r) => ({
         Id: r.id,
         Description: r.description ?? "",
@@ -254,9 +253,8 @@ export function TransactionPage({ mode, service }: Props) {
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows, { dateNF: "yyyy-mm-dd" });
-      // Ensure Amount is numeric by converting column cells
       for (let R = 2; R <= rows.length + 1; ++R) {
-        const cell = ws[`H${R}`]; // Amount column (H)
+        const cell = ws[`H${R}`];
         if (cell && typeof cell.v === "string") {
           const num = Number(cell.v);
           if (!Number.isNaN(num)) cell.v = num;
@@ -266,7 +264,6 @@ export function TransactionPage({ mode, service }: Props) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transactions");
 
-      // Summary sheet: totals by category and by bank
       const totalsByCategory: Record<string, number> = {};
       const totalsByBank: Record<string, number> = {};
       visibleItems.forEach((r) => {
@@ -286,19 +283,9 @@ export function TransactionPage({ mode, service }: Props) {
       XLSX.utils.book_append_sheet(wb, wsCat, "TotalsByCategory");
       XLSX.utils.book_append_sheet(wb, wsBank, "TotalsByBank");
 
-      // Column widths for Transactions sheet
-      const wscols = [
-        { wch: 8 },   // Id
-        { wch: 60 },  // Description
-        { wch: 20 },  // Bank
-        { wch: 20 },  // Counterparty
-        { wch: 14 },  // Date
-        { wch: 20 },  // Category
-        { wch: 12 },  // Type
-        { wch: 12 },  // Amount
-        { wch: 30 },  // Reference
+      (ws as any)["!cols"] = [
+        { wch: 8 }, { wch: 40 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
       ];
-      (ws as any)["!cols"] = wscols;
 
       const filename = `transactions_view_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(wb, filename);
@@ -308,7 +295,7 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  // CRUD handlers (create/update/delete)
+  // CRUD helpers
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -422,7 +409,7 @@ export function TransactionPage({ mode, service }: Props) {
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
 
-          {/* BUTTON ROW (moved up so filters align under it) */}
+          {/* BUTTON ROW (moved up) */}
           <div className="flex items-center gap-3">
             <button
               onClick={exportVisibleToExcel}
@@ -465,77 +452,78 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         </div>
 
-        {/* SEARCH (own row) */}
-        <div className="mt-2">
-          <input
-            type="text"
-            placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full max-w-4xl px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
-        </div>
+        {/* SEARCH (right) and FILTERS (left) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={originFilter ?? ""}
+              onChange={(e) => setOriginFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos orígenes</option>
+              {bankOptions.map((b) => (
+                <option key={b.id} value={b.id}>{b.label}</option>
+              ))}
+            </select>
 
-        {/* FILTERS ROW (below search) */}
-        <div className="flex flex-wrap items-center gap-3 mt-3">
-          <select
-            value={originFilter ?? ""}
-            onChange={(e) => setOriginFilter(e.target.value || null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          >
-            <option value="">Todos orígenes</option>
-            {bankOptions.map((b) => (
-              <option key={b.id} value={b.id}>{b.label}</option>
-            ))}
-          </select>
+            <select
+              value={destFilter ?? ""}
+              onChange={(e) => setDestFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos destinos</option>
+              {bankOptions.map((b) => (
+                <option key={b.id} value={b.id}>{b.label}</option>
+              ))}
+            </select>
 
-          <select
-            value={destFilter ?? ""}
-            onChange={(e) => setDestFilter(e.target.value || null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          >
-            <option value="">Todos destinos</option>
-            {bankOptions.map((b) => (
-              <option key={b.id} value={b.id}>{b.label}</option>
-            ))}
-          </select>
+            <select
+              value={categoryFilter !== null ? String(categoryFilter) : ""}
+              onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todas categorías</option>
+              {categories.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </select>
 
-          <select
-            value={categoryFilter !== null ? String(categoryFilter) : ""}
-            onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          >
-            <option value="">Todas categorías</option>
-            {categories.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
-            ))}
-          </select>
+            <select
+              value={typeFilter ?? ""}
+              onChange={(e) => setTypeFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos tipos</option>
+              <option value="fixed">Fixed</option>
+              <option value="variable">Variable</option>
+              <option value="temporary">Temporary</option>
+            </select>
 
-          <select
-            value={typeFilter ?? ""}
-            onChange={(e) => setTypeFilter(e.target.value || null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          >
-            <option value="">Todos tipos</option>
-            <option value="fixed">Fixed</option>
-            <option value="variable">Variable</option>
-            <option value="temporary">Temporary</option>
-          </select>
+            <input
+              type="date"
+              value={startDateFilter ?? ""}
+              onChange={(e) => setStartDateFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            />
+            <input
+              type="date"
+              value={endDateFilter ?? ""}
+              onChange={(e) => setEndDateFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
 
-          <input
-            type="date"
-            value={startDateFilter ?? ""}
-            onChange={(e) => setStartDateFilter(e.target.value || null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          />
-          <input
-            type="date"
-            value={endDateFilter ?? ""}
-            onChange={(e) => setEndDateFilter(e.target.value || null)}
-            className="px-3 py-2 border border-slate-300 rounded-lg"
-          />
+          <div className="ml-auto">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-72 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
 
-          <div className="ml-auto text-sm text-slate-500">
+          <div className="w-full text-right text-sm text-slate-500 mt-2 lg:mt-0">
             {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
           </div>
         </div>

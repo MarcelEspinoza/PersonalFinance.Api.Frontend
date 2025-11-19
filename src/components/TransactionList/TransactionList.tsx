@@ -1,4 +1,3 @@
-// Full file: TransactionList.tsx
 import { ArrowUpDown, ChevronDown, ChevronUp, Edit2, MoreVertical, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -120,13 +119,13 @@ export function TransactionList({
           <tr>
             <th className="px-4 py-3 text-left w-12"></th>
 
-            <th className="px-4 py-3 text-left min-w-[420px]">
+            <th className="px-4 py-3 text-left min-w-[340px]">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
                 Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-left w-44">
+            <th className="px-4 py-3 text-left w-36">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
                 Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
               </button>
@@ -146,19 +145,19 @@ export function TransactionList({
 
             <th className="px-4 py-3 text-left w-40">Categoría</th>
 
-            <th className="px-4 py-3 text-left w-36">
+            <th className="px-4 py-3 text-left w-28">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
                 Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-right w-36">
+            <th className="px-4 py-3 text-right w-28 pr-8">
               <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
-                Importe <SortIcon active={sortBy === "amount"} dir={sortDir} />
+                Imp <SortIcon active={sortBy === "amount"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 w-28 sticky right-0 bg-slate-50"></th>
+            <th className="px-4 py-3 w-36 sticky right-0 bg-slate-50"></th>
           </tr>
         </thead>
 
@@ -184,14 +183,14 @@ export function TransactionList({
                 {/* Content wrapper: translateX when menu open; on mobile we won't translate */}
                 <td
                   className="px-4 py-3 align-top transition-transform duration-200"
-                  style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}
+                  style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}
                   onClick={() => setOpenRowId(null)}
                 >
                   <div
                     className="font-medium text-slate-800 leading-snug"
                     style={{
                       display: "-webkit-box",
-                      WebkitLineClamp: 2,
+                      WebkitLineClamp: 1,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                     }}
@@ -216,47 +215,46 @@ export function TransactionList({
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600 truncate max-w-[150px]">
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600 truncate max-w-[120px]">
                     <Highlight text={tx.bankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600 truncate max-w-[150px]">
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600 truncate max-w-[160px]">
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600">
                     {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
                   <Highlight text={tx.category} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-8" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
                   <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {tx.amount.toFixed(2)} €
                   </span>
                 </td>
 
                 {/* Actions column: three-dots button and action panel */}
-                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white">
+                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white border-l border-slate-100 shadow-sm">
                   {/* three-dots button */}
                   <button
                     data-more-btn
                     onClick={(e) => {
                       e.stopPropagation();
                       if (isMobile) {
-                        // on mobile open a simple modal-like actions sheet
                         setOpenRowId(tx.id);
                       } else {
                         setOpenRowId(isOpen ? null : tx.id);
@@ -274,7 +272,7 @@ export function TransactionList({
                   <div
                     data-actions
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2 items-center transition-opacity duration-150 z-20 ${
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-3 items-center transition-opacity duration-150 z-30 ${
                       isOpen && !isMobile ? "opacity-100" : "opacity-0 pointer-events-none"
                     }`}
                   >
@@ -283,7 +281,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         onEdit(tx);
                       }}
-                      className="h-10 min-w-[120px] px-4 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center justify-center gap-2"
+                      className="h-10 min-w-[140px] px-4 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center justify-center gap-2"
                     >
                       <Edit2 className="w-4 h-4" /> <span className="text-sm font-medium">Editar</span>
                     </button>
@@ -293,7 +291,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
                       }}
-                      className="h-10 min-w-[120px] px-4 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center justify-center gap-2"
+                      className="h-10 min-w-[140px] px-4 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" /> <span className="text-sm font-medium">Eliminar</span>
                     </button>
