@@ -6,8 +6,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
 import transferService from "../../services/transferService";
-import { TransactionList } from "./TransactionList";
 import { formatDate, getInitialFormData } from "./transaction.utils";
+import { TransactionList } from "./TransactionList";
 
 interface Props {
   mode: "income" | "expense";
@@ -27,6 +27,7 @@ interface Category { id: number; name: string; }
 
 export function TransactionPage({ mode, service }: Props) {
   const { user } = useAuth();
+
   const [allRaw, setAllRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -41,22 +42,29 @@ export function TransactionPage({ mode, service }: Props) {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [bankMap, setBankMap] = useState<Record<string, string>>({});
+  const [bankOptions, setBankOptions] = useState<{ id: string; label: string }[]>([]);
+
+  // filters
+  const [originFilter, setOriginFilter] = useState<string | null>(null);
+  const [destFilter, setDestFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   // sorting
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  // debounce input
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchTerm.trim().toLowerCase()), 250);
     return () => clearTimeout(id);
   }, [searchTerm]);
 
   useEffect(() => {
-    if (user) {
-      loadBanks();
-      loadData();
-      loadCategories();
-    }
+    if (!user) return;
+    loadBanks();
+    loadData();
+    loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -64,13 +72,18 @@ export function TransactionPage({ mode, service }: Props) {
     try {
       const { data } = await bankService.getAll();
       const map: Record<string, string> = {};
+      const opts: { id: string; label: string }[] = [];
       (data || []).forEach((b: any) => {
-        map[b.id] = `${b.name}${b.entity ? ` | ${b.entity}` : ""}`;
+        const label = `${b.name}${b.entity ? ` | ${b.entity}` : ""}`;
+        map[b.id] = label;
+        opts.push({ id: b.id, label });
       });
       setBankMap(map);
+      setBankOptions(opts);
     } catch (error) {
       console.error("Error loading banks:", error);
       setBankMap({});
+      setBankOptions([]);
     }
   };
 
@@ -80,6 +93,7 @@ export function TransactionPage({ mode, service }: Props) {
       setCategories(data || []);
     } catch (error) {
       console.error("Error loading categories:", error);
+      setCategories([]);
     }
   };
 
@@ -97,7 +111,7 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  // normalize + filter + search + sort (no tabs)
+  // normalize + apply filters + search + sort
   const items = useMemo(() => {
     const normalized = (allRaw || []).map((i: any) => {
       const bankId = i.bankId ?? i.BankId ?? null;
@@ -111,6 +125,7 @@ export function TransactionPage({ mode, service }: Props) {
         start_date: i.start_Date ?? i.start_date ?? i.startDate ?? null,
         end_date: i.end_Date ?? i.end_date ?? i.endDate ?? null,
         category: i.categoryName ?? i.category ?? i.CategoryName ?? "",
+        categoryId: i.categoryId ?? i.CategoryId ?? 0,
         frequency: i.frequency ?? i.Frequency ?? null,
         is_active: i.isActive ?? i.is_active ?? null,
         notes: i.notes ?? i.Notes ?? "",
@@ -122,10 +137,17 @@ export function TransactionPage({ mode, service }: Props) {
       };
     });
 
+    // apply filters
+    let filtered = normalized;
+    if (originFilter) filtered = filtered.filter((r: any) => (r.bankId ?? "") === originFilter);
+    if (destFilter) filtered = filtered.filter((r: any) => (r.counterpartyBankId ?? "") === destFilter);
+    if (categoryFilter) filtered = filtered.filter((r: any) => Number(r.categoryId) === Number(categoryFilter));
+    if (typeFilter) filtered = filtered.filter((r: any) => String(r.type ?? "").toLowerCase() === String(typeFilter).toLowerCase());
+
     // search
     const q = debouncedSearch;
-    const filtered = q
-      ? normalized.filter((r: any) => {
+    const searched = q
+      ? filtered.filter((r: any) => {
           const parts = [
             r.description,
             r.notes,
@@ -139,10 +161,10 @@ export function TransactionPage({ mode, service }: Props) {
           ];
           return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
         })
-      : normalized;
+      : filtered;
 
-    // sorting
-    const sorted = [...filtered].sort((a: any, b: any) => {
+    // sort
+    const sorted = [...searched].sort((a: any, b: any) => {
       const dir = sortDir === "asc" ? 1 : -1;
       if (sortBy === "description") {
         return dir * String(a.description ?? "").localeCompare(String(b.description ?? ""), undefined, { sensitivity: "base" });
@@ -159,16 +181,15 @@ export function TransactionPage({ mode, service }: Props) {
       if (sortBy === "type") {
         return dir * String(a.type ?? "").localeCompare(String(b.type ?? ""), undefined, { sensitivity: "base" });
       }
-      // date (default)
       const da = a.date ? new Date(a.date).getTime() : 0;
       const db = b.date ? new Date(b.date).getTime() : 0;
       return dir * (da - db);
     });
 
     return sorted;
-  }, [allRaw, bankMap, debouncedSearch, sortBy, sortDir]);
+  }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, sortBy, sortDir]);
 
-  // CRUD helpers
+  // submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -265,7 +286,6 @@ export function TransactionPage({ mode, service }: Props) {
     setFormData(getInitialFormData());
   };
 
-  // toggle sort column
   const requestSort = (col: SortBy) => {
     if (sortBy === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -276,80 +296,122 @@ export function TransactionPage({ mode, service }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">
-          Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
-        </h1>
-        <div className="flex items-center space-x-2">
-          <ExportButton mode={mode} />
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
-          >
-            Importar plantilla
-          </button>
-          {selectedIds.length > 0 && (
+    <div className="py-6">
+      <div className="max-w-screen-xl mx-auto px-4 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-slate-800">
+            Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
+          </h1>
+          <div className="flex items-center space-x-2">
+            <ExportButton mode={mode} />
             <button
-              onClick={handleDeleteSelected}
-              disabled={deleting}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50"
+              onClick={() => setShowImportModal(true)}
+              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
             >
-              {deleting && (
-                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-              )}
-              {deleting ? "Eliminando..." : `Eliminar seleccionados (${selectedIds.length})`}
+              Importar plantilla
             </button>
-          )}
-          <button
-            onClick={() => {
-              setEditingId(null);
-              setFormData(getInitialFormData());
-              setShowModal(true);
-            }}
-            className={`flex items-center px-4 py-2 ${
-              mode === "income"
-                ? "bg-emerald-500 hover:bg-emerald-600"
-                : "bg-red-500 hover:bg-red-600"
-            } text-white rounded-lg transition`}
-          >
-            Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
-          </button>
-        </div>
-      </div>
-
-      {/* SEARCH + COUNT */}
-      <div className="flex items-center justify-between mt-3">
-        <input
-          type="text"
-          placeholder="Buscar por descripción, notas, categoría, banco, referencia..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full max-w-2xl px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-        />
-        <div className="ml-3 text-sm text-slate-500">
-          {items.length} resultados
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">
-            Cargando {mode === "income" ? "ingresos" : "gastos"}...
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50"
+              >
+                {deleting ? "Eliminando..." : `Eliminar seleccionados (${selectedIds.length})`}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setEditingId(null);
+                setFormData(getInitialFormData());
+                setShowModal(true);
+              }}
+              className={`flex items-center px-4 py-2 ${
+                mode === "income" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600"
+              } text-white rounded-lg transition`}
+            >
+              Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
+            </button>
           </div>
-        ) : (
-          <TransactionList
-            mode={mode}
-            transactions={items}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            onRequestSort={requestSort}
+        </div>
+
+        {/* SEARCH + FILTERS */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4">
+          <input
+            type="text"
+            placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
           />
-        )}
+
+          <div className="flex items-center gap-3">
+            <select
+              value={originFilter ?? ""}
+              onChange={(e) => setOriginFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos orígenes</option>
+              {bankOptions.map((b) => (
+                <option key={b.id} value={b.id}>{b.label}</option>
+              ))}
+            </select>
+
+            <select
+              value={destFilter ?? ""}
+              onChange={(e) => setDestFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos destinos</option>
+              {bankOptions.map((b) => (
+                <option key={b.id} value={b.id}>{b.label}</option>
+              ))}
+            </select>
+
+            <select
+              value={categoryFilter ?? ""}
+              onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todas categorías</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+
+            <select
+              value={typeFilter ?? ""}
+              onChange={(e) => setTypeFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="">Todos tipos</option>
+              <option value="fixed">Fixed</option>
+              <option value="variable">Variable</option>
+              <option value="temporary">Temporary</option>
+            </select>
+          </div>
+
+          <div className="ml-auto text-sm text-slate-500">{items.length} resultados</div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+          {loading ? (
+            <div className="p-8 text-center text-slate-500">
+              Cargando {mode === "income" ? "ingresos" : "gastos"}...
+            </div>
+          ) : (
+            <TransactionList
+              mode={mode}
+              transactions={items}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onRequestSort={requestSort}
+            />
+          )}
+        </div>
       </div>
 
       {user && (

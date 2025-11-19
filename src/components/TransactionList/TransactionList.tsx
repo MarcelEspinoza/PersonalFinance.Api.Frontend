@@ -60,7 +60,7 @@ export function TransactionList({
           <th className="px-4 py-3 text-left w-12"></th>
 
           {/* DESCRIPTION: wider */}
-          <th className="px-4 py-3 text-left min-w-[340px]">
+          <th className="px-4 py-3 text-left min-w-[420px]">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
               Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
             </button>
@@ -90,14 +90,12 @@ export function TransactionList({
           {/* CATEGORY */}
           <th className="px-4 py-3 text-left w-40">Categoría</th>
 
-          {/* TYPE (separate column now) */}
+          {/* TYPE (separate column) */}
           <th className="px-4 py-3 text-left w-36">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
               Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
             </button>
           </th>
-
-          <th className="px-4 py-3 text-left hidden lg:table-cell">Notas</th>
 
           <th className="px-4 py-3 text-right w-36">
             <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
@@ -148,10 +146,6 @@ export function TransactionList({
 
             <td className="px-4 py-3 align-top text-sm text-slate-600">
               {tx.type ?? "-"}
-            </td>
-
-            <td className="px-4 py-3 align-top text-sm text-slate-600 hidden lg:table-cell">
-              {tx.notes ?? "-"}
             </td>
 
             <td className="px-4 py-3 align-top text-right font-bold">
