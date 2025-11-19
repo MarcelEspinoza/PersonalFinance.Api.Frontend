@@ -454,6 +454,17 @@ export function TransactionPage({ mode, service }: Props) {
 
         {/* SEARCH (right) and FILTERS (left) */}
         <div className="flex flex-wrap items-center gap-3">
+
+          <div className="ml-auto">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-72 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+
           <div className="flex items-center gap-3 flex-wrap">
             <select
               value={originFilter ?? ""}
@@ -513,15 +524,7 @@ export function TransactionPage({ mode, service }: Props) {
             />
           </div>
 
-          <div className="ml-auto">
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-72 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
+
 
           <div className="w-full text-right text-sm text-slate-500 mt-2 lg:mt-0">
             {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales

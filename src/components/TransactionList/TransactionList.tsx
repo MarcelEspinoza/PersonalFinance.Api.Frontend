@@ -119,7 +119,8 @@ export function TransactionList({
           <tr>
             <th className="px-4 py-3 text-left w-12"></th>
 
-            <th className="px-4 py-3 text-left min-w-[340px]">
+            {/* DESCRIPTION: reduced to free more space for amount */}
+            <th className="px-4 py-3 text-left min-w-[200px]">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
                 Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
               </button>
@@ -151,13 +152,15 @@ export function TransactionList({
               </button>
             </th>
 
-            <th className="px-4 py-3 text-right w-28 pr-8">
+            {/* Amount cell: nowrap + padding to keep euro visible */}
+            <th className="px-4 py-3 text-right w-28 pr-12">
               <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
                 Imp <SortIcon active={sortBy === "amount"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 w-36 sticky right-0 bg-slate-50"></th>
+            {/* Actions column: small for the 3-dot button only */}
+            <th className="px-4 py-3 w-16 sticky right-0 bg-white border-l border-slate-100 shadow-sm"></th>
           </tr>
         </thead>
 
@@ -180,10 +183,10 @@ export function TransactionList({
                   )}
                 </td>
 
-                {/* Content wrapper: translateX when menu open; on mobile we won't translate */}
+                {/* Content: clamp 1 line to keep rows consistent */}
                 <td
                   className="px-4 py-3 align-top transition-transform duration-200"
-                  style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}
+                  style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}
                   onClick={() => setOpenRowId(null)}
                 >
                   <div
@@ -215,41 +218,41 @@ export function TransactionList({
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600 truncate max-w-[120px]">
                     <Highlight text={tx.bankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600 truncate max-w-[160px]">
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600">
                     {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <Highlight text={tx.category} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-8" style={{ transform: isOpen && !isMobile ? "translateX(-260px)" : "translateX(0)" }}>
-                  <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {tx.amount.toFixed(2)} €
+                {/* Amount: force nowrap and non-breaking space with € */}
+                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-12" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
+                  <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"} whitespace-nowrap`}>
+                    {tx.amount.toFixed(2)}{'\u00A0€'}
                   </span>
                 </td>
 
-                {/* Actions column: three-dots button and action panel */}
+                {/* Actions column: small width, three-dots button visible; action panel overlays */}
                 <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white border-l border-slate-100 shadow-sm">
-                  {/* three-dots button */}
                   <button
                     data-more-btn
                     onClick={(e) => {
@@ -268,11 +271,11 @@ export function TransactionList({
                     <MoreVertical className="w-5 h-5 text-slate-600" />
                   </button>
 
-                  {/* Action panel (desktop) */}
+                  {/* Action panel (desktop): overlays to the left so actions are fully visible */}
                   <div
                     data-actions
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-3 items-center transition-opacity duration-150 z-30 ${
+                    className={`absolute right-4 top-1/2 transform -translate-y-1/2 flex gap-3 items-center transition-opacity duration-150 z-40 ${
                       isOpen && !isMobile ? "opacity-100" : "opacity-0 pointer-events-none"
                     }`}
                   >
@@ -297,7 +300,7 @@ export function TransactionList({
                     </button>
                   </div>
 
-                  {/* Mobile action sheet (full screen bottom-like modal) */}
+                  {/* Mobile action sheet */}
                   {isMobile && openRowId === tx.id && (
                     <div
                       className="fixed inset-0 z-40 flex items-end justify-center"
