@@ -84,8 +84,8 @@ export function TransactionPage({ mode, service }: Props) {
       const opts: { id: string; label: string }[] = [];
       (data || []).forEach((b: any) => {
         const label = `${b.name}${b.entity ? ` | ${b.entity}` : ""}`;
-        map[b.id] = label;
-        opts.push({ id: b.id, label });
+        map[String(b.id)] = label;
+        opts.push({ id: String(b.id), label });
       });
       setBankMap(map);
       setBankOptions(opts);
@@ -137,10 +137,10 @@ export function TransactionPage({ mode, service }: Props) {
         frequency: i.frequency ?? i.Frequency ?? null,
         is_active: i.isActive ?? i.is_active ?? null,
         type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
-        bankId,
-        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[bankId] ?? "" : "")),
-        counterpartyBankId: cpBankId,
-        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[cpBankId] ?? "" : ""),
+        bankId: bankId !== null ? String(bankId) : null,
+        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[String(bankId)] ?? "" : "")),
+        counterpartyBankId: cpBankId !== null ? String(cpBankId) : null,
+        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[String(cpBankId)] ?? "" : ""),
         transferReference: i.transferReference ?? i.TransferReference ?? ""
       };
     });
@@ -149,7 +149,7 @@ export function TransactionPage({ mode, service }: Props) {
     let filtered = normalized;
     if (originFilter) filtered = filtered.filter((r: any) => (r.bankId ?? "") === originFilter);
     if (destFilter) filtered = filtered.filter((r: any) => (r.counterpartyBankId ?? "") === destFilter);
-    if (categoryFilter) filtered = filtered.filter((r: any) => Number(r.categoryId) === Number(categoryFilter));
+    if (categoryFilter !== null) filtered = filtered.filter((r: any) => Number(r.categoryId) === Number(categoryFilter));
     if (typeFilter) filtered = filtered.filter((r: any) => String(r.type ?? "").toLowerCase() === String(typeFilter).toLowerCase());
     if (startDateFilter) {
       filtered = filtered.filter((r: any) => {
@@ -236,7 +236,7 @@ export function TransactionPage({ mode, service }: Props) {
 
   const visibleItems = items.slice(0, visibleCount);
 
-  // Export visible/current view to Excel (.xlsx) using SheetJS
+  // Export visible/current view to Excel (.xlsx) using SheetJS, with numeric formatting and summary sheet
   const exportVisibleToExcel = () => {
     try {
       // Map visible items to simple objects for SheetJS
@@ -252,11 +252,40 @@ export function TransactionPage({ mode, service }: Props) {
         Reference: r.transferReference ?? "",
       }));
 
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const ws = XLSX.utils.json_to_sheet(rows, { dateNF: "yyyy-mm-dd" });
+      // Ensure Amount is numeric by converting column cells
+      for (let R = 2; R <= rows.length + 1; ++R) {
+        const cell = ws[`H${R}`]; // Amount column (H)
+        if (cell && typeof cell.v === "string") {
+          const num = Number(cell.v);
+          if (!Number.isNaN(num)) cell.v = num;
+        }
+      }
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transactions");
 
-      // Optional: adjust column widths (approx)
+      // Summary sheet: totals by category and by bank
+      const totalsByCategory: Record<string, number> = {};
+      const totalsByBank: Record<string, number> = {};
+      visibleItems.forEach((r) => {
+        const cat = r.category || "Sin categoría";
+        totalsByCategory[cat] = (totalsByCategory[cat] || 0) + (Number(r.amount) || 0);
+        const bank = r.bankName || "Sin banco";
+        totalsByBank[bank] = (totalsByBank[bank] || 0) + (Number(r.amount) || 0);
+      });
+
+      const catRows: Array<[string, number] | [string, string]> = [["Category", "Total"]];
+      Object.entries(totalsByCategory).forEach(([k, v]) => catRows.push([k, v]));
+      const bankRows: Array<[string, number] | [string, string]> = [["Bank", "Total"]];
+      Object.entries(totalsByBank).forEach(([k, v]) => bankRows.push([k, v]));
+
+      const wsCat = XLSX.utils.aoa_to_sheet(catRows);
+      const wsBank = XLSX.utils.aoa_to_sheet(bankRows);
+      XLSX.utils.book_append_sheet(wb, wsCat, "TotalsByCategory");
+      XLSX.utils.book_append_sheet(wb, wsBank, "TotalsByBank");
+
+      // Column widths for Transactions sheet
       const wscols = [
         { wch: 8 },   // Id
         { wch: 60 },  // Description
@@ -386,42 +415,47 @@ export function TransactionPage({ mode, service }: Props) {
 
   return (
     <div className="py-6">
-      <div className="max-w-[1800px] mx-auto px-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="max-w-[1800px] mx-auto px-6 space-y-4">
+        <div className="flex items-start justify-between">
           <h1 className="text-3xl font-bold text-slate-800">
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
-          <div className="flex items-center space-x-2">
+
+          {/* BUTTON ROW (moved up so filters align under it) */}
+          <div className="flex items-center gap-3">
             <button
               onClick={exportVisibleToExcel}
-              className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-50 hover:bg-emerald-200 transition"
+              className="px-4 h-10 py-2 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-50 hover:bg-emerald-200 transition"
             >
               Exportar vista (Excel)
             </button>
 
             <ExportButton mode={mode} />
+
             <button
               onClick={() => setShowImportModal(true)}
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
+              className="px-4 h-10 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
             >
               Importar plantilla
             </button>
+
             {selectedIds.length > 0 && (
               <button
                 onClick={handleDeleteSelected}
                 disabled={deleting}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
+                className="flex items-center gap-2 px-4 h-10 py-2 bg-rove-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
               >
                 {deleting ? "Eliminando..." : `Eliminar (${selectedIds.length})`}
               </button>
             )}
+
             <button
               onClick={() => {
                 setEditingId(null);
                 setFormData(getInitialFormData());
                 setShowModal(true);
               }}
-              className={`flex items-center px-4 py-2 ${
+              className={`flex items-center px-4 h-10 py-2 ${
                 mode === "income" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-rose-500 hover:bg-rose-600"
               } text-white rounded-lg transition`}
             >
@@ -464,13 +498,13 @@ export function TransactionPage({ mode, service }: Props) {
             </select>
 
             <select
-              value={categoryFilter ?? ""}
+              value={categoryFilter !== null ? String(categoryFilter) : ""}
               onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
               className="px-3 py-2 border border-slate-300 rounded-lg"
             >
               <option value="">Todas categorías</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
               ))}
             </select>
 

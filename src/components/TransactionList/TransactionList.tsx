@@ -183,13 +183,13 @@ export function TransactionList({
                 {/* Content wrapper: translateX when menu open; on mobile we won't translate */}
                 <td
                   className="px-4 py-3 align-top transition-transform duration-200"
-                  style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}
+                  style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}
                   onClick={() => setOpenRowId(null)}
                 >
-                  <div className="font-medium text-slate-800 leading-snug">
+                  <div className="font-medium text-slate-800 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                     <Highlight text={tx.description} term={highlight} />
                   </div>
-                  <div className="text-sm text-slate-500 mt-1">
+                  <div className="text-sm text-slate-500 mt-1" style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                     {tx.transferReference && (
                       <span className="mr-2">
                         Ref: <Highlight text={tx.transferReference} term={highlight} />
@@ -199,33 +199,33 @@ export function TransactionList({
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600">
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     <Highlight text={tx.bankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600">
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600">
                     {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
                   <Highlight text={tx.category} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
                   <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {tx.amount.toFixed(2)} €
                   </span>
@@ -253,11 +253,11 @@ export function TransactionList({
                     <MoreVertical className="w-5 h-5 text-slate-600" />
                   </button>
 
-                  {/* Action panel (desktop) */}
+                  {/* Action panel (desktop) — buttons sized to match row height */}
                   <div
                     data-actions
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute right-0 top-1/2 transform -translate-y-1/2 flex gap-2 items-center transition-opacity duration-150 z-20 ${
+                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2 items-center transition-opacity duration-150 z-20 ${
                       isOpen && !isMobile ? "opacity-100" : "opacity-0 pointer-events-none"
                     }`}
                   >
@@ -266,7 +266,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         onEdit(tx);
                       }}
-                      className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center gap-2"
+                      className="h-10 min-w-[120px] px-4 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center justify-center gap-2"
                     >
                       <Edit2 className="w-4 h-4" /> <span className="text-sm font-medium">Editar</span>
                     </button>
@@ -276,7 +276,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
                       }}
-                      className="px-3 py-1 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center gap-2"
+                      className="h-10 min-w-[120px] px-4 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" /> <span className="text-sm font-medium">Eliminar</span>
                     </button>
