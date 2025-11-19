@@ -1,3 +1,4 @@
+// Full file: TransactionList.tsx
 import { ArrowUpDown, ChevronDown, ChevronUp, Edit2, MoreVertical, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -157,7 +158,7 @@ export function TransactionList({
               </button>
             </th>
 
-            <th className="px-4 py-3 w-28"></th>
+            <th className="px-4 py-3 w-28 sticky right-0 bg-slate-50"></th>
           </tr>
         </thead>
 
@@ -186,10 +187,26 @@ export function TransactionList({
                   style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}
                   onClick={() => setOpenRowId(null)}
                 >
-                  <div className="font-medium text-slate-800 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  <div
+                    className="font-medium text-slate-800 leading-snug"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     <Highlight text={tx.description} term={highlight} />
                   </div>
-                  <div className="text-sm text-slate-500 mt-1" style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  <div
+                    className="text-sm text-slate-500 mt-1"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     {tx.transferReference && (
                       <span className="mr-2">
                         Ref: <Highlight text={tx.transferReference} term={highlight} />
@@ -200,13 +217,13 @@ export function TransactionList({
                 </td>
 
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div className="text-sm text-slate-600 truncate max-w-[150px]">
                     <Highlight text={tx.bankName} term={highlight} />
                   </div>
                 </td>
 
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-220px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div className="text-sm text-slate-600 truncate max-w-[150px]">
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
@@ -232,7 +249,7 @@ export function TransactionList({
                 </td>
 
                 {/* Actions column: three-dots button and action panel */}
-                <td className="px-4 py-3 align-top text-right relative">
+                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white">
                   {/* three-dots button */}
                   <button
                     data-more-btn
@@ -253,7 +270,7 @@ export function TransactionList({
                     <MoreVertical className="w-5 h-5 text-slate-600" />
                   </button>
 
-                  {/* Action panel (desktop) — buttons sized to match row height */}
+                  {/* Action panel (desktop) */}
                   <div
                     data-actions
                     onClick={(e) => e.stopPropagation()}

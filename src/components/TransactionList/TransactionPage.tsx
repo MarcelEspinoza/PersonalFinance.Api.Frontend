@@ -83,9 +83,10 @@ export function TransactionPage({ mode, service }: Props) {
       const map: Record<string, string> = {};
       const opts: { id: string; label: string }[] = [];
       (data || []).forEach((b: any) => {
+        const id = String(b.id);
         const label = `${b.name}${b.entity ? ` | ${b.entity}` : ""}`;
-        map[String(b.id)] = label;
-        opts.push({ id: String(b.id), label });
+        map[id] = label;
+        opts.push({ id, label });
       });
       setBankMap(map);
       setBankOptions(opts);
@@ -275,9 +276,9 @@ export function TransactionPage({ mode, service }: Props) {
         totalsByBank[bank] = (totalsByBank[bank] || 0) + (Number(r.amount) || 0);
       });
 
-      const catRows: Array<[string, number] | [string, string]> = [["Category", "Total"]];
+      const catRows: (string | number)[][] = [["Category", "Total"]];
       Object.entries(totalsByCategory).forEach(([k, v]) => catRows.push([k, v]));
-      const bankRows: Array<[string, number] | [string, string]> = [["Bank", "Total"]];
+      const bankRows: (string | number)[][] = [["Bank", "Total"]];
       Object.entries(totalsByBank).forEach(([k, v]) => bankRows.push([k, v]));
 
       const wsCat = XLSX.utils.aoa_to_sheet(catRows);
@@ -443,7 +444,7 @@ export function TransactionPage({ mode, service }: Props) {
               <button
                 onClick={handleDeleteSelected}
                 disabled={deleting}
-                className="flex items-center gap-2 px-4 h-10 py-2 bg-rove-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
+                className="flex items-center gap-2 px-4 h-10 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
               >
                 {deleting ? "Eliminando..." : `Eliminar (${selectedIds.length})`}
               </button>
@@ -464,75 +465,75 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         </div>
 
-        {/* SEARCH + FILTERS (incluye filtro de fecha) */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4">
+        {/* SEARCH (own row) */}
+        <div className="mt-2">
           <input
             type="text"
             placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="w-full max-w-4xl px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
           />
+        </div>
 
-          <div className="flex items-center gap-3">
-            <select
-              value={originFilter ?? ""}
-              onChange={(e) => setOriginFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos orígenes</option>
-              {bankOptions.map((b) => (
-                <option key={b.id} value={b.id}>{b.label}</option>
-              ))}
-            </select>
+        {/* FILTERS ROW (below search) */}
+        <div className="flex flex-wrap items-center gap-3 mt-3">
+          <select
+            value={originFilter ?? ""}
+            onChange={(e) => setOriginFilter(e.target.value || null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          >
+            <option value="">Todos orígenes</option>
+            {bankOptions.map((b) => (
+              <option key={b.id} value={b.id}>{b.label}</option>
+            ))}
+          </select>
 
-            <select
-              value={destFilter ?? ""}
-              onChange={(e) => setDestFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos destinos</option>
-              {bankOptions.map((b) => (
-                <option key={b.id} value={b.id}>{b.label}</option>
-              ))}
-            </select>
+          <select
+            value={destFilter ?? ""}
+            onChange={(e) => setDestFilter(e.target.value || null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          >
+            <option value="">Todos destinos</option>
+            {bankOptions.map((b) => (
+              <option key={b.id} value={b.id}>{b.label}</option>
+            ))}
+          </select>
 
-            <select
-              value={categoryFilter !== null ? String(categoryFilter) : ""}
-              onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todas categorías</option>
-              {categories.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-            </select>
+          <select
+            value={categoryFilter !== null ? String(categoryFilter) : ""}
+            onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          >
+            <option value="">Todas categorías</option>
+            {categories.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
 
-            <select
-              value={typeFilter ?? ""}
-              onChange={(e) => setTypeFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos tipos</option>
-              <option value="fixed">Fixed</option>
-              <option value="variable">Variable</option>
-              <option value="temporary">Temporary</option>
-            </select>
+          <select
+            value={typeFilter ?? ""}
+            onChange={(e) => setTypeFilter(e.target.value || null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          >
+            <option value="">Todos tipos</option>
+            <option value="fixed">Fixed</option>
+            <option value="variable">Variable</option>
+            <option value="temporary">Temporary</option>
+          </select>
 
-            {/* Date range */}
-            <input
-              type="date"
-              value={startDateFilter ?? ""}
-              onChange={(e) => setStartDateFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            />
-            <input
-              type="date"
-              value={endDateFilter ?? ""}
-              onChange={(e) => setEndDateFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            />
-          </div>
+          <input
+            type="date"
+            value={startDateFilter ?? ""}
+            onChange={(e) => setStartDateFilter(e.target.value || null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          />
+          <input
+            type="date"
+            value={endDateFilter ?? ""}
+            onChange={(e) => setEndDateFilter(e.target.value || null)}
+            className="px-3 py-2 border border-slate-300 rounded-lg"
+          />
 
           <div className="ml-auto text-sm text-slate-500">
             {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
