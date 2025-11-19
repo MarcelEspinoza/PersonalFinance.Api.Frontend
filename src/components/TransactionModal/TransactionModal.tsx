@@ -108,8 +108,8 @@ export function TransactionModal({
         isTransfer: prev.isTransfer ?? false,
         transferReference: prev.transferReference ?? "",
         counterpartyBankId: prev.transferCounterpartyBankId ?? prev.counterpartyBankId ?? "",
-        // Ensure source is available: prefer stored source, fall back to type or default
-        source: prev.source ?? prev.type ?? (type === "income" ? "fixed" : "variable"),
+        // ensure we keep source if present, else fallback to prev.type if present
+        source: prev.source ?? prev.type ?? "",
         // normalize bankId to string or null
         bankId: prev.bankId ?? null,
       }));
@@ -180,6 +180,7 @@ export function TransactionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Normalize amount: allow string input but send number
     const rawAmount = formData.amount ?? formData.amount === 0 ? formData.amount : "";
     const amountNum = Number(String(rawAmount).replace(",", "."));
     if (isNaN(amountNum)) {
@@ -199,13 +200,17 @@ export function TransactionModal({
     const categoryIdNum = formData.categoryId ? Number(formData.categoryId) : undefined;
     const loanId = formData.loanId ? formData.loanId : null;
     // Normalize bankId: empty -> null, otherwise string GUID
-    const bankId = formData.bankId ? formData.bankId : null;
+    const bankIdValue = formData.bankId && String(formData.bankId).trim() ? String(formData.bankId).trim() : null;
     const transferReference = formData.transferReference ? String(formData.transferReference).trim() : null;
-    const transferCounterpartyBankId = formData.counterpartyBankId ? formData.counterpartyBankId : null;
+    const transferCounterpartyBankId = formData.counterpartyBankId && String(formData.counterpartyBankId).trim()
+      ? String(formData.counterpartyBankId).trim()
+      : null;
 
-    // The backend expects the "Type" field to hold the source (fixed|variable|temporary).
-    // Use formData.source for that purpose and ensure a sensible default.
-    const sourceType = formData.source ?? (type === "income" ? "fixed" : "variable");
+    // IMPORTANT: treat empty string as "missing" for source
+    const sourceType =
+      formData.source && String(formData.source).trim()
+        ? String(formData.source).trim()
+        : (type === "income" ? "fixed" : "variable");
 
     const payload: any = {
       description: formData.description ?? "",
@@ -213,23 +218,37 @@ export function TransactionModal({
       date: dateIso,
       start_Date: startIso,
       end_Date: endIso,
-      // Send the movement's source in the "type" field (what backend uses)
+      // backend expects the 'Type' property to contain fixed|variable|temporary
       type: sourceType,
-      // keep 'source' too for compatibility with older endpoints (no harm)
+      // keep 'source' too (compat)
       source: sourceType,
       categoryId: categoryIdNum,
       notes: formData.notes ?? null,
       loanId,
       isIndefinite: !!formData.isIndefinite,
-      bankId,
       isTransfer: !!formData.isTransfer,
       transferReference,
       transferCounterpartyBankId,
     };
 
-    // Clean up undefined values
+    // Ensure BankId is sent normalized and in both casings (pascal/camel) to avoid binder surprises
+    payload.bankId = bankIdValue;
+    payload.BankId = bankIdValue;
+
+    // Ensure we have both type casings
+    payload.type = sourceType;
+    payload.Type = sourceType;
+
+    // Clean up undefined values (explicit null kept)
     Object.keys(payload).forEach((k) => {
       if (payload[k] === undefined) delete payload[k];
+    });
+
+    // DEBUG: log what we are about to send (Network panel will show the same).
+    console.log("Transaction payload being submitted:", {
+      payload,
+      formDataBankId: formData.bankId,
+      formDataSource: formData.source,
     });
 
     try {
