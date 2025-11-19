@@ -13,6 +13,7 @@ interface Transaction {
   is_active?: boolean;
   notes?: string;
   type?: string;
+  bankId?: string;
   bankName?: string;
   counterpartyBankName?: string;
   transferReference?: string;
@@ -25,13 +26,13 @@ interface Props {
   onDelete: (id: number) => void;
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
-  // new: select-all props
   onSelectAll?: () => void;
   allSelected?: boolean;
   sortBy: "description" | "bank" | "counterparty" | "date" | "amount" | "type";
   sortDir: "asc" | "desc";
   onRequestSort: (col: "description" | "bank" | "counterparty" | "date" | "amount" | "type") => void;
   highlight?: string;
+  bankMap?: Record<string, string>;
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
@@ -39,8 +40,10 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
 }
 
+// helper to escape regex special chars
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// highlight helper: returns JSX with <mark> around matches
 function Highlight({ text, term }: { text?: string; term?: string }) {
   if (!term || !text) return <>{text}</>;
   const t = text.toString();
@@ -80,10 +83,12 @@ export function TransactionList({
   sortDir,
   onRequestSort,
   highlight,
+  bankMap,
 }: Props) {
   const [openRowId, setOpenRowId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
+  // detect mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -91,6 +96,7 @@ export function TransactionList({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Close menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -118,18 +124,18 @@ export function TransactionList({
       <table className="min-w-full table-auto">
         <thead className="bg-slate-50">
           <tr>
-            {/* SELECT ALL in header */}
+            {/* SELECT ALL in header; counter BELOW the checkbox to avoid layout shift */}
             <th className="px-4 py-3 text-left w-12">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-start">
                 <input
                   type="checkbox"
                   aria-label="Seleccionar todo"
                   checked={Boolean(allSelected)}
                   onChange={() => onSelectAll && onSelectAll()}
                 />
-                {selectedIds.length > 0 && (
-                  <span className="text-sm text-slate-500">{selectedIds.length}/{transactions.length}</span>
-                )}
+                <div className="text-xs text-slate-500 mt-1">
+                  {selectedIds.length}/{transactions.length}
+                </div>
               </div>
             </th>
 
@@ -202,7 +208,7 @@ export function TransactionList({
                     className="font-medium text-slate-800 leading-snug"
                     style={{
                       display: "-webkit-box",
-                      WebkitLineClamp: 1,
+                      WebkitLineClamp: 2,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                     }}
@@ -227,9 +233,10 @@ export function TransactionList({
                   </div>
                 </td>
 
+                {/* Banco origen: prefer tx.bankName, else lookup bankMap by bankId, else show id */}
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <div className="text-sm text-slate-600 truncate max-w-[120px]">
-                    <Highlight text={tx.bankName} term={highlight} />
+                    {tx.bankName ?? (tx.bankId ? (bankMap ? bankMap[tx.bankId] ?? tx.bankId : tx.bankId) : "-")}
                   </div>
                 </td>
 

@@ -1,4 +1,3 @@
-// Full file: TransactionPage.tsx (updated to pass allSelected + onSelectAll)
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
@@ -140,9 +139,9 @@ export function TransactionPage({ mode, service }: Props) {
         is_active: i.isActive ?? i.is_active ?? null,
         type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
         bankId: bankId !== null ? String(bankId) : null,
-        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[String(bankId)] ?? "" : "")),
+        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[String(bankId)] ?? String(bankId) : "")),
         counterpartyBankId: cpBankId !== null ? String(cpBankId) : null,
-        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[String(cpBankId)] ?? "" : ""),
+        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[String(cpBankId)] ?? String(cpBankId) : ""),
         transferReference: i.transferReference ?? i.TransferReference ?? ""
       };
     });
@@ -554,6 +553,8 @@ export function TransactionPage({ mode, service }: Props) {
                 sortDir={sortDir}
                 onRequestSort={requestSort}
                 highlight={debouncedSearch}
+                // pass bankMap so origin bank can render "name | entity"
+                {...{ bankMap }}
               />
 
               <div ref={sentinelRef} className="h-6" />
