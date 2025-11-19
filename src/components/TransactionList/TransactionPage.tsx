@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
 import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
@@ -54,6 +54,12 @@ export function TransactionPage({ mode, service }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  // pagination/infinite scroll (client-side)
+  const pageSize = 20;
+  const [visibleCount, setVisibleCount] = useState<number>(pageSize);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
+
   // debounce input
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchTerm.trim().toLowerCase()), 250);
@@ -103,6 +109,8 @@ export function TransactionPage({ mode, service }: Props) {
       const { data } = await service.getAll();
       setAllRaw(Array.isArray(data) ? data : []);
       setSelectedIds([]);
+      // reset visibleCount when full reload
+      setVisibleCount(pageSize);
     } catch (error) {
       console.error("Error loading data:", error);
       setAllRaw([]);
@@ -122,18 +130,16 @@ export function TransactionPage({ mode, service }: Props) {
         description: i.description ?? i.name ?? "",
         amount: Number(i.amount ?? i.Amount ?? 0),
         date: i.date ?? i.Date ?? null,
-        start_date: i.start_Date ?? i.start_date ?? i.startDate ?? null,
-        end_date: i.end_Date ?? i.end_date ?? i.endDate ?? null,
         category: i.categoryName ?? i.category ?? i.CategoryName ?? "",
         categoryId: i.categoryId ?? i.CategoryId ?? 0,
         frequency: i.frequency ?? i.Frequency ?? null,
         is_active: i.isActive ?? i.is_active ?? null,
-        notes: i.notes ?? i.Notes ?? "",
         type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
         bankId,
         bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[bankId] ?? "" : "")),
         counterpartyBankId: cpBankId,
-        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[cpBankId] ?? "" : "")
+        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[cpBankId] ?? "" : ""),
+        transferReference: i.transferReference ?? i.TransferReference ?? ""
       };
     });
 
@@ -150,11 +156,10 @@ export function TransactionPage({ mode, service }: Props) {
       ? filtered.filter((r: any) => {
           const parts = [
             r.description,
-            r.notes,
             r.category,
             r.bankName,
             r.counterpartyBankName,
-            r.transferReference ?? r.transferReference ?? "",
+            r.transferReference ?? "",
             r.date ? new Date(r.date).toLocaleDateString("es-ES") : "",
             String(r.amount),
             r.type
@@ -189,7 +194,33 @@ export function TransactionPage({ mode, service }: Props) {
     return sorted;
   }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, sortBy, sortDir]);
 
-  // submit handler
+  // infinite scroll: observe sentinel and increase visibleCount
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !loadingMoreRef.current) {
+          loadingMoreRef.current = true;
+          setTimeout(() => {
+            setVisibleCount((v) => Math.min(items.length, v + pageSize));
+            loadingMoreRef.current = false;
+          }, 200); // small delay for UX
+        }
+      });
+    }, { rootMargin: "300px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [items.length]);
+
+  // reset visibleCount when filters/search change
+  useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, sortBy, sortDir]);
+
+  const visibleItems = items.slice(0, visibleCount);
+
+  // CRUD handlers (create/update/delete)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -261,7 +292,7 @@ export function TransactionPage({ mode, service }: Props) {
   };
 
   const handleSelectAll = () => {
-    setSelectedIds(selectedIds.length === items.length ? [] : items.map((i) => i.id));
+    setSelectedIds(selectedIds.length === visibleItems.length ? [] : visibleItems.map((i) => i.id));
   };
 
   const handleDeleteSelected = async () => {
@@ -297,7 +328,7 @@ export function TransactionPage({ mode, service }: Props) {
 
   return (
     <div className="py-6">
-      <div className="max-w-screen-xl mx-auto px-4 space-y-6">
+      <div className="max-w-screen-2xl mx-auto px-8 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-800">
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
@@ -390,7 +421,9 @@ export function TransactionPage({ mode, service }: Props) {
             </select>
           </div>
 
-          <div className="ml-auto text-sm text-slate-500">{items.length} resultados</div>
+          <div className="ml-auto text-sm text-slate-500">
+            {items.length} resultados
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -399,17 +432,28 @@ export function TransactionPage({ mode, service }: Props) {
               Cargando {mode === "income" ? "ingresos" : "gastos"}...
             </div>
           ) : (
-            <TransactionList
-              mode={mode}
-              transactions={items}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              onRequestSort={requestSort}
-            />
+            <>
+              <TransactionList
+                mode={mode}
+                transactions={visibleItems}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onRequestSort={requestSort}
+                highlight={debouncedSearch}
+              />
+
+              {/* sentinel for infinite scroll */}
+              <div ref={sentinelRef} className="h-6" />
+
+              {/* show "Cargando más..." when there are more items to show */}
+              {visibleCount < items.length && (
+                <div className="p-4 text-center text-slate-500">Cargando más...</div>
+              )}
+            </>
           )}
         </div>
       </div>
