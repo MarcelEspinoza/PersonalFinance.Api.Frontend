@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
 import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
@@ -159,7 +160,6 @@ export function TransactionPage({ mode, service }: Props) {
     if (endDateFilter) {
       filtered = filtered.filter((r: any) => {
         if (!r.date) return false;
-        // include whole day
         const end = new Date(endDateFilter as string);
         end.setHours(23, 59, 59, 999);
         return new Date(r.date) <= end;
@@ -236,30 +236,46 @@ export function TransactionPage({ mode, service }: Props) {
 
   const visibleItems = items.slice(0, visibleCount);
 
-  // Export visible/current view to CSV
-  const exportVisibleToCsv = () => {
-    const headers = ["Id", "Description", "Bank", "Counterparty", "Date", "Category", "Type", "Amount", "Reference"];
-    const rows = visibleItems.map((r) => [
-      r.id,
-      `"${(r.description ?? "").replace(/"/g, '""')}"`,
-      `"${(r.bankName ?? "").replace(/"/g, '""')}"`,
-      `"${(r.counterpartyBankName ?? "").replace(/"/g, '""')}"`,
-      r.date ? new Date(r.date).toISOString() : "",
-      `"${(r.category ?? "").replace(/"/g, '""')}"`,
-      r.type ?? "",
-      r.amount,
-      `"${(r.transferReference ?? "").replace(/"/g, '""')}"`,
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `transactions_view_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  // Export visible/current view to Excel (.xlsx) using SheetJS
+  const exportVisibleToExcel = () => {
+    try {
+      // Map visible items to simple objects for SheetJS
+      const rows = visibleItems.map((r) => ({
+        Id: r.id,
+        Description: r.description ?? "",
+        Bank: r.bankName ?? "",
+        Counterparty: r.counterpartyBankName ?? "",
+        Date: r.date ? new Date(r.date).toISOString() : "",
+        Category: r.category ?? "",
+        Type: r.type ?? "",
+        Amount: r.amount ?? 0,
+        Reference: r.transferReference ?? "",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+
+      // Optional: adjust column widths (approx)
+      const wscols = [
+        { wch: 8 },   // Id
+        { wch: 60 },  // Description
+        { wch: 20 },  // Bank
+        { wch: 20 },  // Counterparty
+        { wch: 14 },  // Date
+        { wch: 20 },  // Category
+        { wch: 12 },  // Type
+        { wch: 12 },  // Amount
+        { wch: 30 },  // Reference
+      ];
+      (ws as any)["!cols"] = wscols;
+
+      const filename = `transactions_view_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    } catch (err) {
+      console.error("Error exporting to Excel", err);
+      alert("Error exportando a Excel");
+    }
   };
 
   // CRUD handlers (create/update/delete)
@@ -370,17 +386,17 @@ export function TransactionPage({ mode, service }: Props) {
 
   return (
     <div className="py-6">
-      <div className="max-w-screen-2xl mx-auto px-8 space-y-6">
+      <div className="max-w-[1800px] mx-auto px-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-800">
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
           <div className="flex items-center space-x-2">
             <button
-              onClick={exportVisibleToCsv}
+              onClick={exportVisibleToExcel}
               className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-50 hover:bg-emerald-200 transition"
             >
-              Exportar vista
+              Exportar vista (Excel)
             </button>
 
             <ExportButton mode={mode} />
@@ -485,7 +501,7 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
 
           <div className="ml-auto text-sm text-slate-500">
-            {items.length} resultados
+            {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
           </div>
         </div>
 
