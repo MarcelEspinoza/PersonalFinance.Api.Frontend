@@ -7,7 +7,6 @@ import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
 import transferService from "../../services/transferService";
 import { TransactionList } from "./TransactionList";
-import { TransactionTabs } from "./TransactionTabs";
 import { formatDate, getInitialFormData } from "./transaction.utils";
 
 interface Props {
@@ -21,15 +20,13 @@ interface Props {
   };
 }
 
-type Tab = "fixed" | "variable" | "temporary";
-type SortBy = "description" | "bank" | "counterparty" | "date" | "amount";
+type SortBy = "description" | "bank" | "counterparty" | "date" | "amount" | "type";
 type SortDir = "asc" | "desc";
 
 interface Category { id: number; name: string; }
 
 export function TransactionPage({ mode, service }: Props) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("fixed");
   const [allRaw, setAllRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -45,11 +42,10 @@ export function TransactionPage({ mode, service }: Props) {
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [bankMap, setBankMap] = useState<Record<string, string>>({});
 
-  // sorting state
+  // sorting
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // debounce input
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchTerm.trim().toLowerCase()), 250);
     return () => clearTimeout(id);
@@ -63,11 +59,6 @@ export function TransactionPage({ mode, service }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  useEffect(() => {
-    if (user) loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
   const loadBanks = async () => {
     try {
@@ -106,7 +97,7 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  // normalize + filter + search + sort
+  // normalize + filter + search + sort (no tabs)
   const items = useMemo(() => {
     const normalized = (allRaw || []).map((i: any) => {
       const bankId = i.bankId ?? i.BankId ?? null;
@@ -131,18 +122,10 @@ export function TransactionPage({ mode, service }: Props) {
       };
     });
 
-    // tab filtering
-    const byTab = normalized.filter((r: any) => {
-      const t = String((r.type ?? "").toLowerCase());
-      if (activeTab === "fixed") return t === "fixed";
-      if (activeTab === "variable") return t === "variable";
-      return t === "temporary" || String(r.frequency ?? "").toLowerCase() === "temporary";
-    });
-
     // search
     const q = debouncedSearch;
     const filtered = q
-      ? byTab.filter((r: any) => {
+      ? normalized.filter((r: any) => {
           const parts = [
             r.description,
             r.notes,
@@ -152,10 +135,11 @@ export function TransactionPage({ mode, service }: Props) {
             r.transferReference ?? r.transferReference ?? "",
             r.date ? new Date(r.date).toLocaleDateString("es-ES") : "",
             String(r.amount),
+            r.type
           ];
           return parts.some((p) => (p ?? "").toString().toLowerCase().includes(q));
         })
-      : byTab;
+      : normalized;
 
     // sorting
     const sorted = [...filtered].sort((a: any, b: any) => {
@@ -172,14 +156,17 @@ export function TransactionPage({ mode, service }: Props) {
       if (sortBy === "amount") {
         return dir * (Number(a.amount ?? 0) - Number(b.amount ?? 0));
       }
-      // date
+      if (sortBy === "type") {
+        return dir * String(a.type ?? "").localeCompare(String(b.type ?? ""), undefined, { sensitivity: "base" });
+      }
+      // date (default)
       const da = a.date ? new Date(a.date).getTime() : 0;
       const db = b.date ? new Date(b.date).getTime() : 0;
       return dir * (da - db);
     });
 
     return sorted;
-  }, [allRaw, bankMap, activeTab, debouncedSearch, sortBy, sortDir]);
+  }, [allRaw, bankMap, debouncedSearch, sortBy, sortDir]);
 
   // CRUD helpers
   const handleSubmit = async (e: React.FormEvent) => {
@@ -331,8 +318,6 @@ export function TransactionPage({ mode, service }: Props) {
         </div>
       </div>
 
-      <TransactionTabs activeTab={activeTab} setActiveTab={setActiveTab} mode={mode} />
-
       {/* SEARCH + COUNT */}
       <div className="flex items-center justify-between mt-3">
         <input
@@ -354,7 +339,6 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         ) : (
           <TransactionList
-            activeTab={activeTab}
             mode={mode}
             transactions={items}
             onEdit={handleEdit}

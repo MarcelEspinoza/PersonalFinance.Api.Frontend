@@ -2,7 +2,6 @@ import { ArrowUpDown, ChevronDown, ChevronUp, Edit2, Trash2 } from "lucide-react
 
 interface Transaction {
   id: number;
-  name?: string;
   description?: string;
   amount: number;
   date?: string;
@@ -19,17 +18,15 @@ interface Transaction {
 }
 
 interface Props {
-  activeTab: "fixed" | "variable" | "temporary";
   mode: "income" | "expense";
   transactions: Transaction[];
   onEdit: (item: Transaction) => void;
   onDelete: (id: number) => void;
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
-  // sorting
-  sortBy: "description" | "bank" | "counterparty" | "date" | "amount";
+  sortBy: "description" | "bank" | "counterparty" | "date" | "amount" | "type";
   sortDir: "asc" | "desc";
-  onRequestSort: (col: "description" | "bank" | "counterparty" | "date" | "amount") => void;
+  onRequestSort: (col: "description" | "bank" | "counterparty" | "date" | "amount" | "type") => void;
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
@@ -38,7 +35,6 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
 }
 
 export function TransactionList({
-  activeTab,
   mode,
   transactions,
   onEdit,
@@ -58,37 +54,57 @@ export function TransactionList({
   }
 
   return (
-    <table className="min-w-full">
+    <table className="min-w-full table-auto">
       <thead className="bg-slate-50">
         <tr>
-          <th className="px-4 py-3 text-left w-10"></th>
-          <th className="px-4 py-3 text-left">
+          <th className="px-4 py-3 text-left w-12"></th>
+
+          {/* DESCRIPTION: wider */}
+          <th className="px-4 py-3 text-left min-w-[340px]">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
               Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
             </button>
           </th>
-          <th className="px-4 py-3 text-left w-48">
+
+          {/* BANK (origin) */}
+          <th className="px-4 py-3 text-left w-44">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
               Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
             </button>
           </th>
-          <th className="px-4 py-3 text-left w-48">
+
+          {/* COUNTERPARTY */}
+          <th className="px-4 py-3 text-left w-44">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("counterparty")}>
               Banco destino <SortIcon active={sortBy === "counterparty"} dir={sortDir} />
             </button>
           </th>
+
+          {/* DATE */}
           <th className="px-4 py-3 text-left w-36">
             <button className="flex items-center gap-2" onClick={() => onRequestSort("date")}>
               Fecha <SortIcon active={sortBy === "date"} dir={sortDir} />
             </button>
           </th>
-          <th className="px-4 py-3 text-left w-40">Categoría / Tipo</th>
-          <th className="px-4 py-3 text-left hidden md:table-cell">Notas</th>
+
+          {/* CATEGORY */}
+          <th className="px-4 py-3 text-left w-40">Categoría</th>
+
+          {/* TYPE (separate column now) */}
+          <th className="px-4 py-3 text-left w-36">
+            <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
+              Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
+            </button>
+          </th>
+
+          <th className="px-4 py-3 text-left hidden lg:table-cell">Notas</th>
+
           <th className="px-4 py-3 text-right w-36">
             <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
               Importe <SortIcon active={sortBy === "amount"} dir={sortDir} />
             </button>
           </th>
+
           <th className="px-4 py-3 w-28"></th>
         </tr>
       </thead>
@@ -96,7 +112,7 @@ export function TransactionList({
       <tbody className="bg-white divide-y divide-slate-100">
         {transactions.map((tx) => (
           <tr key={tx.id} className="hover:bg-slate-50">
-            <td className="px-4 py-3">
+            <td className="px-4 py-3 align-top">
               <input
                 type="checkbox"
                 checked={selectedIds.includes(tx.id)}
@@ -105,11 +121,10 @@ export function TransactionList({
             </td>
 
             <td className="px-4 py-3 align-top">
-              <div className="font-medium text-slate-800">{tx.description}</div>
+              <div className="font-medium text-slate-800 leading-snug">{tx.description}</div>
               <div className="text-sm text-slate-500 mt-1">
-                {activeTab === "fixed" && tx.frequency && <span className="capitalize">{tx.frequency} · </span>}
-                {activeTab !== "fixed" && tx.type && <span className="capitalize">{tx.type} · </span>}
-                {tx.transferReference && <span>Ref: {tx.transferReference}</span>}
+                {tx.transferReference && <span className="mr-2">Ref: {tx.transferReference}</span>}
+                {tx.frequency && <span className="mr-2 capitalize">{tx.frequency}</span>}
               </div>
             </td>
 
@@ -118,7 +133,7 @@ export function TransactionList({
             </td>
 
             <td className="px-4 py-3 align-top">
-              <div className="text-sm text-slate-600">{(tx as any).counterpartyBankName ?? "-"}</div>
+              <div className="text-sm text-slate-600">{tx.counterpartyBankName ?? "-"}</div>
             </td>
 
             <td className="px-4 py-3 align-top">
@@ -131,7 +146,11 @@ export function TransactionList({
               {tx.category ?? "-"}
             </td>
 
-            <td className="px-4 py-3 align-top text-sm text-slate-600 hidden md:table-cell">
+            <td className="px-4 py-3 align-top text-sm text-slate-600">
+              {tx.type ?? "-"}
+            </td>
+
+            <td className="px-4 py-3 align-top text-sm text-slate-600 hidden lg:table-cell">
               {tx.notes ?? "-"}
             </td>
 
