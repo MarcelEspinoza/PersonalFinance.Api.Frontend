@@ -40,10 +40,8 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
 }
 
-// helper to escape regex special chars
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// highlight helper: returns JSX with <mark> around matches
 function Highlight({ text, term }: { text?: string; term?: string }) {
   if (!term || !text) return <>{text}</>;
   const t = text.toString();
@@ -88,7 +86,6 @@ export function TransactionList({
   const [openRowId, setOpenRowId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  // detect mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -96,7 +93,6 @@ export function TransactionList({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Close menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -118,6 +114,19 @@ export function TransactionList({
       </div>
     );
   }
+
+  // helper: resolve origin bank label: prefer bankMap[bankId], else tx.bankName (unless it's purely numeric)
+  const resolveOriginBankLabel = (tx: Transaction) => {
+    if (tx.bankId && bankMap && bankMap[tx.bankId]) return bankMap[tx.bankId];
+    if (tx.bankName) {
+      // if bankName is only digits (account number) and we have bankMap entry, prefer map
+      const onlyDigits = /^\d+$/.test(tx.bankName.trim());
+      if (onlyDigits && tx.bankId && bankMap && bankMap[tx.bankId]) return bankMap[tx.bankId];
+      return tx.bankName;
+    }
+    if (tx.bankId) return tx.bankId;
+    return "-";
+  };
 
   return (
     <>
@@ -233,10 +242,10 @@ export function TransactionList({
                   </div>
                 </td>
 
-                {/* Banco origen: prefer tx.bankName, else lookup bankMap by bankId, else show id */}
+                {/* Banco origen: prefer bankMap[bankId], else tx.bankName, else id */}
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600 truncate max-w-[120px]">
-                    {tx.bankName ?? (tx.bankId ? (bankMap ? bankMap[tx.bankId] ?? tx.bankId : tx.bankId) : "-")}
+                  <div className="text-sm text-slate-600 truncate max-w-[140px]">
+                    {resolveOriginBankLabel(tx)}
                   </div>
                 </td>
 
