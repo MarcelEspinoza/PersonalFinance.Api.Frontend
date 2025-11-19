@@ -49,6 +49,8 @@ export function TransactionPage({ mode, service }: Props) {
   const [destFilter, setDestFilter] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
+  const [endDateFilter, setEndDateFilter] = useState<string | null>(null);
 
   // sorting
   const [sortBy, setSortBy] = useState<SortBy>("date");
@@ -109,7 +111,6 @@ export function TransactionPage({ mode, service }: Props) {
       const { data } = await service.getAll();
       setAllRaw(Array.isArray(data) ? data : []);
       setSelectedIds([]);
-      // reset visibleCount when full reload
       setVisibleCount(pageSize);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -149,6 +150,21 @@ export function TransactionPage({ mode, service }: Props) {
     if (destFilter) filtered = filtered.filter((r: any) => (r.counterpartyBankId ?? "") === destFilter);
     if (categoryFilter) filtered = filtered.filter((r: any) => Number(r.categoryId) === Number(categoryFilter));
     if (typeFilter) filtered = filtered.filter((r: any) => String(r.type ?? "").toLowerCase() === String(typeFilter).toLowerCase());
+    if (startDateFilter) {
+      filtered = filtered.filter((r: any) => {
+        if (!r.date) return false;
+        return new Date(r.date) >= new Date(startDateFilter as string);
+      });
+    }
+    if (endDateFilter) {
+      filtered = filtered.filter((r: any) => {
+        if (!r.date) return false;
+        // include whole day
+        const end = new Date(endDateFilter as string);
+        end.setHours(23, 59, 59, 999);
+        return new Date(r.date) <= end;
+      });
+    }
 
     // search
     const q = debouncedSearch;
@@ -192,7 +208,7 @@ export function TransactionPage({ mode, service }: Props) {
     });
 
     return sorted;
-  }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, sortBy, sortDir]);
+  }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
   // infinite scroll: observe sentinel and increase visibleCount
   useEffect(() => {
@@ -205,7 +221,7 @@ export function TransactionPage({ mode, service }: Props) {
           setTimeout(() => {
             setVisibleCount((v) => Math.min(items.length, v + pageSize));
             loadingMoreRef.current = false;
-          }, 200); // small delay for UX
+          }, 200);
         }
       });
     }, { rootMargin: "300px" });
@@ -216,9 +232,35 @@ export function TransactionPage({ mode, service }: Props) {
   // reset visibleCount when filters/search change
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, sortBy, sortDir]);
+  }, [debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
   const visibleItems = items.slice(0, visibleCount);
+
+  // Export visible/current view to CSV
+  const exportVisibleToCsv = () => {
+    const headers = ["Id", "Description", "Bank", "Counterparty", "Date", "Category", "Type", "Amount", "Reference"];
+    const rows = visibleItems.map((r) => [
+      r.id,
+      `"${(r.description ?? "").replace(/"/g, '""')}"`,
+      `"${(r.bankName ?? "").replace(/"/g, '""')}"`,
+      `"${(r.counterpartyBankName ?? "").replace(/"/g, '""')}"`,
+      r.date ? new Date(r.date).toISOString() : "",
+      `"${(r.category ?? "").replace(/"/g, '""')}"`,
+      r.type ?? "",
+      r.amount,
+      `"${(r.transferReference ?? "").replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transactions_view_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   // CRUD handlers (create/update/delete)
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,6 +376,13 @@ export function TransactionPage({ mode, service }: Props) {
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={exportVisibleToCsv}
+              className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-50 hover:bg-emerald-200 transition"
+            >
+              Exportar vista
+            </button>
+
             <ExportButton mode={mode} />
             <button
               onClick={() => setShowImportModal(true)}
@@ -345,9 +394,9 @@ export function TransactionPage({ mode, service }: Props) {
               <button
                 onClick={handleDeleteSelected}
                 disabled={deleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
               >
-                {deleting ? "Eliminando..." : `Eliminar seleccionados (${selectedIds.length})`}
+                {deleting ? "Eliminando..." : `Eliminar (${selectedIds.length})`}
               </button>
             )}
             <button
@@ -357,7 +406,7 @@ export function TransactionPage({ mode, service }: Props) {
                 setShowModal(true);
               }}
               className={`flex items-center px-4 py-2 ${
-                mode === "income" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600"
+                mode === "income" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-rose-500 hover:bg-rose-600"
               } text-white rounded-lg transition`}
             >
               Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
@@ -365,7 +414,7 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         </div>
 
-        {/* SEARCH + FILTERS */}
+        {/* SEARCH + FILTERS (incluye filtro de fecha) */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4">
           <input
             type="text"
@@ -419,6 +468,20 @@ export function TransactionPage({ mode, service }: Props) {
               <option value="variable">Variable</option>
               <option value="temporary">Temporary</option>
             </select>
+
+            {/* Date range */}
+            <input
+              type="date"
+              value={startDateFilter ?? ""}
+              onChange={(e) => setStartDateFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            />
+            <input
+              type="date"
+              value={endDateFilter ?? ""}
+              onChange={(e) => setEndDateFilter(e.target.value || null)}
+              className="px-3 py-2 border border-slate-300 rounded-lg"
+            />
           </div>
 
           <div className="ml-auto text-sm text-slate-500">
@@ -446,10 +509,8 @@ export function TransactionPage({ mode, service }: Props) {
                 highlight={debouncedSearch}
               />
 
-              {/* sentinel for infinite scroll */}
               <div ref={sentinelRef} className="h-6" />
 
-              {/* show "Cargando más..." when there are more items to show */}
               {visibleCount < items.length && (
                 <div className="p-4 text-center text-slate-500">Cargando más...</div>
               )}

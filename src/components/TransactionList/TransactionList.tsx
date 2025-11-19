@@ -36,6 +36,36 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
 }
 
+// helper to escape regex special chars
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// highlight helper: returns JSX with <mark> around matches
+function Highlight({ text, term }: { text?: string; term?: string }) {
+  if (!term || !text) return <>{text}</>;
+  const t = text.toString();
+  const q = term.trim();
+  if (!q) return <>{t}</>;
+  try {
+    const re = new RegExp(`(${escapeRegex(q)})`, "ig");
+    const parts = t.split(re);
+    return (
+      <>
+        {parts.map((p, i) =>
+          re.test(p) ? (
+            <mark key={i} className="bg-amber-200 text-amber-900 px-[2px] rounded-sm">
+              {p}
+            </mark>
+          ) : (
+            <span key={i}>{p}</span>
+          )
+        )}
+      </>
+    );
+  } catch {
+    return <>{t}</>;
+  }
+}
+
 export function TransactionList({
   mode,
   transactions,
@@ -49,43 +79,30 @@ export function TransactionList({
   highlight,
 }: Props) {
   const [openRowId, setOpenRowId] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  // detect mobile
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Close menu on outside click
   useEffect(() => {
-    const handler = () => setOpenRowId(null);
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) {
+        setOpenRowId(null);
+        return;
+      }
+      if (target.closest("[data-actions]") || target.closest("[data-more-btn]")) return;
+      setOpenRowId(null);
+    };
     document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
   }, []);
-
-  // helper to escape regex special chars
-  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  // highlight helper: returns JSX with <mark> around matches
-  function Highlight({ text, term }: { text?: string; term?: string }) {
-    if (!term || !text) return <>{text}</>;
-    const t = text.toString();
-    const q = term.trim();
-    if (!q) return <>{t}</>;
-    try {
-      const re = new RegExp(`(${escapeRegex(q)})`, "ig");
-      const parts = t.split(re);
-      return (
-        <>
-          {parts.map((p, i) =>
-            re.test(p) ? (
-              <mark key={i} className="bg-amber-200 text-amber-900 px-[2px] rounded-sm">
-                {p}
-              </mark>
-            ) : (
-              <span key={i}>{p}</span>
-            )
-          )}
-        </>
-      );
-    } catch {
-      return <>{t}</>;
-    }
-  }
 
   if (transactions.length === 0) {
     return (
@@ -96,169 +113,221 @@ export function TransactionList({
   }
 
   return (
-    <table className="min-w-full table-auto">
-      <thead className="bg-slate-50">
-        <tr>
-          <th className="px-4 py-3 text-left w-12"></th>
+    <>
+      <table className="min-w-full table-auto">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="px-4 py-3 text-left w-12"></th>
 
-          <th className="px-4 py-3 text-left min-w-[420px]">
-            <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
-              Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-left min-w-[420px]">
+              <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
+                Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 text-left w-44">
-            <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
-              Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-left w-44">
+              <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
+                Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 text-left w-44">
-            <button className="flex items-center gap-2" onClick={() => onRequestSort("counterparty")}>
-              Banco destino <SortIcon active={sortBy === "counterparty"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-left w-44">
+              <button className="flex items-center gap-2" onClick={() => onRequestSort("counterparty")}>
+                Banco destino <SortIcon active={sortBy === "counterparty"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 text-left w-36">
-            <button className="flex items-center gap-2" onClick={() => onRequestSort("date")}>
-              Fecha <SortIcon active={sortBy === "date"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-left w-36">
+              <button className="flex items-center gap-2" onClick={() => onRequestSort("date")}>
+                Fecha <SortIcon active={sortBy === "date"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 text-left w-40">Categoría</th>
+            <th className="px-4 py-3 text-left w-40">Categoría</th>
 
-          <th className="px-4 py-3 text-left w-36">
-            <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
-              Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-left w-36">
+              <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
+                Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 text-right w-36">
-            <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
-              Importe <SortIcon active={sortBy === "amount"} dir={sortDir} />
-            </button>
-          </th>
+            <th className="px-4 py-3 text-right w-36">
+              <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
+                Importe <SortIcon active={sortBy === "amount"} dir={sortDir} />
+              </button>
+            </th>
 
-          <th className="px-4 py-3 w-28"></th>
-        </tr>
-      </thead>
+            <th className="px-4 py-3 w-28"></th>
+          </tr>
+        </thead>
 
-      <tbody className="bg-white divide-y divide-slate-100">
-        {transactions.map((tx) => {
-          const isOpen = openRowId === tx.id;
-          return (
-            <tr key={tx.id} className="hover:bg-slate-50 relative">
-              <td className="px-4 py-3 align-top">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(tx.id)}
-                  onChange={() => onToggleSelect(tx.id)}
-                />
-              </td>
+        <tbody className="bg-white divide-y divide-slate-100">
+          {transactions.map((tx) => {
+            const isOpen = openRowId === tx.id;
 
-              {/* Content wrapper: translateX when menu open */}
-              <td
-                className="px-4 py-3 align-top transition-transform duration-200"
-                style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)" }}
-                onClick={() => setOpenRowId(null)} // clicking row content closes menu
-              >
-                <div className="font-medium text-slate-800 leading-snug">
-                  <Highlight text={tx.description} term={highlight} />
-                </div>
-                <div className="text-sm text-slate-500 mt-1">
-                  {tx.transferReference && (
-                    <span className="mr-2">
-                      Ref: <Highlight text={tx.transferReference} term={highlight} />
-                    </span>
+            return (
+              <tr key={tx.id} className="hover:bg-slate-50 relative">
+                {/* Checkbox: hide when menu open */}
+                <td className="px-4 py-3 align-top">
+                  {!isOpen ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(tx.id)}
+                      onChange={() => onToggleSelect(tx.id)}
+                    />
+                  ) : (
+                    <span aria-hidden className="inline-block w-4 h-4" />
                   )}
-                  {tx.frequency && <span className="mr-2 capitalize">{tx.frequency}</span>}
-                </div>
-              </td>
+                </td>
 
-              <td className="px-4 py-3 align-top" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <div className="text-sm text-slate-600">
-                  <Highlight text={tx.bankName} term={highlight} />
-                </div>
-              </td>
-
-              <td className="px-4 py-3 align-top" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <div className="text-sm text-slate-600">
-                  <Highlight text={tx.counterpartyBankName} term={highlight} />
-                </div>
-              </td>
-
-              <td className="px-4 py-3 align-top" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <div className="text-sm text-slate-600">
-                  {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
-                </div>
-              </td>
-
-              <td className="px-4 py-3 align-top text-sm text-slate-600" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <Highlight text={tx.category} term={highlight} />
-              </td>
-
-              <td className="px-4 py-3 align-top text-sm text-slate-600" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <Highlight text={tx.type} term={highlight} />
-              </td>
-
-              <td className="px-4 py-3 align-top text-right font-bold" style={{ transform: isOpen ? "translateX(-120px)" : "translateX(0)", transition: "transform 200ms" }}>
-                <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {tx.amount.toFixed(2)} €
-                </span>
-              </td>
-
-              {/* Actions column: three-dots button and action panel */}
-              <td className="px-4 py-3 align-top text-right relative">
-                {/* three-dots button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenRowId(isOpen ? null : tx.id);
-                  }}
-                  className="p-2 rounded-full hover:bg-slate-100 transition"
-                  aria-haspopup="true"
-                  aria-expanded={isOpen}
-                  title="Más opciones"
+                {/* Content wrapper: translateX when menu open; on mobile we won't translate */}
+                <td
+                  className="px-4 py-3 align-top transition-transform duration-200"
+                  style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}
+                  onClick={() => setOpenRowId(null)}
                 >
-                  <MoreVertical className="w-5 h-5 text-slate-600" />
-                </button>
+                  <div className="font-medium text-slate-800 leading-snug">
+                    <Highlight text={tx.description} term={highlight} />
+                  </div>
+                  <div className="text-sm text-slate-500 mt-1">
+                    {tx.transferReference && (
+                      <span className="mr-2">
+                        Ref: <Highlight text={tx.transferReference} term={highlight} />
+                      </span>
+                    )}
+                    {tx.frequency && <span className="mr-2 capitalize">{tx.frequency}</span>}
+                  </div>
+                </td>
 
-                {/* Action panel: positioned absolutely to the right of the row */}
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className={`absolute right-0 top-1/2 transform -translate-y-1/2 flex gap-2 items-center transition-opacity duration-150 z-20 ${
-                    isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-                  }`}
-                >
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600">
+                    <Highlight text={tx.bankName} term={highlight} />
+                  </div>
+                </td>
+
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600">
+                    <Highlight text={tx.counterpartyBankName} term={highlight} />
+                  </div>
+                </td>
+
+                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <div className="text-sm text-slate-600">
+                    {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
+                  </div>
+                </td>
+
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <Highlight text={tx.category} term={highlight} />
+                </td>
+
+                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <Highlight text={tx.type} term={highlight} />
+                </td>
+
+                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-160px)" : "translateX(0)" }}>
+                  <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {tx.amount.toFixed(2)} €
+                  </span>
+                </td>
+
+                {/* Actions column: three-dots button and action panel */}
+                <td className="px-4 py-3 align-top text-right relative">
+                  {/* three-dots button */}
                   <button
-                    onClick={() => {
-                      setOpenRowId(null);
-                      onEdit(tx);
+                    data-more-btn
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isMobile) {
+                        // on mobile open a simple modal-like actions sheet
+                        setOpenRowId(tx.id);
+                      } else {
+                        setOpenRowId(isOpen ? null : tx.id);
+                      }
                     }}
-                    className="px-3 py-1 bg-white border border-slate-200 rounded-md text-slate-700 hover:bg-slate-50 shadow-sm"
+                    className="p-2 rounded-full hover:bg-slate-100 transition"
+                    aria-haspopup="true"
+                    aria-expanded={isOpen}
+                    title="Más opciones"
                   >
-                    <div className="flex items-center gap-2">
-                      <Edit2 className="w-4 h-4" /> <span className="text-sm">Editar</span>
-                    </div>
+                    <MoreVertical className="w-5 h-5 text-slate-600" />
                   </button>
 
-                  <button
-                    onClick={() => {
-                      setOpenRowId(null);
-                      if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
-                    }}
-                    className="px-3 py-1 bg-rose-50 border border-rose-200 rounded-md text-rose-600 hover:bg-rose-100 shadow-sm"
+                  {/* Action panel (desktop) */}
+                  <div
+                    data-actions
+                    onClick={(e) => e.stopPropagation()}
+                    className={`absolute right-0 top-1/2 transform -translate-y-1/2 flex gap-2 items-center transition-opacity duration-150 z-20 ${
+                      isOpen && !isMobile ? "opacity-100" : "opacity-0 pointer-events-none"
+                    }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Trash2 className="w-4 h-4" /> <span className="text-sm">Eliminar</span>
+                    <button
+                      onClick={() => {
+                        setOpenRowId(null);
+                        onEdit(tx);
+                      }}
+                      className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center gap-2"
+                    >
+                      <Edit2 className="w-4 h-4" /> <span className="text-sm font-medium">Editar</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setOpenRowId(null);
+                        if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
+                      }}
+                      className="px-3 py-1 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> <span className="text-sm font-medium">Eliminar</span>
+                    </button>
+                  </div>
+
+                  {/* Mobile action sheet (full screen bottom-like modal) */}
+                  {isMobile && openRowId === tx.id && (
+                    <div
+                      className="fixed inset-0 z-40 flex items-end justify-center"
+                      role="dialog"
+                      aria-modal="true"
+                      onClick={() => setOpenRowId(null)}
+                    >
+                      <div className="absolute inset-0 bg-black bg-opacity-30" />
+                      <div
+                        className="relative w-full max-w-md bg-white rounded-t-xl p-4 space-y-3 z-50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="font-medium">Acciones</div>
+                          <button onClick={() => setOpenRowId(null)} className="text-slate-500">Cerrar</button>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setOpenRowId(null);
+                            onEdit(tx);
+                          }}
+                          className="w-full px-4 py-3 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 flex items-center justify-center gap-2"
+                        >
+                          <Edit2 className="w-5 h-5" /> Editar
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setOpenRowId(null);
+                            if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
+                          }}
+                          className="w-full px-4 py-3 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-5 h-5" /> Eliminar
+                        </button>
+                      </div>
                     </div>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </>
   );
 }
