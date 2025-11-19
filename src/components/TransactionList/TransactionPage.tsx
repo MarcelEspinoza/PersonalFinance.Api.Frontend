@@ -6,7 +6,6 @@ import { TransactionModal } from "../../components/TransactionModal/TransactionM
 import { useAuth } from "../../contexts/AuthContext";
 import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
-import transferService from "../../services/transferService";
 import { formatDate, getInitialFormData } from "./transaction.utils";
 import { TransactionList } from "./TransactionList";
 
@@ -139,14 +138,14 @@ export function TransactionPage({ mode, service }: Props) {
         is_active: i.isActive ?? i.is_active ?? null,
         type: (i.type ?? i.Type ?? i.source ?? i.Source ?? "") as string,
         bankId: bankId !== null ? String(bankId) : null,
-        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[String(bankId)] ?? String(bankId) : "")),
+        bankName: i.bankName ?? (i.bank && i.bank.name ? `${i.bank.name}${i.bank.entity ? ` | ${i.bank.entity}` : ""}` : (bankId ? bankMap[String(bankId)] ?? "" : "")),
         counterpartyBankId: cpBankId !== null ? String(cpBankId) : null,
-        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[String(cpBankId)] ?? String(cpBankId) : ""),
+        counterpartyBankName: i.counterpartyBankName ?? (cpBankId ? bankMap[String(cpBankId)] ?? "" : ""),
         transferReference: i.transferReference ?? i.TransferReference ?? ""
       };
     });
 
-    // filters
+    // apply filters
     let filtered = normalized;
     if (originFilter) filtered = filtered.filter((r: any) => (r.bankId ?? "") === originFilter);
     if (destFilter) filtered = filtered.filter((r: any) => (r.counterpartyBankId ?? "") === destFilter);
@@ -211,7 +210,7 @@ export function TransactionPage({ mode, service }: Props) {
     return sorted;
   }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
-  // infinite scroll observer
+  // infinite scroll: observe sentinel and increase visibleCount
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -237,9 +236,10 @@ export function TransactionPage({ mode, service }: Props) {
 
   const visibleItems = items.slice(0, visibleCount);
 
-  // Export to Excel with summary
+  // Export visible/current view to Excel (.xlsx) using SheetJS, with numeric formatting and summary sheet
   const exportVisibleToExcel = () => {
     try {
+      // Map visible items to simple objects for SheetJS
       const rows = visibleItems.map((r) => ({
         Id: r.id,
         Description: r.description ?? "",
@@ -253,8 +253,9 @@ export function TransactionPage({ mode, service }: Props) {
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows, { dateNF: "yyyy-mm-dd" });
+      // Ensure Amount is numeric by converting column cells
       for (let R = 2; R <= rows.length + 1; ++R) {
-        const cell = ws[`H${R}`];
+        const cell = ws[`H${R}`]; // Amount column (H)
         if (cell && typeof cell.v === "string") {
           const num = Number(cell.v);
           if (!Number.isNaN(num)) cell.v = num;
@@ -264,6 +265,7 @@ export function TransactionPage({ mode, service }: Props) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transactions");
 
+      // Summary sheet: totals by category and by bank
       const totalsByCategory: Record<string, number> = {};
       const totalsByBank: Record<string, number> = {};
       visibleItems.forEach((r) => {
@@ -283,9 +285,19 @@ export function TransactionPage({ mode, service }: Props) {
       XLSX.utils.book_append_sheet(wb, wsCat, "TotalsByCategory");
       XLSX.utils.book_append_sheet(wb, wsBank, "TotalsByBank");
 
-      (ws as any)["!cols"] = [
-        { wch: 8 }, { wch: 40 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
+      // Column widths for Transactions sheet
+      const wscols = [
+        { wch: 8 },   // Id
+        { wch: 60 },  // Description
+        { wch: 20 },  // Bank
+        { wch: 20 },  // Counterparty
+        { wch: 14 },  // Date
+        { wch: 20 },  // Category
+        { wch: 12 },  // Type
+        { wch: 12 },  // Amount
+        { wch: 30 },  // Reference
       ];
+      (ws as any)["!cols"] = wscols;
 
       const filename = `transactions_view_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(wb, filename);
@@ -295,25 +307,20 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  // CRUD helpers (omitted here for brevity — unchanged)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Modal submit handler: receive normalized payload from modal and call service
+  const handleModalSubmit = async (payload: any) => {
     try {
-      if (formData.isTransfer) {
-        await transferService.createTransfer({
-          date: formData.date,
-          amount: parseFloat(formData.amount),
-          fromBankId: parseFloat(formData.amount) < 0 ? formData.bankId : formData.counterpartyBankId,
-          toBankId: parseFloat(formData.amount) < 0 ? formData.counterpartyBankId : formData.bankId,
-          description: formData.description,
-          notes: formData.notes,
-          reference: formData.transferReference,
-          categoryId: formData.categoryId
-        });
-      } else if (editingId) {
-        await service.update(parseInt(editingId), formData);
+      // Ensure amount is numeric (modal already did but double-check)
+      if (payload.amount && typeof payload.amount === "string") {
+        payload.amount = Number(String(payload.amount).replace(",", "."));
+      }
+
+      if (editingId) {
+        // Update existing
+        await service.update(parseInt(editingId), payload);
       } else {
-        await service.create(formData);
+        // Create new
+        await service.create(payload);
       }
 
       setShowModal(false);
@@ -321,7 +328,7 @@ export function TransactionPage({ mode, service }: Props) {
       setFormData(getInitialFormData());
       await loadData();
     } catch (error) {
-      console.error("Error guardando transacción:", error);
+      console.error("Error guardando transacción (modal submit):", error);
       alert("Ocurrió un error al guardar. Revisa la consola.");
     }
   };
@@ -345,7 +352,8 @@ export function TransactionPage({ mode, service }: Props) {
       transferReference: item.transferReference ?? "",
       counterpartyBankId: item.counterpartyBankId ?? item.transferCounterpartyBankId ?? "",
       bankId: item.bankId ?? null,
-      source: item.type ?? item.source ?? ""
+      // keep source if present, else use type value (source should be shown in modal)
+      source: item.source ?? item.type ?? ""
     });
     setShowModal(true);
   };
@@ -366,11 +374,8 @@ export function TransactionPage({ mode, service }: Props) {
     );
   };
 
-  // select all visible
   const handleSelectAll = () => {
-    setSelectedIds((prev) =>
-      prev.length === visibleItems.length ? [] : visibleItems.map((i) => i.id)
-    );
+    setSelectedIds(selectedIds.length === visibleItems.length ? [] : visibleItems.map((i) => i.id));
   };
 
   const handleDeleteSelected = async () => {
@@ -414,7 +419,7 @@ export function TransactionPage({ mode, service }: Props) {
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
 
-          {/* BUTTON ROW */}
+          {/* BUTTON ROW (moved up so filters align under it) */}
           <div className="flex items-center gap-3">
             <button
               onClick={exportVisibleToExcel}
@@ -457,13 +462,21 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         </div>
 
-        {/* SEARCH (right) and FILTERS (left) in same row; filters use flex-1 so fill space */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1 flex items-center gap-3 flex-wrap">
+        {/* SEARCH + FILTERS (incluye filtro de fecha) */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4">
+          <input
+            type="text"
+            placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+          />
+
+          <div className="flex items-center gap-3">
             <select
               value={originFilter ?? ""}
               onChange={(e) => setOriginFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
+              className="px-3 py-2 border border-slate-300 rounded-lg"
             >
               <option value="">Todos orígenes</option>
               {bankOptions.map((b) => (
@@ -474,7 +487,7 @@ export function TransactionPage({ mode, service }: Props) {
             <select
               value={destFilter ?? ""}
               onChange={(e) => setDestFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
+              className="px-3 py-2 border border-slate-300 rounded-lg"
             >
               <option value="">Todos destinos</option>
               {bankOptions.map((b) => (
@@ -485,18 +498,18 @@ export function TransactionPage({ mode, service }: Props) {
             <select
               value={categoryFilter !== null ? String(categoryFilter) : ""}
               onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
+              className="px-3 py-2 border border-slate-300 rounded-lg"
             >
               <option value="">Todas categorías</option>
               {categories.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
 
             <select
               value={typeFilter ?? ""}
               onChange={(e) => setTypeFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[140px]"
+              className="px-3 py-2 border border-slate-300 rounded-lg"
             >
               <option value="">Todos tipos</option>
               <option value="fixed">Fixed</option>
@@ -504,6 +517,7 @@ export function TransactionPage({ mode, service }: Props) {
               <option value="temporary">Temporary</option>
             </select>
 
+            {/* Date range */}
             <input
               type="date"
               value={startDateFilter ?? ""}
@@ -518,19 +532,9 @@ export function TransactionPage({ mode, service }: Props) {
             />
           </div>
 
-          <div className="w-96">
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
+          <div className="ml-auto text-sm text-slate-500">
+            {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
           </div>
-        </div>
-
-        <div className="w-full text-right text-sm text-slate-500 mt-2 lg:mt-0">
-          {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -547,14 +551,10 @@ export function TransactionPage({ mode, service }: Props) {
                 onDelete={handleDelete}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
-                onSelectAll={handleSelectAll}
-                allSelected={allSelected}
                 sortBy={sortBy}
                 sortDir={sortDir}
                 onRequestSort={requestSort}
                 highlight={debouncedSearch}
-                // pass bankMap so origin bank can render "name | entity"
-                {...{ bankMap }}
               />
 
               <div ref={sentinelRef} className="h-6" />
@@ -575,7 +575,8 @@ export function TransactionPage({ mode, service }: Props) {
           formData={formData}
           setFormData={setFormData}
           onClose={handleCloseModal}
-          onSubmit={handleSubmit}
+          onSubmit={handleModalSubmit} // <-- pass payload-style handler
+          onSaved={() => {}}
           categories={categories}
           setCategories={setCategories}
           userId={user.id}
