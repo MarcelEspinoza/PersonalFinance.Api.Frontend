@@ -1,3 +1,4 @@
+// Full file: TransactionPage.tsx (updated to pass allSelected + onSelectAll)
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
@@ -295,7 +296,7 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  // CRUD helpers
+  // CRUD helpers (omitted here for brevity — unchanged)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -366,8 +367,11 @@ export function TransactionPage({ mode, service }: Props) {
     );
   };
 
+  // select all visible
   const handleSelectAll = () => {
-    setSelectedIds(selectedIds.length === visibleItems.length ? [] : visibleItems.map((i) => i.id));
+    setSelectedIds((prev) =>
+      prev.length === visibleItems.length ? [] : visibleItems.map((i) => i.id)
+    );
   };
 
   const handleDeleteSelected = async () => {
@@ -401,6 +405,8 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
+  const allSelected = visibleItems.length > 0 && selectedIds.length === visibleItems.length;
+
   return (
     <div className="py-6">
       <div className="max-w-[1800px] mx-auto px-6 space-y-4">
@@ -409,7 +415,7 @@ export function TransactionPage({ mode, service }: Props) {
             Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
           </h1>
 
-          {/* BUTTON ROW (moved up) */}
+          {/* BUTTON ROW */}
           <div className="flex items-center gap-3">
             <button
               onClick={exportVisibleToExcel}
@@ -452,24 +458,13 @@ export function TransactionPage({ mode, service }: Props) {
           </div>
         </div>
 
-        {/* SEARCH (right) and FILTERS (left) */}
-        <div className="flex flex-wrap items-center gap-3">
-
-          <div className="ml-auto">
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-72 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
+        {/* SEARCH (right) and FILTERS (left) in same row; filters use flex-1 so fill space */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 flex items-center gap-3 flex-wrap">
             <select
               value={originFilter ?? ""}
               onChange={(e) => setOriginFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
+              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
             >
               <option value="">Todos orígenes</option>
               {bankOptions.map((b) => (
@@ -480,7 +475,7 @@ export function TransactionPage({ mode, service }: Props) {
             <select
               value={destFilter ?? ""}
               onChange={(e) => setDestFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
+              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
             >
               <option value="">Todos destinos</option>
               {bankOptions.map((b) => (
@@ -491,7 +486,7 @@ export function TransactionPage({ mode, service }: Props) {
             <select
               value={categoryFilter !== null ? String(categoryFilter) : ""}
               onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
+              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[160px]"
             >
               <option value="">Todas categorías</option>
               {categories.map((c) => (
@@ -502,7 +497,7 @@ export function TransactionPage({ mode, service }: Props) {
             <select
               value={typeFilter ?? ""}
               onChange={(e) => setTypeFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
+              className="px-3 py-2 border border-slate-300 rounded-lg min-w-[140px]"
             >
               <option value="">Todos tipos</option>
               <option value="fixed">Fixed</option>
@@ -524,11 +519,19 @@ export function TransactionPage({ mode, service }: Props) {
             />
           </div>
 
-
-
-          <div className="w-full text-right text-sm text-slate-500 mt-2 lg:mt-0">
-            {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
+          <div className="w-96">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
           </div>
+        </div>
+
+        <div className="w-full text-right text-sm text-slate-500 mt-2 lg:mt-0">
+          {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -545,6 +548,8 @@ export function TransactionPage({ mode, service }: Props) {
                 onDelete={handleDelete}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                allSelected={allSelected}
                 sortBy={sortBy}
                 sortDir={sortDir}
                 onRequestSort={requestSort}

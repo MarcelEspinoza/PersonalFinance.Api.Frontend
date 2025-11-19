@@ -25,6 +25,9 @@ interface Props {
   onDelete: (id: number) => void;
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
+  // new: select-all props
+  onSelectAll?: () => void;
+  allSelected?: boolean;
   sortBy: "description" | "bank" | "counterparty" | "date" | "amount" | "type";
   sortDir: "asc" | "desc";
   onRequestSort: (col: "description" | "bank" | "counterparty" | "date" | "amount" | "type") => void;
@@ -36,10 +39,8 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
 }
 
-// helper to escape regex special chars
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// highlight helper: returns JSX with <mark> around matches
 function Highlight({ text, term }: { text?: string; term?: string }) {
   if (!term || !text) return <>{text}</>;
   const t = text.toString();
@@ -73,6 +74,8 @@ export function TransactionList({
   onDelete,
   selectedIds,
   onToggleSelect,
+  onSelectAll,
+  allSelected,
   sortBy,
   sortDir,
   onRequestSort,
@@ -81,7 +84,6 @@ export function TransactionList({
   const [openRowId, setOpenRowId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  // detect mobile
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -89,7 +91,6 @@ export function TransactionList({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Close menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -117,10 +118,22 @@ export function TransactionList({
       <table className="min-w-full table-auto">
         <thead className="bg-slate-50">
           <tr>
-            <th className="px-4 py-3 text-left w-12"></th>
+            {/* SELECT ALL in header */}
+            <th className="px-4 py-3 text-left w-12">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar todo"
+                  checked={Boolean(allSelected)}
+                  onChange={() => onSelectAll && onSelectAll()}
+                />
+                {selectedIds.length > 0 && (
+                  <span className="text-sm text-slate-500">{selectedIds.length}/{transactions.length}</span>
+                )}
+              </div>
+            </th>
 
-            {/* DESCRIPTION: reduced to free more space for amount */}
-            <th className="px-4 py-3 text-left min-w-[200px]">
+            <th className="px-4 py-3 text-left min-w-[300px]">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
                 Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
               </button>
@@ -152,14 +165,12 @@ export function TransactionList({
               </button>
             </th>
 
-            {/* Amount cell: nowrap + padding to keep euro visible */}
             <th className="px-4 py-3 text-right w-28 pr-12">
               <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
                 Imp <SortIcon active={sortBy === "amount"} dir={sortDir} />
               </button>
             </th>
 
-            {/* Actions column: small for the 3-dot button only */}
             <th className="px-4 py-3 w-16 sticky right-0 bg-white border-l border-slate-100 shadow-sm"></th>
           </tr>
         </thead>
@@ -170,7 +181,6 @@ export function TransactionList({
 
             return (
               <tr key={tx.id} className="hover:bg-slate-50 relative">
-                {/* Checkbox: hide when menu open */}
                 <td className="px-4 py-3 align-top">
                   {!isOpen ? (
                     <input
@@ -183,7 +193,6 @@ export function TransactionList({
                   )}
                 </td>
 
-                {/* Content: clamp 1 line to keep rows consistent */}
                 <td
                   className="px-4 py-3 align-top transition-transform duration-200"
                   style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}
@@ -244,14 +253,12 @@ export function TransactionList({
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
-                {/* Amount: force nowrap and non-breaking space with € */}
                 <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-12" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"} whitespace-nowrap`}>
                     {tx.amount.toFixed(2)}{'\u00A0€'}
                   </span>
                 </td>
 
-                {/* Actions column: small width, three-dots button visible; action panel overlays */}
                 <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white border-l border-slate-100 shadow-sm">
                   <button
                     data-more-btn
@@ -271,7 +278,6 @@ export function TransactionList({
                     <MoreVertical className="w-5 h-5 text-slate-600" />
                   </button>
 
-                  {/* Action panel (desktop): overlays to the left so actions are fully visible */}
                   <div
                     data-actions
                     onClick={(e) => e.stopPropagation()}
@@ -300,7 +306,6 @@ export function TransactionList({
                     </button>
                   </div>
 
-                  {/* Mobile action sheet */}
                   {isMobile && openRowId === tx.id && (
                     <div
                       className="fixed inset-0 z-40 flex items-end justify-center"
