@@ -20,4 +20,4 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # EXPOSE 8080: Cambiamos el puerto para cumplir con la expectativa de Cloud Run (PORT=8080)
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+CMD cat /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"
