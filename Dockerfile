@@ -5,9 +5,6 @@ WORKDIR /app
 # Argumento de build de Docker, pasado desde Cloud Build (VITE_API_URL).
 ARG VITE_API_URL
 
-# Establecer la variable de entorno para que esté disponible durante la ejecución de comandos.
-ENV VITE_API_URL=$VITE_API_URL
-
 # Instalar dependencias
 COPY package*.json ./
 # Utilizamos 'npm ci' para builds limpios y reproducibles
@@ -16,11 +13,14 @@ RUN npm ci
 # Copiamos el código fuente restante
 COPY . .
 
-# 🚨 CORRECCIÓN CRÍTICA DE VITE:
-# Inyectamos explícitamente la variable VITE_API_URL en el comando de build de npm.
-# Esto garantiza que Vite la recoja y la use como 'import.meta.env.VITE_API_URL'.
-# Sin esta línea, Vite puede usar el valor vacío, forzando a tu cliente a usar el fallback "/api".
-RUN VITE_API_URL=$VITE_API_URL npx vite build
+# 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV
+# Creamos el archivo .env.production dinámicamente usando el ARG de Docker.
+# Esto garantiza que Vite cargue el valor de VITE_API_URL correctamente, 
+# evitando problemas de 'shell escaping' con URLs (https://...).
+RUN echo "VITE_API_URL=${VITE_API_URL}" > .env.production
+
+# Ahora ejecutamos el build de Vite.
+RUN npx vite build
 
 # Stage 2 - Serve with Nginx: Utilizamos una imagen ligera de Nginx para servir los archivos estáticos.
 FROM nginx:alpine
