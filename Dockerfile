@@ -3,8 +3,8 @@ FROM node:20 AS build
 WORKDIR /app
 
 # NOTA IMPORTANTE: Se ha eliminado el ARG _VITE_API_URL.
-# La variable de Cloud Build está llegando vacía, por lo que hardcodeamos la URL
-# del servicio de backend para forzar la compilación correcta y resolver el error 405.
+# La variable de Cloud Build estaba llegando vacía, por lo que hardcodeamos la URL
+# del servicio de backend para forzar la compilación correcta y resolver el error de conexión.
 
 # Instalar dependencias
 COPY package*.json ./
@@ -15,8 +15,8 @@ RUN npm ci
 COPY . .
 
 # 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV con URL HARDCODEADA
-# Usamos la URL inferida de tu servicio de backend.
-RUN echo "VITE_API_URL=https://personalfinance-api-backend-246552849554.europe-southwest1.run.app" > .env.production
+# Usamos la URL inferida de tu servicio de backend e INCLUIMOS el prefijo /api.
+RUN echo "VITE_API_URL=https://personalfinance-api-backend-246552849554.europe-southwest1.run.app/api" > .env.production
 
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
