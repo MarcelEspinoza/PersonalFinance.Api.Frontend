@@ -17,8 +17,11 @@ COPY . .
 # 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV
 # Escribimos el valor del ARG de Docker (_VITE_API_URL) en el archivo .env.production, 
 # usando el nombre que Vite espera (VITE_API_URL).
-# COMENTARIO PARA ROMPER CACHE Y FORZAR RE-BUILD: v3
 RUN echo "VITE_API_URL=${_VITE_API_URL}" > .env.production
+
+# 🚨 DIAGNÓSTICO CRÍTICO: Muestra el contenido del archivo .env.production. 
+# Esto DEBE mostrar la URL completa del backend para confirmar que el valor fue transferido correctamente.
+RUN cat .env.production
 
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
