@@ -3,6 +3,9 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+
+  base: '/', 
+  
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -15,9 +18,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:7035', // 👈 tu backend real
+        target: 'https://localhost:7035', // Configuración de proxy para desarrollo local
         changeOrigin: true,
-        secure: false, // necesario porque es https con certificado local
+        secure: false, 
       },
     },
   },
