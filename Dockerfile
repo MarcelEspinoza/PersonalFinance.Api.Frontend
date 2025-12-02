@@ -3,7 +3,7 @@ FROM node:20 AS build
 WORKDIR /app
 
 # Argumento de build de Docker, pasado desde Cloud Build.
-# 🚨 IMPORTANTE: Se renombró a _VITE_API_URL para cumplir con la convención de Cloud Build (debe empezar con '_').
+# Debe comenzar con "_" para ser reconocido por Cloud Build.
 ARG _VITE_API_URL
 
 # Instalar dependencias
@@ -16,7 +16,8 @@ COPY . .
 
 # 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV
 # Escribimos el valor del ARG de Docker (_VITE_API_URL) en el archivo .env.production, 
-# pero usamos el nombre que Vite espera (VITE_API_URL).
+# usando el nombre que Vite espera (VITE_API_URL).
+# COMENTARIO PARA ROMPER CACHE Y FORZAR RE-BUILD: v3
 RUN echo "VITE_API_URL=${_VITE_API_URL}" > .env.production
 
 # Ahora ejecutamos el build de Vite.
@@ -32,8 +33,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # 🚨 CORRECCIÓN DE PERMISOS:
-# Nginx se ejecuta como usuario 'nginx'. Los archivos copiados pueden tener permisos de 'root'.
-# Esto asegura que el usuario 'nginx' tenga permisos de lectura, previniendo errores 404 por permisos.
+# Nginx se ejecuta como usuario 'nginx'.
 RUN chown -R nginx:nginx /usr/share/nginx/html
 
 # EXPOSE 8080: Cloud Run espera que la aplicación escuche en el puerto 8080.
