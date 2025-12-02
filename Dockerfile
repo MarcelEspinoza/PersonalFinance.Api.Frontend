@@ -2,9 +2,9 @@
 FROM node:20 AS build
 WORKDIR /app
 
-# Argumento de build de Docker, pasado desde Cloud Build.
-# Debe comenzar con "_" para ser reconocido por Cloud Build.
-ARG _VITE_API_URL
+# NOTA IMPORTANTE: Se ha eliminado el ARG _VITE_API_URL.
+# La variable de Cloud Build está llegando vacía, por lo que hardcodeamos la URL
+# del servicio de backend para forzar la compilación correcta y resolver el error 405.
 
 # Instalar dependencias
 COPY package*.json ./
@@ -14,14 +14,9 @@ RUN npm ci
 # Copiamos el código fuente restante
 COPY . .
 
-# 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV
-# Escribimos el valor del ARG de Docker (_VITE_API_URL) en el archivo .env.production, 
-# usando el nombre que Vite espera (VITE_API_URL).
-RUN echo "VITE_API_URL=${_VITE_API_URL}" > .env.production
-
-# 🚨 DIAGNÓSTICO CRÍTICO: Muestra el contenido del archivo .env.production. 
-# Esto DEBE mostrar la URL completa del backend para confirmar que el valor fue transferido correctamente.
-RUN cat .env.production
+# 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV con URL HARDCODEADA
+# Usamos la URL inferida de tu servicio de backend.
+RUN echo "VITE_API_URL=https://personalfinance-api-backend-246552849554.europe-southwest1.run.app" > .env.production
 
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
