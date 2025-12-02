@@ -2,8 +2,9 @@
 FROM node:20 AS build
 WORKDIR /app
 
-# Argumento de build de Docker, pasado desde Cloud Build (VITE_API_URL).
-ARG VITE_API_URL
+# Argumento de build de Docker, pasado desde Cloud Build.
+# 🚨 IMPORTANTE: Se renombró a _VITE_API_URL para cumplir con la convención de Cloud Build (debe empezar con '_').
+ARG _VITE_API_URL
 
 # Instalar dependencias
 COPY package*.json ./
@@ -14,14 +15,9 @@ RUN npm ci
 COPY . .
 
 # 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV
-# Creamos el archivo .env.production dinámicamente usando el ARG de Docker.
-# Esto garantiza que Vite cargue el valor de VITE_API_URL correctamente, 
-# evitando problemas de 'shell escaping' con URLs (https://...).
-RUN echo "VITE_API_URL=${VITE_API_URL}" > .env.production
-
-# 🔍 PASO DE DIAGNÓSTICO: Muestra el contenido del archivo .env.production
-# Esto nos confirmará si el ARG fue pasado correctamente por Cloud Build.
-RUN cat .env.production
+# Escribimos el valor del ARG de Docker (_VITE_API_URL) en el archivo .env.production, 
+# pero usamos el nombre que Vite espera (VITE_API_URL).
+RUN echo "VITE_API_URL=${_VITE_API_URL}" > .env.production
 
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
