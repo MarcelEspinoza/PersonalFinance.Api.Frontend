@@ -19,6 +19,10 @@ COPY . .
 # evitando problemas de 'shell escaping' con URLs (https://...).
 RUN echo "VITE_API_URL=${VITE_API_URL}" > .env.production
 
+# 🔍 PASO DE DIAGNÓSTICO: Muestra el contenido del archivo .env.production
+# Esto nos confirmará si el ARG fue pasado correctamente por Cloud Build.
+RUN cat .env.production
+
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
 
