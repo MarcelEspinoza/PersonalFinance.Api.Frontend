@@ -20,7 +20,7 @@ COPY . .
 # Inyectamos explícitamente la variable VITE_API_URL en el comando de build de npm.
 # Esto garantiza que Vite la recoja y la use como 'import.meta.env.VITE_API_URL'.
 # Sin esta línea, Vite puede usar el valor vacío, forzando a tu cliente a usar el fallback "/api".
-RUN VITE_API_URL=${VITE_API_URL} npm run build
+RUN VITE_API_URL=$VITE_API_URL npx vite build
 
 # Stage 2 - Serve with Nginx: Utilizamos una imagen ligera de Nginx para servir los archivos estáticos.
 FROM nginx:alpine
