@@ -8,7 +8,7 @@ steps:
     - 'europe-southwest1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/personalfinance.api.frontend/personalfinance-api-frontend:$COMMIT_SHA'
     - '--build-arg'
     # 💡 URL del Backend
-    - 'VITE_API_URL=https://personalfinance-api-backend-246552849554.europe-southwest1.run.app'
+    - 'VITE_API_URL=https://personalfinanceapifrontend-production.up.railway.app'
     - '--no-cache' # <--- OBLIGA A RECONSTRUIR TODO
     - '.'
 
