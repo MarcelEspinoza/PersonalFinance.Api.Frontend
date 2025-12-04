@@ -16,7 +16,7 @@ COPY . .
 
 # 🚨 SOLUCIÓN DEFINITIVA: CREAR ARCHIVO .ENV con URL HARDCODEADA
 # Usamos la URL inferida de tu servicio de backend e INCLUIMOS el prefijo /api.
-RUN echo "VITE_API_URL=https://personalfinance-api-backend-246552849554.europe-southwest1.run.app/api" > .env.production
+RUN echo "VITE_API_URL=https://personalfinanceapifrontend-production.up.railway.app/api" > .env.production
 
 # Ahora ejecutamos el build de Vite.
 RUN npx vite build
