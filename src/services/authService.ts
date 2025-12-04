@@ -3,10 +3,10 @@ import apiClient from "../lib/apiClient";
 
 export const authService = {
   register: (email: string, password: string, fullName: string) =>
-    apiClient.post("/Auth/register", { email, password, fullName }),
+    apiClient.post("/auth/register", { email, password, fullName }),
 
   login: (email: string, password: string) =>
-    apiClient.post("/Auth/login", { email, password }),
+    apiClient.post("/auth/login", { email, password }),
 
   // No pasar token aquí: apiClient ya inyecta Authorization desde localStorage
   getMe: () => apiClient.get("/Users/me"),
