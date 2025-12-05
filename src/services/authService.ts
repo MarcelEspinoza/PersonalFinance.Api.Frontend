@@ -12,19 +12,27 @@ export const authService = {
   },
 
   login: async (email: string, password: string) => {
-    try {
-      const res = await apiClient.post("/auth/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      return { user: res.data };
-    } catch (err: any) {
-      // Captura 403, 401 u otros errores del backend
-      return {
-        error: {
-          message: err.response?.data || "Login failed",
-        },
-      };
+  try {
+    const res = await apiClient.post("/auth/login", { email, password });
+    const data = res?.data;
+
+    if (!data || !data.token) {
+      throw new Error("Respuesta inválida del servidor: falta token");
     }
-  },
+
+    localStorage.setItem("token", data.token);
+
+    return { user: data.user, token: data.token };
+  } catch (err: any) {
+    console.error("Error en login:", err);
+    return {
+      error: {
+        message: err.response?.data?.message || err.message || "Login failed",
+      },
+    };
+  }
+},
+
 
   getMe: async () => {
     try {
