@@ -551,6 +551,8 @@ export function TransactionPage({ mode, service }: Props) {
                 onDelete={handleDelete}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}  
+                allSelected={allSelected}
                 sortBy={sortBy}
                 sortDir={sortDir}
                 onRequestSort={requestSort}
