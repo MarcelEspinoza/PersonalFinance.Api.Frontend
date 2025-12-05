@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
@@ -10,7 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Cargar usuario desde el backend si hay token
+  // 🟢 Cargar usuario desde el backend si hay token
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -18,9 +19,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // apiClient interceptor añade Authorization; llamamos getMe() sin token
-    authService.getMe()
-      .then(({ data }) => setUser(data))
+    // getMe ya usa apiClient con Authorization
+    authService
+      .getMe()
+      .then(({ user, error }) => {
+        if (error) throw error;
+        if (user) setUser(user);
+      })
       .catch((err) => {
         console.error("Error al obtener el usuario:", err);
         localStorage.removeItem("token");
@@ -29,30 +34,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // 🟢 Registro
   const signUp = async (email: string, password: string, fullName: string) => {
-    try {
-      await authService.register(email, password, fullName);
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
+    const { error } = await authService.register(email, password, fullName);
+    if (error && !(error instanceof Error)) {
+      return { error: new Error(error.message) };
     }
+    return { error: error || null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { data } = await authService.login(email, password);
-      localStorage.setItem("token", data.token);
+  // 🟢 Login
+  const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
+    const { user, token, error } = await authService.login(email, password);
 
-      // Ahora llama getMe() sin pasar token
-      const meResponse = await authService.getMe();
-      setUser(meResponse.data);
-
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
+    if (error) {
+      // If error is already an Error instance, return it directly
+      if (error instanceof Error) {
+        return { error };
+      }
+      // Otherwise, convert to Error
+      return { error: new Error(error.message || "Unknown error") };
     }
+
+    if (token) localStorage.setItem("token", token);
+    if (user) setUser(user);
+    else {
+      // Si el backend no envía user, lo obtenemos manualmente
+      const { user: meUser, error: meError } = await authService.getMe();
+      if (!meError && meUser) setUser(meUser);
+    }
+
+    return { error: null };
   };
 
+  // 🟢 Logout
   const signOut = () => {
     localStorage.removeItem("token");
     setUser(null);
