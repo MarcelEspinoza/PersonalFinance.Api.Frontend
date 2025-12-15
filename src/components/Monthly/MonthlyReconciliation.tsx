@@ -44,7 +44,6 @@ export default function MonthlyReconciliation({
   recons,
   selectedRecon,
   recLoading,
-  recError,
   suggestion,
   marking,
   onRefresh,
