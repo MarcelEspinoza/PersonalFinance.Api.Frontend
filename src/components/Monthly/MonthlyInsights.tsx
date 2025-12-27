@@ -1,17 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type {
   Formatter,
   NameType,
@@ -33,24 +21,51 @@ export type MonthlyInsightsResponse = {
   txCount: number;
   daysWithSpend: number;
   avgDailySpend: number;
-  byCategory: Array<{ categoryId: number; categoryName: string; amount: number; pct: number }>;
-  topExpenses: Array<{ id: number; description: string; amount: number; date: string; categoryName?: string }>;
-  topIncomes: Array<{ id: number; description: string; amount: number; date: string; categoryName?: string }>;
-  largestIncome?: { id: number; description: string; amount: number; date: string; categoryName?: string } | null;
+  byCategory: Array<{
+    categoryId: number;
+    categoryName: string;
+    amount: number;
+    pct: number;
+  }>;
+  topExpenses: Array<{
+    id: number;
+    description: string;
+    amount: number;
+    date: string;
+    categoryName?: string;
+  }>;
+  topIncomes: Array<{
+    id: number;
+    description: string;
+    amount: number;
+    date: string;
+    categoryName?: string;
+  }>;
+  largestIncome?: {
+    id: number;
+    description: string;
+    amount: number;
+    date: string;
+    categoryName?: string;
+  } | null;
 };
 
 export type MonthlyInsightsProps = {
   year: number;
   month: number;
   bankId?: string;
-  endpoint?: string; // default: "/api/analytics/monthly"
+  endpoint?: string;
 };
 
 // ============================
 // Utils
 // ============================
 const fmtCurrency = (n: number, currency = "EUR") =>
-  new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(n);
+  new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency,
+  }).format(n);
+
 const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 const toNumberAny = (v: unknown): number => {
@@ -63,19 +78,6 @@ const toNumberAny = (v: unknown): number => {
   }
   return 0;
 };
-
-const PALETTE = [
-  "#0ea5e9",
-  "#f97316",
-  "#22c55e",
-  "#eab308",
-  "#6366f1",
-  "#ef4444",
-  "#14b8a6",
-  "#a855f7",
-  "#84cc16",
-  "#f59e0b",
-];
 
 // ============================
 // Component
@@ -101,7 +103,12 @@ export default function MonthlyInsights({
         });
         if (!cancel) setData(res.data);
       } catch (err: any) {
-        if (!cancel) setError(err?.response?.data?.message || err.message || "Error al cargar insights");
+        if (!cancel)
+          setError(
+            err?.response?.data?.message ??
+              err.message ??
+              "Error al cargar insights"
+          );
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -113,15 +120,13 @@ export default function MonthlyInsights({
 
   const currency = data?.currency ?? "EUR";
 
-  // ✅ Formatter con tipo oficial y tolerancia a undefined
-  const tooltipCurrencyFormatter = useMemo<Formatter<ValueType, NameType>>(
+  // formatter seguro (por si algún día lo reutilizas)
+  const tooltipCurrencyFormatter = useMemo<
+    Formatter<ValueType, NameType>
+  >(
     () => (value) => fmtCurrency(toNumberAny(value), currency),
     [currency]
   );
-
-  const yAxisCurrencyTick = useMemo(() => {
-    return (v: string | number) => fmtCurrency(typeof v === "number" ? v : Number(v) || 0, currency);
-  }, [currency]);
 
   const kpis = useMemo(() => {
     if (!data) return null;
@@ -136,115 +141,134 @@ export default function MonthlyInsights({
       { label: "Tasa de ahorro", value: fmtPct(data.savingsRate || 0) },
       { label: "Movimientos", value: String(data.txCount) },
       { label: "Días con gasto", value: String(data.daysWithSpend) },
-      { label: "Gasto medio diario", value: fmtCurrency(data.avgDailySpend, currency) },
+      {
+        label: "Gasto medio diario",
+        value: fmtCurrency(data.avgDailySpend, currency),
+      },
     ];
   }, [data, currency]);
 
   return (
     <div className="w-full grid grid-cols-1 xl:grid-cols-3 gap-6">
-      {/* KPI Cards */}
+      {/* KPIs */}
       <section className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {loading && <div className="col-span-full text-sm text-slate-500">Cargando insights…</div>}
-        {error && <div className="col-span-full text-sm text-rose-600">{error}</div>}
+        {loading && (
+          <div className="col-span-full text-sm text-slate-500">
+            Cargando insights…
+          </div>
+        )}
+        {error && (
+          <div className="col-span-full text-sm text-rose-600">
+            {error}
+          </div>
+        )}
         {kpis?.map((k) => (
-          <article key={k.label} className="rounded-2xl border p-4 bg-white shadow-sm">
+          <article
+            key={k.label}
+            className="rounded-2xl border bg-white shadow-sm px-4 py-5 flex flex-col items-center justify-center text-center"
+          >
             <div className="text-xs text-slate-500">{k.label}</div>
-            <div className={`mt-1 text-lg font-semibold ${k.accent ?? "text-slate-900"}`}>{k.value}</div>
+            <div
+              className={`mt-2 text-xl font-semibold tracking-tight ${
+                k.accent ?? "text-slate-900"
+              }`}
+            >
+              {k.value}
+            </div>
           </article>
         ))}
       </section>
 
-      {/* Donut categorías */}
+      {/* Gasto por categoría */}
       <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-3">
+        <header className="flex items-center justify-between mb-4">
           <h4 className="text-sm font-semibold">Gasto por categoría</h4>
-          <div className="text-xs text-slate-500">Top 10</div>
+          <span className="text-xs text-slate-500">Top 10</span>
         </header>
-        <div className="h-64">
-          {data?.byCategory?.length ? (
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie data={data.byCategory} dataKey="amount" nameKey="categoryName" innerRadius={55} outerRadius={90}>
-                  {data.byCategory.map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={tooltipCurrencyFormatter} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-xs text-slate-500">Sin datos</div>
-          )}
-        </div>
+
         {data?.byCategory?.length ? (
-          <ul className="mt-3 space-y-1 max-h-28 overflow-auto pr-1">
-            {data.byCategory.slice(0, 6).map((c) => (
-              <li key={c.categoryId} className="text-xs flex justify-between">
-                <span className="truncate text-slate-600">{c.categoryName}</span>
-                <span className="font-medium">
-                  {fmtCurrency(c.amount, currency)}{" "}
-                  <span className="text-slate-400">({fmtPct(c.pct)})</span>
+          <ul className="space-y-3">
+            {data.byCategory.slice(0, 10).map((c) => (
+              <li
+                key={c.categoryId}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium text-slate-700">
+                    {c.categoryName}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {fmtPct(c.pct)}
+                  </span>
+                </div>
+                <span className="font-semibold text-rose-600 tabular-nums">
+                  -{fmtCurrency(c.amount, currency)}
                 </span>
               </li>
             ))}
           </ul>
-        ) : null}
+        ) : (
+          <div className="text-xs text-slate-500">Sin datos</div>
+        )}
       </section>
 
-      {/* Top 5 gastos */}
+      {/* Top gastos */}
       <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold">Top 5 gastos</h4>
-          <div className="text-xs text-slate-500">Importe absoluto</div>
+        <header className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-semibold">Top gastos</h4>
+          <span className="text-xs text-slate-500">Mayor a menor</span>
         </header>
-        <div className="h-64">
-          {data?.topExpenses?.length ? (
-            <ResponsiveContainer>
-              <BarChart data={data.topExpenses.slice(0, 5)} margin={{ left: 10, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="description" hide />
-                <YAxis tickFormatter={yAxisCurrencyTick} />
-                <Tooltip
-                  formatter={tooltipCurrencyFormatter}
-                  labelFormatter={(label: string | number) => String(label)}
-                />
-                <Bar dataKey="amount" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-xs text-slate-500">Sin datos</div>
-          )}
-        </div>
-        <ul className="mt-3 space-y-1">
-          {data?.topExpenses?.slice(0, 5).map((e) => (
-            <li key={e.id} className="text-xs flex justify-between">
-              <span className="truncate text-slate-600">{e.description}</span>
-              <span className="font-medium text-rose-600">
-                -{fmtCurrency(e.amount, currency)}
-              </span>
-            </li>
-          ))}
-        </ul>
+
+        {data?.topExpenses?.length ? (
+          <div className="space-y-3">
+            {data.topExpenses.slice(0, 5).map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="truncate text-slate-600">
+                  {e.description}
+                </div>
+                <div className="font-semibold text-rose-600 tabular-nums">
+                  -{fmtCurrency(e.amount, currency)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500">Sin datos</div>
+        )}
       </section>
 
       {/* Top ingresos */}
       <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-3">
+        <header className="flex items-center justify-between mb-4">
           <h4 className="text-sm font-semibold">Top ingresos</h4>
-          <div className="text-xs text-slate-500">Mayor a menor</div>
+          <span className="text-xs text-slate-500">Mayor a menor</span>
         </header>
-        <div className="space-y-2">
-          {data?.topIncomes?.slice(0, 5).map((i) => (
-            <div key={i.id} className="flex items-center justify-between text-xs">
-              <div className="truncate text-slate-600">{i.description}</div>
-              <div className="font-medium text-emerald-600">
-                {fmtCurrency(i.amount, currency)}
+
+        {data?.topIncomes?.length ? (
+          <div className="space-y-3">
+            {data.topIncomes.slice(0, 5).map((i) => (
+              <div
+                key={i.id}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="truncate text-slate-600">
+                  {i.description}
+                </div>
+                <div className="font-semibold text-emerald-600 tabular-nums">
+                  {fmtCurrency(i.amount, currency)}
+                </div>
               </div>
-            </div>
-          )) || <div className="text-xs text-slate-500">Sin datos</div>}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500">Sin datos</div>
+        )}
+
         {data?.largestIncome && (
-          <div className="mt-3 text-xs text-slate-500">
+          <div className="mt-4 text-xs text-slate-500">
             Mayor ingreso:{" "}
             <span className="font-medium text-slate-700">
               {data.largestIncome.description}
