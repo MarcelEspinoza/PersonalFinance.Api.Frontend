@@ -198,7 +198,7 @@ export function MonthlyView() {
                 year={year}
                 month={month}
                 bankId={selectedRecon?.bankId}
-                endpoint="/api/analytics/monthly"
+                endpoint="/analytics/monthly"
               />
             ) : (
               <div className="text-sm text-slate-500">{error ?? "Sin datos para este periodo."}</div>
