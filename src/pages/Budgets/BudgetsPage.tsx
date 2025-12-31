@@ -1,155 +1,60 @@
 import { useEffect, useState } from "react";
-import { BudgetForm } from "../../components/Budgets/BudgetForm";
-import { budgetService } from "../../services/budgetService";
-import type { BudgetStatus } from "../../types/BudgetStatus";
+import apiClient from "../../lib/apiClient";
+import { BudgetPayload, budgetService } from "../../services/budgetService";
 
-export function BudgetsPage() {
-  const [items, setItems] = useState<BudgetStatus[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState<number>(0);
+interface Category {
+  id: number;
+  name: string;
+}
 
-  const load = async () => {
-    const { data } = await budgetService.getMonthlyStatus();
-    setItems(data);
-  };
+export function BudgetForm({ onSaved }: { onSaved: () => void }) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [form, setForm] = useState<BudgetPayload>({
+    categoryId: 0,
+    monthlyLimit: 0,
+    startMonth: new Date().toISOString().slice(0, 7) + "-01",
+    endMonth: null
+  });
 
   useEffect(() => {
-    load();
+    apiClient.get<Category[]>("/categories").then(r => setCategories(r.data));
   }, []);
 
-  const startEdit = (b: BudgetStatus) => {
-    setEditingId(b.budgetId);
-    setEditValue(b.monthlyLimit);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValue(0);
-  };
-
-  const saveEdit = async (b: BudgetStatus) => {
-    await budgetService.update(b.budgetId, {
-      categoryId: b.categoryId,
-      monthlyLimit: editValue,
-      startMonth: new Date().toISOString(),
-      isActive: true,
-    });
-    cancelEdit();
-    await load();
-  };
-
-  const renderStatus = (b: BudgetStatus) => {
-    const ratio = b.monthlyLimit > 0 ? b.spentAmount / b.monthlyLimit : 0;
-
-    if (ratio >= 1) return <span className="text-red-600 font-semibold">🔴 Excedido</span>;
-    if (ratio >= 0.8) return <span className="text-yellow-600 font-semibold">🟡 Cerca</span>;
-    return <span className="text-green-600 font-semibold">🟢 OK</span>;
+  const submit = async () => {
+    if (!form.categoryId || form.monthlyLimit <= 0) return;
+    await budgetService.create(form);
+    onSaved();
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Presupuestos</h1>
+    <div className="bg-white border rounded-xl p-4 space-y-4">
+      <h3 className="font-semibold text-lg">Nuevo presupuesto</h3>
 
-      {/* ➕ NUEVO PRESUPUESTO */}
-      <BudgetForm onSaved={load} />
+      <select
+        className="w-full border rounded p-2"
+        value={form.categoryId}
+        onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}
+      >
+        <option value={0}>Selecciona categoría</option>
+        {categories.map(c => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
 
-      {/* TABLA */}
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-100">
-            <tr>
-              <th className="p-3 text-left">Categoría</th>
-              <th className="p-3 text-right">Límite</th>
-              <th className="p-3 text-right">Gastado</th>
-              <th className="p-3">Progreso</th>
-              <th className="p-3">Estado</th>
-              <th className="p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(b => {
-              const ratio = b.monthlyLimit > 0
-                ? Math.min(1, b.spentAmount / b.monthlyLimit)
-                : 0;
+      <input
+        type="number"
+        className="w-full border rounded p-2"
+        placeholder="Límite mensual"
+        value={form.monthlyLimit}
+        onChange={e => setForm({ ...form, monthlyLimit: Number(e.target.value) })}
+      />
 
-              return (
-                <tr key={b.budgetId} className="border-t">
-                  <td className="p-3">{b.categoryName}</td>
-
-                  <td className="p-3 text-right">
-                    {editingId === b.budgetId ? (
-                      <input
-                        type="number"
-                        className="border rounded px-2 py-1 w-24 text-right"
-                        value={editValue}
-                        onChange={(e) => setEditValue(Number(e.target.value))}
-                      />
-                    ) : (
-                      `${b.monthlyLimit.toFixed(2)} €`
-                    )}
-                  </td>
-
-                  <td className="p-3 text-right">
-                    {b.spentAmount.toFixed(2)} €
-                  </td>
-
-                  {/* 🅰️ ALERTA VISUAL */}
-                  <td className="p-3">
-                    <div className="w-full bg-slate-200 rounded h-2">
-                      <div
-                        className={`h-2 rounded ${
-                          ratio >= 1
-                            ? "bg-red-500"
-                            : ratio >= 0.8
-                            ? "bg-yellow-400"
-                            : "bg-emerald-500"
-                        }`}
-                        style={{ width: `${ratio * 100}%` }}
-                      />
-                    </div>
-                  </td>
-
-                  <td className="p-3 text-center">
-                    {renderStatus(b)}
-                  </td>
-
-                  {/* 🅱️ ACCIONES */}
-                  <td className="p-3 text-right">
-                    {editingId === b.budgetId ? (
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => saveEdit(b)}
-                          className="text-emerald-600"
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="text-slate-500"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEdit(b)}
-                        className="text-blue-600"
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 🅲 BASE PARA SIMULACIÓN FUTURA */}
-      <div className="text-xs text-slate-500">
-        Próximamente: simulación de escenarios futuros basada en estos presupuestos.
-      </div>
+      <button
+        onClick={submit}
+        className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
+      >
+        Guardar presupuesto
+      </button>
     </div>
   );
 }

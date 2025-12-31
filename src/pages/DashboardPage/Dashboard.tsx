@@ -1,43 +1,24 @@
 // pages/Dashboard/Dashboard.tsx
 import {
+  AlertTriangle,
   ArrowDownCircle,
   ArrowUpCircle,
+  CalendarDays,
   PiggyBank,
-  Wallet
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { PlanSavingsForm } from '../../components/Savings/PlanSavingsForm';
-import { useAuth } from '../../contexts/AuthContext';
-import { budgetService } from '../../services/budgetService';
-import { commitmentService } from '../../services/commitmentService';
-import { MonthlyData, Summary, getDashboardProjection } from '../../services/dashboardService';
-
-// ================= TYPES =================
-
-type CommitmentStatus = {
-  commitmentId: string;
-  name: string;
-  expectedAmount: number;
-  actualAmount: number;
-  isSatisfied: boolean;
-  isOutOfRange: boolean;
-};
-
-type BudgetStatus = {
-  budgetId: string;
-  categoryName: string;
-  monthlyLimit: number;
-  spentAmount: number;
-  remainingAmount: number;
-  isExceeded: boolean;
-  isNearLimit: boolean;
-};
-
-// ================= COMPONENT =================
+  Wallet,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { PlanSavingsForm } from "../../components/Savings/PlanSavingsForm";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  MonthlyData,
+  Summary,
+  getDashboardProjection,
+} from "../../services/dashboardService";
+import type { DashboardAlerts } from "../../types/DashboardAlerts";
 
 export function Dashboard() {
   const { user } = useAuth();
-
   const [loading, setLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [summary, setSummary] = useState<Summary>({
@@ -48,10 +29,7 @@ export function Dashboard() {
     projectedSavings: 0,
     plannedBalance: 0,
   });
-
-  const [commitments, setCommitments] = useState<CommitmentStatus[]>([]);
-  const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
-
+  const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
 
   useEffect(() => {
@@ -61,41 +39,21 @@ export function Dashboard() {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
-
       const { data } = await getDashboardProjection();
       setMonthlyData(data.monthlyData);
       setSummary(data.summary);
-
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-
-      const [commitmentsRes, budgetsRes] = await Promise.all([
-        commitmentService.getMonthlyStatus(year, month),
-        budgetService.getMonthlyStatus(year, month),
-      ]);
-
-      setCommitments(commitmentsRes.data);
-      setBudgets(budgetsRes.data);
-    } catch (error) {
-      console.error('Error loading dashboard:', error);
+      setAlerts(data.alerts);
+    } catch (err) {
+      console.error("Error loading dashboard", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const openDrawer = () => setShowDrawer(true);
-  const closeDrawer = () => setShowDrawer(false);
-
-  const handlePlanSaved = async () => {
-    closeDrawer();
-    await loadFinancialData();
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
+      <div className="flex justify-center py-20">
+        <div className="animate-spin h-10 w-10 border-b-2 border-emerald-600 rounded-full" />
       </div>
     );
   }
@@ -105,16 +63,18 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Dashboard Financiero</h1>
-          <p className="text-slate-600 mt-1">
-            Situación actual y proyección futura
+          <h1 className="text-3xl font-bold text-slate-800">
+            Dashboard financiero
+          </h1>
+          <p className="text-slate-600">
+            Situación actual y proyección a 6 meses
           </p>
         </div>
 
         <button
-          onClick={openDrawer}
+          onClick={() => setShowDrawer(true)}
           className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700"
         >
           <PiggyBank className="w-5 h-5" />
@@ -122,79 +82,59 @@ export function Dashboard() {
         </button>
       </div>
 
+      {/* ALERTAS */}
+      {alerts && alerts.items.length > 0 && (
+        <div className="space-y-3">
+          {alerts.items.map((a, i) => (
+            <AlertCard
+              key={i}
+              type={a.type}
+              message={a.message}
+              action={a.action}
+            />
+          ))}
+        </div>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <SummaryCard title="Total Ingresos" value={summary.totalIncome} icon={<ArrowUpCircle className="w-6 h-6 text-green-600" />} bgColor="bg-green-100" textColor="text-green-600" />
-        <SummaryCard title="Total Gastos" value={summary.totalExpense} icon={<ArrowDownCircle className="w-6 h-6 text-red-600" />} bgColor="bg-red-100" textColor="text-red-600" />
-        <SummaryCard title="Balance Total" value={summary.balance} icon={<Wallet className="w-6 h-6 text-blue-600" />} bgColor="bg-blue-100" textColor={summary.balance >= 0 ? 'text-green-600' : 'text-red-600'} />
-        <SummaryCard title="Ahorro real" value={summary.savings} icon={<PiggyBank className="w-6 h-6 text-emerald-600" />} bgColor="bg-emerald-100" textColor="text-emerald-600" />
-        <SummaryCard title="Ahorro proyectado" value={summary.projectedSavings} icon={<PiggyBank className="w-6 h-6 text-yellow-600" />} bgColor="bg-yellow-100" textColor="text-yellow-600" />
-        <SummaryCard title="Balance planificado" value={summary.plannedBalance} icon={<Wallet className="w-6 h-6 text-purple-600" />} bgColor="bg-purple-100" textColor={summary.plannedBalance >= 0 ? 'text-green-600' : 'text-red-600'} />
+        <SummaryCard title="Ingresos" value={summary.totalIncome} icon={<ArrowUpCircle />} />
+        <SummaryCard title="Gastos" value={summary.totalExpense} icon={<ArrowDownCircle />} />
+        <SummaryCard title="Balance" value={summary.balance} icon={<Wallet />} />
+        <SummaryCard title="Ahorro real" value={summary.savings} icon={<PiggyBank />} />
+        <SummaryCard title="Ahorro proyectado" value={summary.projectedSavings} icon={<PiggyBank />} />
+        <SummaryCard title="Balance planificado" value={summary.plannedBalance} icon={<Wallet />} />
       </div>
 
-      {/* COMPROMISOS + PRESUPUESTOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Compromisos */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="text-lg font-bold mb-4">Compromisos del mes</h2>
-          <ul className="space-y-2 text-sm">
-            {commitments.map(c => (
-              <li key={c.commitmentId} className="flex justify-between">
-                <span>{c.name}</span>
-                <span className={
-                  c.isSatisfied
-                    ? 'text-green-600'
-                    : c.isOutOfRange
-                    ? 'text-red-600'
-                    : 'text-yellow-600'
-                }>
-                  {c.actualAmount.toFixed(2)} € / {c.expectedAmount.toFixed(2)} €
-                </span>
-              </li>
-            ))}
-            {!commitments.length && (
-              <li className="text-slate-400">No hay compromisos configurados</li>
-            )}
-          </ul>
+      {/* MES ACTUAL */}
+      {currentMonth && (
+        <div className="bg-white border rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" />
+            Mes actual
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <MiniStat label="Ingresos" value={currentMonth.income} />
+            <MiniStat label="Gastos" value={currentMonth.expense} />
+            <MiniStat label="Balance" value={currentMonth.balance} />
+            <MiniStat label="Ahorro" value={currentMonth.savings} />
+            <MiniStat
+              label="Planificado"
+              value={currentMonth.plannedBalance ?? 0}
+            />
+          </div>
         </div>
+      )}
 
-        {/* Presupuestos */}
-        <div className="bg-white rounded-xl border p-6">
-          <h2 className="text-lg font-bold mb-4">Presupuestos del mes</h2>
-          <ul className="space-y-2 text-sm">
-            {budgets.map(b => (
-              <li key={b.budgetId} className="flex justify-between">
-                <span>{b.categoryName}</span>
-                <span className={
-                  b.isExceeded
-                    ? 'text-red-600'
-                    : b.isNearLimit
-                    ? 'text-yellow-600'
-                    : 'text-green-600'
-                }>
-                  {b.spentAmount.toFixed(2)} € / {b.monthlyLimit.toFixed(2)} €
-                </span>
-              </li>
-            ))}
-            {!budgets.length && (
-              <li className="text-slate-400">No hay presupuestos configurados</li>
-            )}
-          </ul>
-        </div>
-      </div>
-
-      {/* DRAWER AHORRO */}
+      {/* DRAWER */}
       {showDrawer && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={closeDrawer} />
-          <div className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl z-50">
-            <div className="p-4 border-b flex justify-between">
-              <h3 className="font-semibold">Planificar ahorro</h3>
-              <button onClick={closeDrawer}>✕</button>
-            </div>
-            <div className="p-4">
-              <PlanSavingsForm onSuccess={handlePlanSaved} />
-            </div>
+          <div
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={() => setShowDrawer(false)}
+          />
+          <div className="fixed right-0 top-0 h-full w-[420px] bg-white z-50 shadow-xl">
+            <PlanSavingsForm onSuccess={loadFinancialData} />
           </div>
         </>
       )}
@@ -202,30 +142,82 @@ export function Dashboard() {
   );
 }
 
-// ================= HELPER =================
+/* ================= UI COMPONENTS ================= */
+
+function AlertCard({
+  type,
+  message,
+  action,
+}: {
+  type: "Budget" | "Commitment" | "Balance";
+  message: string;
+  action?: string;
+}) {
+  const styles = {
+    Budget: {
+      bg: "bg-yellow-50",
+      border: "border-yellow-400",
+      text: "text-yellow-700",
+    },
+    Commitment: {
+      bg: "bg-orange-50",
+      border: "border-orange-400",
+      text: "text-orange-700",
+    },
+    Balance: {
+      bg: "bg-rose-50",
+      border: "border-rose-400",
+      text: "text-rose-700",
+    },
+  }[type];
+
+  return (
+    <div
+      className={`flex items-center justify-between border-l-4 p-4 rounded-md ${styles.bg} ${styles.border}`}
+    >
+      <div className={`flex items-center gap-2 text-sm font-medium ${styles.text}`}>
+        <AlertTriangle className="w-4 h-4" />
+        {message}
+      </div>
+      {action && (
+        <a
+          href={action}
+          className="text-sm font-medium text-emerald-700 hover:underline"
+        >
+          Ver
+        </a>
+      )}
+    </div>
+  );
+}
 
 function SummaryCard({
   title,
   value,
   icon,
-  bgColor,
-  textColor,
 }: {
   title: string;
   value: number;
   icon: React.ReactNode;
-  bgColor: string;
-  textColor: string;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-6">
-      <div className="flex justify-between mb-3">
-        <div className={`${bgColor} p-3 rounded-lg`}>{icon}</div>
+    <div className="bg-white border rounded-xl p-4">
+      <div className="flex items-center gap-2 text-slate-600">
+        {icon}
+        <span>{title}</span>
       </div>
-      <p className="text-sm text-slate-600">{title}</p>
-      <p className={`text-2xl font-bold ${textColor}`}>
+      <div className="text-2xl font-bold mt-2">
         {value.toFixed(2)} €
-      </p>
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="text-center">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="font-semibold">{value.toFixed(2)} €</div>
     </div>
   );
 }

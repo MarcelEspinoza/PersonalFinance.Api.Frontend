@@ -1,14 +1,15 @@
-import apiClient from '../lib/apiClient';
+import apiClient from "../lib/apiClient";
+import type { DashboardAlerts } from "../types/DashboardAlerts";
 
 export interface MonthlyData {
   month: string;
   income: number;
   expense: number;
   balance: number;
-  isCurrent: boolean;
   savings: number;
-  projectedSavings: number; 
-  plannedBalance: number; // ahorro proyectado del mes
+  projectedSavings: number;
+  plannedBalance?: number;
+  isCurrent: boolean;
 }
 
 export interface Summary {
@@ -16,11 +17,15 @@ export interface Summary {
   totalExpense: number;
   balance: number;
   savings: number;
-  projectedSavings: number;  // suma de ahorros proyectados futuros
+  projectedSavings: number;
   plannedBalance: number;
 }
 
-
 export const getDashboardProjection = () =>
-  apiClient.get<{ monthlyData: MonthlyData[]; summary: Summary }>("/dashboard/projection");
+  apiClient.get<{
+    monthlyData: MonthlyData[];
+    summary: Summary;
+    alerts: DashboardAlerts;
+  }>("/dashboard/projection");
+
 

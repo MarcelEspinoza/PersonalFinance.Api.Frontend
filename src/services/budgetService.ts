@@ -1,30 +1,25 @@
 import apiClient from "../lib/apiClient";
 import type { BudgetStatus } from "../types/BudgetStatus";
 
-export type CreateBudgetDto = {
+export interface BudgetPayload {
   categoryId: number;
   monthlyLimit: number;
-  startMonth: string;
+  startMonth: string; // YYYY-MM-01
   endMonth?: string | null;
-  isActive: boolean;
-};
+}
 
 export const budgetService = {
-  // 🔎 estado mensual (dashboard)
   getMonthlyStatus: (year?: number, month?: number) =>
     apiClient.get<BudgetStatus[]>("/budgets/status", {
-      params: { year, month },
+      params: { year, month }
     }),
 
-  // ➕ crear presupuesto
-  create: (payload: CreateBudgetDto) =>
+  create: (payload: BudgetPayload) =>
     apiClient.post("/budgets", payload),
 
-  // ✏️ actualizar
-  update: (id: string, payload: CreateBudgetDto) =>
+  update: (id: string, payload: BudgetPayload) =>
     apiClient.put(`/budgets/${id}`, payload),
 
-  // ❌ desactivar / borrar
   remove: (id: string) =>
-    apiClient.delete(`/budgets/${id}`),
+    apiClient.delete(`/budgets/${id}`)
 };
