@@ -2,17 +2,42 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
-  CalendarDays,
   PiggyBank,
   Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PlanSavingsForm } from '../../components/Savings/PlanSavingsForm';
 import { useAuth } from '../../contexts/AuthContext';
+import { budgetService } from '../../services/budgetService';
+import { commitmentService } from '../../services/commitmentService';
 import { MonthlyData, Summary, getDashboardProjection } from '../../services/dashboardService';
+
+// ================= TYPES =================
+
+type CommitmentStatus = {
+  commitmentId: string;
+  name: string;
+  expectedAmount: number;
+  actualAmount: number;
+  isSatisfied: boolean;
+  isOutOfRange: boolean;
+};
+
+type BudgetStatus = {
+  budgetId: string;
+  categoryName: string;
+  monthlyLimit: number;
+  spentAmount: number;
+  remainingAmount: number;
+  isExceeded: boolean;
+  isNearLimit: boolean;
+};
+
+// ================= COMPONENT =================
 
 export function Dashboard() {
   const { user } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [summary, setSummary] = useState<Summary>({
@@ -21,8 +46,12 @@ export function Dashboard() {
     balance: 0,
     savings: 0,
     projectedSavings: 0,
-    plannedBalance: 0, // 👈 nuevo campo
+    plannedBalance: 0,
   });
+
+  const [commitments, setCommitments] = useState<CommitmentStatus[]>([]);
+  const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
+
   const [showDrawer, setShowDrawer] = useState(false);
 
   useEffect(() => {
@@ -32,11 +61,24 @@ export function Dashboard() {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
+
       const { data } = await getDashboardProjection();
       setMonthlyData(data.monthlyData);
       setSummary(data.summary);
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
+      const [commitmentsRes, budgetsRes] = await Promise.all([
+        commitmentService.getMonthlyStatus(year, month),
+        budgetService.getMonthlyStatus(year, month),
+      ]);
+
+      setCommitments(commitmentsRes.data);
+      setBudgets(budgetsRes.data);
     } catch (error) {
-      console.error('Error loading financial data:', error);
+      console.error('Error loading dashboard:', error);
     } finally {
       setLoading(false);
     }
@@ -53,7 +95,7 @@ export function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
       </div>
     );
   }
@@ -62,12 +104,12 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Encabezado */}
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Dashboard Financiero</h1>
           <p className="text-slate-600 mt-1">
-            Proyección del mes actual y los próximos 6 meses
+            Situación actual y proyección futura
           </p>
         </div>
 
@@ -80,172 +122,77 @@ export function Dashboard() {
         </button>
       </div>
 
-      {/* KPIs globales */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <SummaryCard
-          title="Total Ingresos"
-          value={summary.totalIncome}
-          icon={<ArrowUpCircle className="w-6 h-6 text-green-600" />}
-          bgColor="bg-green-100"
-          textColor="text-green-600"
-        />
-        <SummaryCard
-          title="Total Gastos"
-          value={summary.totalExpense}
-          icon={<ArrowDownCircle className="w-6 h-6 text-red-600" />}
-          bgColor="bg-red-100"
-          textColor="text-red-600"
-        />
-        <SummaryCard
-          title="Balance Total"
-          value={summary.balance}
-          icon={<Wallet className="w-6 h-6 text-blue-600" />}
-          bgColor="bg-blue-100"
-          textColor={summary.balance >= 0 ? 'text-green-600' : 'text-red-600'}
-        />
-        <SummaryCard
-          title="Ahorro real (mes actual)"
-          value={summary.savings}
-          icon={<PiggyBank className="w-6 h-6 text-emerald-600" />}
-          bgColor="bg-emerald-100"
-          textColor="text-emerald-600"
-        />
-        <SummaryCard
-          title="Ahorro proyectado (futuro)"
-          value={summary.projectedSavings}
-          icon={<PiggyBank className="w-6 h-6 text-yellow-600" />}
-          bgColor="bg-yellow-100"
-          textColor="text-yellow-600"
-        />
-        <SummaryCard
-          title="Balance neto planificado"
-          value={summary.plannedBalance}
-          icon={<Wallet className="w-6 h-6 text-purple-600" />}
-          bgColor="bg-purple-100"
-          textColor={summary.plannedBalance >= 0 ? 'text-green-600' : 'text-red-600'}
-        />
+        <SummaryCard title="Total Ingresos" value={summary.totalIncome} icon={<ArrowUpCircle className="w-6 h-6 text-green-600" />} bgColor="bg-green-100" textColor="text-green-600" />
+        <SummaryCard title="Total Gastos" value={summary.totalExpense} icon={<ArrowDownCircle className="w-6 h-6 text-red-600" />} bgColor="bg-red-100" textColor="text-red-600" />
+        <SummaryCard title="Balance Total" value={summary.balance} icon={<Wallet className="w-6 h-6 text-blue-600" />} bgColor="bg-blue-100" textColor={summary.balance >= 0 ? 'text-green-600' : 'text-red-600'} />
+        <SummaryCard title="Ahorro real" value={summary.savings} icon={<PiggyBank className="w-6 h-6 text-emerald-600" />} bgColor="bg-emerald-100" textColor="text-emerald-600" />
+        <SummaryCard title="Ahorro proyectado" value={summary.projectedSavings} icon={<PiggyBank className="w-6 h-6 text-yellow-600" />} bgColor="bg-yellow-100" textColor="text-yellow-600" />
+        <SummaryCard title="Balance planificado" value={summary.plannedBalance} icon={<Wallet className="w-6 h-6 text-purple-600" />} bgColor="bg-purple-100" textColor={summary.plannedBalance >= 0 ? 'text-green-600' : 'text-red-600'} />
       </div>
-      {/* Resumen del mes actual */}
-      {currentMonth && (
-        <div className="bg-white rounded-xl shadow-sm border border-emerald-300 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-emerald-700">Resumen del Mes Actual</h2>
-            <CalendarDays className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <SummaryCard
-              title="Ingresos"
-              value={currentMonth.income}
-              icon={<ArrowUpCircle className="w-6 h-6 text-green-600" />}
-              bgColor="bg-green-100"
-              textColor="text-green-600"
-            />
-            <SummaryCard
-              title="Gastos"
-              value={currentMonth.expense}
-              icon={<ArrowDownCircle className="w-6 h-6 text-red-600" />}
-              bgColor="bg-red-100"
-              textColor="text-red-600"
-            />
-            <SummaryCard
-              title="Balance"
-              value={currentMonth.balance}
-              icon={<Wallet className="w-6 h-6 text-blue-600" />}
-              bgColor="bg-blue-100"
-              textColor={currentMonth.balance >= 0 ? 'text-green-600' : 'text-red-600'}
-            />
-            <SummaryCard
-              title="Ahorro real (mes)"
-              value={currentMonth.savings}
-              icon={<PiggyBank className="w-6 h-6 text-emerald-600" />}
-              bgColor="bg-emerald-100"
-              textColor="text-emerald-600"
-            />
-            <SummaryCard
-              title="Balance neto planificado"
-              value={currentMonth.plannedBalance ?? 0}
-              icon={<Wallet className="w-6 h-6 text-purple-600" />}
-              bgColor="bg-purple-100"
-              textColor={(currentMonth.plannedBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}
-            />
-          </div>
+
+      {/* COMPROMISOS + PRESUPUESTOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Compromisos */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="text-lg font-bold mb-4">Compromisos del mes</h2>
+          <ul className="space-y-2 text-sm">
+            {commitments.map(c => (
+              <li key={c.commitmentId} className="flex justify-between">
+                <span>{c.name}</span>
+                <span className={
+                  c.isSatisfied
+                    ? 'text-green-600'
+                    : c.isOutOfRange
+                    ? 'text-red-600'
+                    : 'text-yellow-600'
+                }>
+                  {c.actualAmount.toFixed(2)} € / {c.expectedAmount.toFixed(2)} €
+                </span>
+              </li>
+            ))}
+            {!commitments.length && (
+              <li className="text-slate-400">No hay compromisos configurados</li>
+            )}
+          </ul>
         </div>
-      )}
 
-      {/* Evolución mensual */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-auto">
-        <h2 className="text-xl font-bold text-slate-800 mb-6">Evolución Mensual</h2>
-
-        <table className="min-w-full text-sm text-left border border-slate-200 rounded-lg overflow-hidden">
-          <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
-            <tr>
-              <th className="px-4 py-2">Mes</th>
-              <th className="px-4 py-2 text-green-600">Ingresos</th>
-              <th className="px-4 py-2 text-red-600">Gastos</th>
-              <th className="px-4 py-2">Balance</th>
-              <th className="px-4 py-2 text-emerald-600">Ahorro real</th>
-              <th className="px-4 py-2 text-yellow-600">Ahorro proyectado</th>
-              <th className="px-4 py-2 text-purple-600">Balance neto planificado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monthlyData.map((data, index) => {
-              const isCurrent = data.isCurrent;
-              return (
-                <tr
-                  key={index}
-                  className={`border-t ${
-                    isCurrent
-                      ? 'bg-emerald-50 font-semibold text-emerald-700'
-                      : 'bg-white'
-                  }`}
-                >
-                  <td className="px-4 py-2 capitalize">
-                    {isCurrent ? '★ ' : ''}
-                    {data.month}
-                  </td>
-                  <td className="px-4 py-2">{(data.income ?? 0).toFixed(2)} €</td>
-                  <td className="px-4 py-2">{(data.expense ?? 0).toFixed(2)} €</td>
-                  <td className={`px-4 py-2 ${data.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {data.balance >= 0 ? '+' : ''}
-                    {(data.balance ?? 0).toFixed(2)} €
-                  </td>
-                  <td className="px-4 py-2">{(data.savings ?? 0).toFixed(2)} €</td>
-                  <td className="px-4 py-2">{(data.projectedSavings ?? 0).toFixed(2)} €</td>
-                  <td className={`px-4 py-2 ${(data.plannedBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(data.plannedBalance ?? 0).toFixed(2)} €
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="mt-4 text-xs text-slate-500">
-          El ahorro real refleja aportes registrados. El ahorro proyectado proviene de planes temporales o estimaciones. 
-          El balance neto planificado muestra cómo quedarías tras apartar ese ahorro.
+        {/* Presupuestos */}
+        <div className="bg-white rounded-xl border p-6">
+          <h2 className="text-lg font-bold mb-4">Presupuestos del mes</h2>
+          <ul className="space-y-2 text-sm">
+            {budgets.map(b => (
+              <li key={b.budgetId} className="flex justify-between">
+                <span>{b.categoryName}</span>
+                <span className={
+                  b.isExceeded
+                    ? 'text-red-600'
+                    : b.isNearLimit
+                    ? 'text-yellow-600'
+                    : 'text-green-600'
+                }>
+                  {b.spentAmount.toFixed(2)} € / {b.monthlyLimit.toFixed(2)} €
+                </span>
+              </li>
+            ))}
+            {!budgets.length && (
+              <li className="text-slate-400">No hay presupuestos configurados</li>
+            )}
+          </ul>
         </div>
       </div>
 
-      {/* Drawer lateral */}
+      {/* DRAWER AHORRO */}
       {showDrawer && (
         <>
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-            onClick={closeDrawer}
-          />
-          <div className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl z-50 flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-800">Planificar ahorro</h3>
-              <button
-                onClick={closeDrawer}
-                className="text-slate-500 hover:text-slate-700"
-                aria-label="Cerrar panel"
-              >
-                ✕
-              </button>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={closeDrawer} />
+          <div className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl z-50">
+            <div className="p-4 border-b flex justify-between">
+              <h3 className="font-semibold">Planificar ahorro</h3>
+              <button onClick={closeDrawer}>✕</button>
             </div>
-            <div className="p-4 flex-1 overflow-y-auto">
+            <div className="p-4">
               <PlanSavingsForm onSuccess={handlePlanSaved} />
             </div>
           </div>
@@ -254,6 +201,8 @@ export function Dashboard() {
     </div>
   );
 }
+
+// ================= HELPER =================
 
 function SummaryCard({
   title,
@@ -269,13 +218,13 @@ function SummaryCard({
   textColor: string;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl shadow-sm border p-6">
+      <div className="flex justify-between mb-3">
         <div className={`${bgColor} p-3 rounded-lg`}>{icon}</div>
       </div>
-      <p className="text-sm text-slate-600 mb-1">{title}</p>
+      <p className="text-sm text-slate-600">{title}</p>
       <p className={`text-2xl font-bold ${textColor}`}>
-        {(value ?? 0).toFixed(2)} €
+        {value.toFixed(2)} €
       </p>
     </div>
   );
