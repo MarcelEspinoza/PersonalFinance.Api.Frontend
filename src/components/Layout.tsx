@@ -29,6 +29,7 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'monthly', label: 'Vista Mensual', icon: Calendar },
+    { id: 'ledger', label: 'Mes (nuevo)', icon: Calendar },
     { id: 'incomes', label: 'Ingresos', icon: TrendingUp },
     { id: 'expenses', label: 'Gastos', icon: TrendingDown },
     { id: 'loans', label: 'Préstamos', icon: Coins },

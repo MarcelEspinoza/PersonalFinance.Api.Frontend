@@ -8,6 +8,7 @@ import ExpensesPage from './pages/ExpensesPage/ExpensesPage';
 import IncomePage from './pages/IncomesPage/IncomePage';
 import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
+import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
 
@@ -36,6 +37,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><MonthlyView /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/ledger"
+        element={
+          <PrivateRoute>
+            <Layout><LedgerMonthPage /></Layout>
           </PrivateRoute>
         }
       />

@@ -4,57 +4,76 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    /* Neutros con un punto de azul: leen como refinados, no como grises de sistema. */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 215 25% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --popover-foreground: 215 25% 14%;
+    --primary: 215 28% 17%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 16% 95%;
+    --secondary-foreground: 215 25% 20%;
+    --muted: 215 16% 96%;
+    --muted-foreground: 215 12% 47%;
+    --accent: 215 16% 94%;
+    --accent-foreground: 215 25% 18%;
+    --destructive: 355 52% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 16% 91%;
+    --input: 215 16% 88%;
+    --ring: 215 25% 27%;
+
+    /* Semánticos del dinero: apagados a propósito. El verde y el rojo
+       saturados chillan en una tabla llena de cifras. */
+    --positive: 162 44% 32%;
+    --positive-soft: 162 38% 95%;
+    --negative: 355 52% 47%;
+    --negative-soft: 355 60% 96%;
+    --warning: 33 58% 41%;
+    --warning-soft: 40 70% 95%;
+
+    --chart-1: 215 28% 30%;
+    --chart-2: 162 44% 38%;
+    --chart-3: 33 58% 50%;
+    --chart-4: 215 16% 62%;
+    --chart-5: 355 42% 55%;
+    --radius: 0.625rem
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --background: 215 28% 9%;
+    --foreground: 210 20% 96%;
+    --card: 215 26% 12%;
+    --card-foreground: 210 20% 96%;
+    --popover: 215 26% 12%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 210 20% 96%;
+    --primary-foreground: 215 28% 12%;
+    --secondary: 215 20% 18%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 215 20% 17%;
+    --muted-foreground: 215 14% 62%;
+    --accent: 215 20% 20%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 355 58% 54%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 18% 22%;
+    --input: 215 18% 24%;
+    --ring: 215 16% 70%;
+
+    --positive: 162 42% 52%;
+    --positive-soft: 162 30% 17%;
+    --negative: 355 60% 62%;
+    --negative-soft: 355 30% 18%;
+    --warning: 38 62% 58%;
+    --warning-soft: 38 30% 17%;
+
+    --chart-1: 210 20% 80%;
+    --chart-2: 162 42% 52%;
+    --chart-3: 38 62% 58%;
+    --chart-4: 215 16% 50%;
+    --chart-5: 355 60% 62%
   }
 }
 
@@ -63,6 +82,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
