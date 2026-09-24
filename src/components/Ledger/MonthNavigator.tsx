@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Unlock } from "lucide-react";
 import { Button } from "../ui/button";
 import { PeriodStatus } from "../../types/ledger";
 import { monthLabel } from "../../utils/civilDate";
@@ -57,7 +57,7 @@ export function MonthNavigator({
 
         {closed ? (
           <Button variant="outline" size="sm" onClick={onReopen} disabled={busy}>
-            <LockOpen /> Reabrir
+            <Unlock /> Reabrir
           </Button>
         ) : (
           <Button variant="outline" size="sm" onClick={onClose} disabled={busy || status === null}>
