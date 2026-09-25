@@ -3,6 +3,9 @@ import type {
   ChartOfAccounts,
   ConfirmLedgerEntryPayload,
   CreateLedgerEntryPayload,
+  Account,
+  ImportBatchResult,
+  ImportReview,
   MonthlyEntry,
   MonthlySummary,
   SeedChartOfAccountsResult,
@@ -78,6 +81,60 @@ export const LedgerService = {
       "/chart-of-accounts/seed",
       null,
       { params: { budgetYear, budgetMonth } },
+    );
+    return data;
+  },
+
+  getAccounts: async (): Promise<Account[]> => {
+    const { data } = await apiClient.get<Account[]>("/accounts");
+    return data;
+  },
+
+  createAccount: async (payload: {
+    name: string;
+    type: Account["type"];
+    currency: string;
+    openingBalance: number;
+    openingDate: string;
+  }): Promise<Account> => {
+    const { data } = await apiClient.post<Account>("/accounts", payload);
+    return data;
+  },
+
+  seedImportMappings: async (): Promise<{ created: number }> => {
+    const { data } = await apiClient.post<{ created: number }>("/imports/mappings/seed");
+    return data;
+  },
+
+  createImport: async (accountId: string, file: File): Promise<ImportBatchResult> => {
+    const form = new FormData();
+    form.append("accountId", accountId);
+    form.append("file", file);
+    const { data } = await apiClient.post<ImportBatchResult>("/imports", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  },
+
+  getImportReview: async (batchId: string): Promise<ImportReview> => {
+    const { data } = await apiClient.get<ImportReview>(`/imports/${batchId}`);
+    return data;
+  },
+
+  selectImportConcept: async (
+    batchId: string,
+    rowId: string,
+    conceptId: string | null,
+  ) => {
+    const { data } = await apiClient.put(`/imports/${batchId}/rows/${rowId}/concept`, {
+      conceptId,
+    });
+    return data;
+  },
+
+  applyImport: async (batchId: string): Promise<{ applied: number; batchId: string }> => {
+    const { data } = await apiClient.post<{ applied: number; batchId: string }>(
+      `/imports/${batchId}/apply`,
     );
     return data;
   },

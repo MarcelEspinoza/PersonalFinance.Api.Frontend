@@ -16,6 +16,7 @@ export type CivilDate = string;
 export enum ConceptKind {
   Income = "income",
   Expense = "expense",
+  Transfer = "transfer",
 }
 
 export enum ConceptNature {
@@ -129,6 +130,56 @@ export interface SeedChartOfAccountsResult {
   budgetsCreated: number;
   groupsAlreadyPresent: number;
   conceptsAlreadyPresent: number;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  type: "checking" | "savings" | "card" | "cash";
+  currency: string;
+  openingBalance: number;
+  openingDate: CivilDate;
+  isActive: boolean;
+}
+
+export interface ImportConceptOption {
+  id: string;
+  name: string;
+  kind: string;
+}
+
+export interface ImportRow {
+  id: string;
+  rowNumber: number;
+  valueDate: CivilDate;
+  amount: number;
+  currency?: string | null;
+  rawDescription: string;
+  normalizedDescription?: string | null;
+  status: string;
+  suggestedConceptId?: string | null;
+  confirmedConceptId?: string | null;
+  suggestionSource?: string | null;
+}
+
+export interface ImportReview {
+  id: string;
+  accountId: string;
+  fileName?: string | null;
+  status: string;
+  rows: ImportRow[];
+  concepts: ImportConceptOption[];
+}
+
+export interface ImportBatchResult {
+  id: string;
+  accountId: string;
+  fileName?: string | null;
+  totalRows: number;
+  acceptedRows: number;
+  duplicateRows: number;
+  excludedRows: number;
+  problems: string[];
 }
 
 export interface CreateLedgerEntryPayload {

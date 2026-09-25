@@ -11,6 +11,7 @@ import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
+import { ImportsPage } from './pages/Imports/ImportsPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -45,6 +46,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><LedgerMonthPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/imports"
+        element={
+          <PrivateRoute>
+            <Layout><ImportsPage /></Layout>
           </PrivateRoute>
         }
       />
