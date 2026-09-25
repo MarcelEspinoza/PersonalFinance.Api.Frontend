@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   Settings,
   TrendingDown,
   TrendingUp,
@@ -16,6 +17,7 @@ import { ReactNode, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { ChatBubble } from './Chat/ChatBubble';
 
 interface LayoutProps {
   children: ReactNode;
@@ -30,6 +32,7 @@ const navItems = [
   { id: 'expenses', label: 'Gastos', icon: TrendingDown },
   { id: 'loans', label: 'Préstamos', icon: Coins },
   { id: 'pasanaco', label: 'Pasanaco', icon: Users },
+  { id: 'assistant', label: 'Asistente', icon: MessageCircle },
   { id: 'settings', label: 'Configuración', icon: Settings },
 ];
 
@@ -136,6 +139,7 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1 overflow-x-hidden">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
       </main>
+      <ChatBubble />
     </div>
   );
 }

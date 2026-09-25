@@ -12,6 +12,7 @@ import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
 import { ImportsPage } from './pages/Imports/ImportsPage';
+import { AssistantPage } from './pages/Assistant/AssistantPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -86,6 +87,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><PasanacoPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/assistant"
+        element={
+          <PrivateRoute>
+            <Layout><AssistantPage /></Layout>
           </PrivateRoute>
         }
       />
