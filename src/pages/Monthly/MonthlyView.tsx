@@ -1,10 +1,13 @@
-"use client";
+﻿"use client";
 import { useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 import BanksChips from "../../components/Monthly/BanksChips";
 import { MonthHeader } from "../../components/Monthly/MonthHeader";
 import MonthlyInsights from "../../components/Monthly/MonthlyInsights";
 import MonthlyReconciliation from "../../components/Monthly/MonthlyReconciliation";
 import { SummaryCards } from "../../components/Monthly/SummaryCards";
+import { PageHeader } from "../../components/PageHeader";
+import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { analyticsService } from "../../services/analyticsService";
 import bankService from "../../services/bankService";
@@ -54,31 +57,27 @@ type InsightsDto = {
 export function MonthlyView() {
   const { user } = useAuth();
 
-  // Fecha visible en cabecera
   const [currentDate, setCurrentDate] = useState(new Date());
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
-  // Bancos + conciliaciones
   const [banks, setBanks] = useState<Record<string, BankDto>>({});
   const [recons, setRecons] = useState<ReconSummary[]>([]);
   const [selectedRecon, setSelectedRecon] = useState<ReconSummary | null>(null);
 
-  // KPIs (derivados del backend de analytics)
   const [insights, setInsights] = useState<InsightsDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [kpiLoading, setKpiLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // -------- helpers ----------
   const changeMonth = (delta: number) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + delta);
     setCurrentDate(newDate);
   };
   const monthName = currentDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const pageTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-  // -------- carga bancos + conciliaciones ----------
   useEffect(() => {
     if (!user) return;
     let mounted = true;
@@ -100,7 +99,7 @@ export function MonthlyView() {
             name: b.name,
             entity: b.entity ?? null,
             accountNumber: b.accountNumber ?? null,
-            color: b.color ?? "#CBD5E1",
+            color: b.color ?? null,
           };
         });
         setBanks(bankMap);
@@ -109,15 +108,13 @@ export function MonthlyView() {
           ...r,
           bankName: bankMap[r.bankId]?.name ?? "",
           bankEntity: bankMap[r.bankId]?.entity ?? "",
-          bankColor: bankMap[r.bankId]?.color ?? "#CBD5E1",
+          bankColor: bankMap[r.bankId]?.color ?? undefined,
           label: `${bankMap[r.bankId]?.name ?? "Banco"}${bankMap[r.bankId]?.entity ? ` | ${bankMap[r.bankId]?.entity}` : ""}`,
         }));
 
-        // Ordena por fecha de creación desc
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setRecons(list);
 
-        // Selección inicial razonable
         const latestReconciled = list.find((r) => r.reconciled);
         setSelectedRecon(latestReconciled ?? list[0] ?? null);
       } catch (e: any) {
@@ -131,7 +128,6 @@ export function MonthlyView() {
     };
   }, [user, year, month]);
 
-  // -------- carga KPIs (cambia con banco seleccionado) ----------
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -151,62 +147,62 @@ export function MonthlyView() {
     };
   }, [user, year, month, selectedRecon?.bankId]);
 
-  // -------- chips para BanksChips ----------
   const chips = useMemo(() => {
     return recons.map((r) => ({
       id: r.id,
       label: r.label ?? r.bankName ?? "Banco",
-      bankColor: r.bankColor ?? "#CBD5E1",
+      bankColor: r.bankColor,
       reconciled: r.reconciled,
     }));
   }, [recons]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" /> Cargando…
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <MonthHeader monthName={monthName} onChangeMonth={changeMonth} onToday={() => setCurrentDate(new Date())} />
+    <div className="space-y-8">
+      <PageHeader
+        title={pageTitle}
+        actions={<MonthHeader monthName={monthName} onChangeMonth={changeMonth} onToday={() => setCurrentDate(new Date())} />}
+      />
 
-      {/* Chips de bancos (relacionados a las conciliaciones del mes) */}
       <BanksChips
         recons={chips}
         selectedId={selectedRecon?.id ?? ""}
         onSelect={(id) => setSelectedRecon(recons.find((r) => r.id === id) ?? null)}
       />
 
-      <div className="grid lg:grid-cols-3 gap-6 mt-3">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Summary cards usan los KPIs (no las transacciones) */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <SummaryCards
             income={insights?.totalIncomes ?? 0}
             expense={insights?.totalExpenses ?? 0}
             balance={insights?.balance ?? 0}
           />
 
-          {/* KPI Dashboard (donut + top gastos + top ingresos) */}
-          <div className="rounded-2xl border bg-white p-4">
-            {kpiLoading ? (
-              <div className="text-sm text-slate-500">Cargando insights…</div>
-            ) : insights ? (
-              <MonthlyInsights
-                year={year}
-                month={month}
-                bankId={selectedRecon?.bankId}
-                endpoint="/analytics/monthly"
-              />
-            ) : (
-              <div className="text-sm text-slate-500">{error ?? "Sin datos para este periodo."}</div>
-            )}
-          </div>
+          <Card>
+            <CardContent className="p-5">
+              {kpiLoading ? (
+                <p className="text-sm text-muted-foreground">Cargando insights…</p>
+              ) : insights ? (
+                <MonthlyInsights
+                  year={year}
+                  month={month}
+                  bankId={selectedRecon?.bankId}
+                  endpoint="/analytics/monthly"
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">{error ?? "Sin datos para este periodo."}</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Panel de conciliación (igual que antes) */}
         <MonthlyReconciliation
           year={year}
           month={month}
@@ -217,7 +213,6 @@ export function MonthlyView() {
           suggestion={null}
           marking={false}
           onRefresh={async () => {
-            // recargar bancos/conciliaciones
             try {
               const [banksRes, reconsRes] = await Promise.all([
                 bankService.getAll().then((r: any) => (r && (r.data ?? r)) ?? []),
@@ -230,7 +225,7 @@ export function MonthlyView() {
                   name: b.name,
                   entity: b.entity ?? null,
                   accountNumber: b.accountNumber ?? null,
-                  color: b.color ?? "#CBD5E1",
+                  color: b.color ?? null,
                 };
               });
               setBanks(bankMap);
@@ -238,7 +233,7 @@ export function MonthlyView() {
                 ...r,
                 bankName: bankMap[r.bankId]?.name ?? "",
                 bankEntity: bankMap[r.bankId]?.entity ?? "",
-                bankColor: bankMap[r.bankId]?.color ?? "#CBD5E1",
+                bankColor: bankMap[r.bankId]?.color ?? undefined,
                 label: `${bankMap[r.bankId]?.name ?? "Banco"}${bankMap[r.bankId]?.entity ? ` | ${bankMap[r.bankId]?.entity}` : ""}`,
               }));
               list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -253,9 +248,7 @@ export function MonthlyView() {
               console.error(e);
             }
           }}
-          onSelectRecon={(id: string) =>
-            setSelectedRecon(recons.find((r) => r.id === id) ?? null)
-          }
+          onSelectRecon={(id: string) => setSelectedRecon(recons.find((r) => r.id === id) ?? null)}
           onFetchSuggestion={() => Promise.resolve()}
           onMarkReconciled={() => Promise.resolve()}
           onUpdateClosingBalance={() => Promise.resolve()}

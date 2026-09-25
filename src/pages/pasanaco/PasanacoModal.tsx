@@ -41,66 +41,66 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
           + Nuevo Pasanaco
         </Button>
       </DialogTrigger>
-      <DialogContent className="rounded-2xl max-w-md">
+      <DialogContent className="rounded-xl max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold text-slate-800">
+          <DialogTitle className="text-lg font-bold text-card-foreground">
             Crear nuevo Pasanaco
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-card-foreground mb-1">
               Nombre del pasanaco
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg"
               placeholder="Ej: Pasanaco Amigos 2025"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-card-foreground mb-1">
                 Monto mensual (€)
               </label>
               <input
                 type="number"
                 value={monthlyAmount}
                 onChange={(e) => setMonthlyAmount(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-card-foreground mb-1">
                 Participantes
               </label>
               <input
                 type="number"
                 value={participants}
                 onChange={(e) => setParticipants(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-card-foreground mb-1">
                 Mes de inicio
               </label>
               <select
                 value={startMonth}
                 onChange={(e) => setStartMonth(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               >
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -111,14 +111,14 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-card-foreground mb-1">
                 Año de inicio
               </label>
               <input
                 type="number"
                 value={startYear}
                 onChange={(e) => setStartYear(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
           </div>
@@ -126,7 +126,7 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
           <Button
             disabled={loading}
             onClick={handleCreate}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {loading ? "Creando..." : "Crear Pasanaco"}
           </Button>

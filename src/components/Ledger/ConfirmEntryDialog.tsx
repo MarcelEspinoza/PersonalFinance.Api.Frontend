@@ -51,7 +51,7 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-xl border bg-card p-6 shadow-xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Confirmar movimiento</DialogTitle>
@@ -60,7 +60,7 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-5">
             <div className="grid gap-2">
               <Label htmlFor="confirm-amount">Importe real</Label>
               <Input
@@ -85,7 +85,11 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
               />
             </div>
 
-            {error && <p className="text-sm text-negative">{error}</p>}
+            {error && (
+              <p className="rounded-lg border border-negative/25 bg-negative-soft p-3 text-sm text-negative">
+                {error}
+              </p>
+            )}
           </div>
 
           <DialogFooter>

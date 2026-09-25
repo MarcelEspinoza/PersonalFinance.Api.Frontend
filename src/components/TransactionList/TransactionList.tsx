@@ -36,8 +36,8 @@ interface Props {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <ArrowUpDown className="w-4 h-4 text-slate-400" />;
-  return dir === "asc" ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />;
+  if (!active) return <ArrowUpDown className="w-4 h-4 text-muted-foreground" />;
+  return dir === "asc" ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />;
 }
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -54,7 +54,7 @@ function Highlight({ text, term }: { text?: string; term?: string }) {
       <>
         {parts.map((p, i) =>
           re.test(p) ? (
-            <mark key={i} className="bg-amber-200 text-amber-900 px-[2px] rounded-sm">
+            <mark key={i} className="bg-warning-soft text-foreground px-[2px] rounded-sm">
               {p}
             </mark>
           ) : (
@@ -109,7 +109,7 @@ export function TransactionList({
 
   if (transactions.length === 0) {
     return (
-      <div className="p-8 text-center text-slate-500">
+      <div className="p-10 text-center text-muted-foreground">
         No hay {mode === "income" ? "ingresos" : "gastos"} registrados
       </div>
     );
@@ -130,8 +130,8 @@ export function TransactionList({
 
   return (
     <>
-      <table className="min-w-full table-auto">
-        <thead className="bg-slate-50">
+      <table className="min-w-full table-auto text-sm">
+        <thead className="bg-muted">
           <tr>
             {/* SELECT ALL in header; counter BELOW the checkbox to avoid layout shift */}
             <th className="px-4 py-3 text-left w-12">
@@ -142,7 +142,7 @@ export function TransactionList({
                   checked={Boolean(allSelected)}
                   onChange={() => onSelectAll && onSelectAll()}
                 />
-                <div className="text-xs text-slate-500 mt-1">
+                <div className="mt-1 text-xs text-muted-foreground">
                   {selectedIds.length}/{transactions.length}
                 </div>
               </div>
@@ -186,16 +186,16 @@ export function TransactionList({
               </button>
             </th>
 
-            <th className="px-4 py-3 w-16 sticky right-0 bg-white border-l border-slate-100 shadow-sm"></th>
+            <th className="px-4 py-3 w-16 sticky right-0 bg-card border-l shadow-sm"></th>
           </tr>
         </thead>
 
-        <tbody className="bg-white divide-y divide-slate-100">
+        <tbody className="bg-card divide-y">
           {transactions.map((tx) => {
             const isOpen = openRowId === tx.id;
 
             return (
-              <tr key={tx.id} className="hover:bg-slate-50 relative">
+              <tr key={tx.id} className="hover:bg-muted relative">
                 <td className="px-4 py-3 align-top">
                   {!isOpen ? (
                     <input
@@ -214,7 +214,7 @@ export function TransactionList({
                   onClick={() => setOpenRowId(null)}
                 >
                   <div
-                    className="font-medium text-slate-800 leading-snug"
+                    className="font-medium leading-snug text-foreground"
                     style={{
                       display: "-webkit-box",
                       WebkitLineClamp: 2,
@@ -225,7 +225,7 @@ export function TransactionList({
                     <Highlight text={tx.description} term={highlight} />
                   </div>
                   <div
-                    className="text-sm text-slate-500 mt-1"
+                    className="mt-1 text-sm text-muted-foreground"
                     style={{
                       display: "-webkit-box",
                       WebkitLineClamp: 1,
@@ -244,38 +244,38 @@ export function TransactionList({
 
                 {/* Banco origen: prefer bankMap[bankId], else tx.bankName, else id */}
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600 truncate max-w-[140px]">
+                  <div className="text-sm text-muted-foreground truncate max-w-[140px]">
                     {resolveOriginBankLabel(tx)}
                   </div>
                 </td>
 
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600 truncate max-w-[160px]">
+                  <div className="text-sm text-muted-foreground truncate max-w-[160px]">
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
 
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-slate-600">
+                  <div className="text-sm text-muted-foreground">
                     {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-muted-foreground transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <Highlight text={tx.category} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-sm text-slate-600 transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-sm text-muted-foreground transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
                 <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-12" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <span className={`${tx.amount >= 0 ? "text-green-600" : "text-red-600"} whitespace-nowrap`}>
+                  <span className={`${tx.amount >= 0 ? "text-positive" : "text-negative"} whitespace-nowrap`}>
                     {tx.amount.toFixed(2)}{'\u00A0€'}
                   </span>
                 </td>
 
-                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-white border-l border-slate-100 shadow-sm">
+                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-card border-l shadow-sm">
                   <button
                     data-more-btn
                     onClick={(e) => {
@@ -286,12 +286,12 @@ export function TransactionList({
                         setOpenRowId(isOpen ? null : tx.id);
                       }
                     }}
-                    className="p-2 rounded-full hover:bg-slate-100 transition"
+                    className="p-2 rounded-full hover:bg-accent transition"
                     aria-haspopup="true"
                     aria-expanded={isOpen}
                     title="Más opciones"
                   >
-                    <MoreVertical className="w-5 h-5 text-slate-600" />
+                    <MoreVertical className="w-5 h-5 text-muted-foreground" />
                   </button>
 
                   <div
@@ -306,7 +306,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         onEdit(tx);
                       }}
-                      className="h-10 min-w-[140px] px-4 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 hover:bg-emerald-200 transition flex items-center justify-center gap-2"
+                      className="h-10 min-w-[140px] px-4 bg-secondary text-secondary-foreground rounded-md shadow-sm border hover:bg-accent transition flex items-center justify-center gap-2"
                     >
                       <Edit2 className="w-4 h-4" /> <span className="text-sm font-medium">Editar</span>
                     </button>
@@ -316,7 +316,7 @@ export function TransactionList({
                         setOpenRowId(null);
                         if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
                       }}
-                      className="h-10 min-w-[140px] px-4 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 hover:bg-rose-100 transition flex items-center justify-center gap-2"
+                      className="h-10 min-w-[140px] px-4 bg-destructive text-destructive-foreground rounded-md shadow-sm border border-destructive hover:bg-destructive/90 transition flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" /> <span className="text-sm font-medium">Eliminar</span>
                     </button>
@@ -329,14 +329,14 @@ export function TransactionList({
                       aria-modal="true"
                       onClick={() => setOpenRowId(null)}
                     >
-                      <div className="absolute inset-0 bg-black bg-opacity-30" />
+                      <div className="absolute inset-0 bg-black/30" />
                       <div
-                        className="relative w-full max-w-md bg-white rounded-t-xl p-4 space-y-3 z-50"
+                        className="relative w-full max-w-md bg-card rounded-t-xl p-4 space-y-3 z-50"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex justify-between items-center">
                           <div className="font-medium">Acciones</div>
-                          <button onClick={() => setOpenRowId(null)} className="text-slate-500">Cerrar</button>
+                          <button onClick={() => setOpenRowId(null)} className="text-muted-foreground">Cerrar</button>
                         </div>
 
                         <button
@@ -344,7 +344,7 @@ export function TransactionList({
                             setOpenRowId(null);
                             onEdit(tx);
                           }}
-                          className="w-full px-4 py-3 bg-emerald-100 text-emerald-800 rounded-md shadow-sm border border-emerald-50 flex items-center justify-center gap-2"
+                          className="w-full px-4 py-3 bg-secondary text-secondary-foreground rounded-md shadow-sm border flex items-center justify-center gap-2"
                         >
                           <Edit2 className="w-5 h-5" /> Editar
                         </button>
@@ -354,7 +354,7 @@ export function TransactionList({
                             setOpenRowId(null);
                             if (confirm("¿Eliminar este movimiento?")) onDelete(tx.id);
                           }}
-                          className="w-full px-4 py-3 bg-rose-50 text-rose-700 rounded-md shadow-sm border border-rose-100 flex items-center justify-center gap-2"
+                          className="w-full px-4 py-3 bg-destructive text-destructive-foreground rounded-md shadow-sm border border-destructive flex items-center justify-center gap-2"
                         >
                           <Trash2 className="w-5 h-5" /> Eliminar
                         </button>

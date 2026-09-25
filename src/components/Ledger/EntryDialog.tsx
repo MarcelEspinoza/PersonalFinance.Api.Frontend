@@ -80,14 +80,14 @@ export function EntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-xl border bg-card p-6 shadow-xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{mode === "create" ? "Nuevo apunte" : "Editar apunte"}</DialogTitle>
             <DialogDescription>{conceptName}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-5">
             <div className="grid gap-2">
               <Label htmlFor="entry-due-date">Fecha prevista</Label>
               <Input
@@ -122,7 +122,11 @@ export function EntryDialog({
               />
             </div>
 
-            {error && <p className="text-sm text-negative">{error}</p>}
+            {error && (
+              <p className="rounded-lg border border-negative/25 bg-negative-soft p-3 text-sm text-negative">
+                {error}
+              </p>
+            )}
           </div>
 
           <DialogFooter>

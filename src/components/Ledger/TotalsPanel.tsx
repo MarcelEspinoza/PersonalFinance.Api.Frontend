@@ -21,8 +21,8 @@ function Card({
 
   return (
     <div
-      className={`rounded-lg border p-4 ${
-        emphasis ? "border-foreground/15 bg-secondary" : "border-border bg-card"
+      className={`rounded-xl border p-5 shadow-sm ${
+        emphasis ? "border-foreground/15 bg-secondary" : "bg-card"
       }`}
     >
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -40,7 +40,7 @@ export function TotalsPanel({ summary }: { summary: MonthlySummary }) {
   const t = summary.totals;
 
   return (
-    <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
       <Card
         label="Arrastre"
         value={money(summary.carryOverAmount)}

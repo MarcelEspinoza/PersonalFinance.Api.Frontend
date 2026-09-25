@@ -1,7 +1,16 @@
-import { X } from "lucide-react";
 import { useState } from "react";
 import { BankLoan } from "../../pages/LoansPage/LoansPage";
 import { LoansService } from "../../services/loansService";
+import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 interface Props {
   userId: string;
@@ -12,6 +21,9 @@ interface Props {
 
 const toInputDate = (iso?: string | null) =>
   iso ? new Date(iso).toISOString().split("T")[0] : "";
+
+const selectClassName =
+  "flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export default function BankLoanModal({ userId, initial, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
@@ -64,34 +76,32 @@ export default function BankLoanModal({ userId, initial, onClose, onSaved }: Pro
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-xl overflow-y-auto rounded-xl p-0">
+        <DialogHeader className="border-b px-6 py-5 pr-12">
+          <DialogTitle className="text-xl">
             {initial ? "Editar" : "Nuevo"} Préstamo Bancario
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition">
-            <X className="w-5 h-5 text-slate-600" />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Entidad / Nombre</label>
-            <input
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+          <div className="space-y-2">
+            <Label htmlFor="bank-loan-name">Entidad / Nombre</Label>
+            <Input
+              id="bank-loan-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="Ej: BBVA - Préstamo inmediato"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Capital inicial</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-principal">Capital inicial</Label>
+              <Input
+                id="bank-loan-principal"
                 type="number"
                 step="0.01"
                 value={form.principalAmount}
@@ -104,113 +114,113 @@ export default function BankLoanModal({ userId, initial, onClose, onSaved }: Pro
                   });
                 }}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Capital pendiente</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-outstanding">Capital pendiente</Label>
+              <Input
+                id="bank-loan-outstanding"
                 type="number"
                 step="0.01"
                 value={form.outstandingAmount}
                 onChange={(e) => setForm({ ...form, outstandingAmount: e.target.value })}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Interés nominal (%)</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-interest-rate">Interés nominal (%)</Label>
+              <Input
+                id="bank-loan-interest-rate"
                 type="number"
                 step="0.01"
                 value={form.interestRate}
                 onChange={(e) => setForm({ ...form, interestRate: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">TAE (%)</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-tae">TAE (%)</Label>
+              <Input
+                id="bank-loan-tae"
                 type="number"
                 step="0.01"
                 value={form.tae}
                 onChange={(e) => setForm({ ...form, tae: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Próxima cuota (€)</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-next-payment-amount">Próxima cuota (€)</Label>
+              <Input
+                id="bank-loan-next-payment-amount"
                 type="number"
                 step="0.01"
                 value={form.nextPaymentAmount}
                 onChange={(e) => setForm({ ...form, nextPaymentAmount: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Cuotas pagadas</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-installments-paid">Cuotas pagadas</Label>
+              <Input
+                id="bank-loan-installments-paid"
                 type="number"
                 value={form.installmentsPaid}
                 onChange={(e) => setForm({ ...form, installmentsPaid: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Cuotas pendientes</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-installments-remaining">Cuotas pendientes</Label>
+              <Input
+                id="bank-loan-installments-remaining"
                 type="number"
                 value={form.installmentsRemaining}
                 onChange={(e) => setForm({ ...form, installmentsRemaining: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Fecha próxima cuota</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-next-payment-date">Fecha próxima cuota</Label>
+              <Input
+                id="bank-loan-next-payment-date"
                 type="date"
                 value={form.nextPaymentDate}
                 onChange={(e) => setForm({ ...form, nextPaymentDate: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Fecha inicio</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-start-date">Fecha inicio</Label>
+              <Input
+                id="bank-loan-start-date"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Fecha fin</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="bank-loan-due-date">Fecha fin</Label>
+              <Input
+                id="bank-loan-due-date"
                 type="date"
                 value={form.dueDate ?? ""}
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
+          <div className="space-y-2">
+            <Label htmlFor="bank-loan-status">Estado</Label>
             <select
+              id="bank-loan-status"
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value as "active" | "paid" | "overdue" })}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className={selectClassName}
             >
               <option value="active">Activo</option>
               <option value="paid">Pagado</option>
@@ -218,23 +228,14 @@ export default function BankLoanModal({ userId, initial, onClose, onSaved }: Pro
             </select>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
-            >
+          <DialogFooter className="gap-2 border-t pt-5">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-            >
-              {initial ? "Actualizar" : "Guardar"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit">{initial ? "Actualizar" : "Guardar"}</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

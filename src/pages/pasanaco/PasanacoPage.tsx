@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { PageHeader } from "../../components/PageHeader";
+import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Participant,
@@ -118,14 +120,14 @@ export function PasanacoPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Gestión de Pasanaco</h1>
-        <PasanacoModal onCreated={loadPasanacos} />
-      </div>
+      <PageHeader
+        title="Gestión de Pasanaco"
+        actions={<PasanacoModal onCreated={loadPasanacos} />}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <h2 className="text-xl font-bold mb-2">Mis Pasanacos</h2>
+        <div className="lg:col-span-1 space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Mis Pasanacos</h2>
           <PasanacoList
             pasanacos={pasanacos}
             selectedPasanaco={selectedId}
@@ -144,9 +146,11 @@ export function PasanacoPage() {
               onRefresh={refreshAll}
             />
           ) : (
-            <div className="p-6 bg-white rounded-2xl shadow-sm border text-slate-500">
-              Selecciona un pasanaco para ver detalles.
-            </div>
+            <Card>
+              <CardContent className="p-6 text-muted-foreground">
+                Selecciona un pasanaco para ver detalles.
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

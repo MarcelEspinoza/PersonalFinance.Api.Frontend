@@ -6,17 +6,15 @@ interface Props {
 
 export function TransactionTabs({ activeTab, setActiveTab, mode }: Props) {
   return (
-    <div className="flex space-x-2 border-b border-slate-200">
+    <div className="flex gap-1 overflow-x-auto border-b">
       {["fixed", "variable", "temporary"].map((tab) => (
         <button
           key={tab}
-          onClick={() => setActiveTab(tab as any)}
-          className={`px-6 py-3 font-medium transition ${
+          onClick={() => setActiveTab(tab as "fixed" | "variable" | "temporary")}
+          className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === tab
-              ? mode === "income"
-                ? "text-emerald-600 border-b-2 border-emerald-600"
-                : "text-red-600 border-b-2 border-red-600"
-              : "text-slate-600 hover:text-slate-800"
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           {tab === "fixed"

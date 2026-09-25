@@ -29,13 +29,13 @@ export function MonthNavigator({
   const closed = status === PeriodStatus.Closed;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-3 shadow-sm sm:p-4">
       <div className="flex items-center gap-1.5">
         <Button variant="outline" size="icon" onClick={onPrevious} disabled={busy} aria-label="Mes anterior">
           <ChevronLeft />
         </Button>
 
-        <h1 className="min-w-52 text-center text-xl font-semibold capitalize tracking-tight">
+        <h1 className="min-w-52 text-center text-2xl font-semibold capitalize tracking-tight">
           {monthLabel(year, month)}
         </h1>
 

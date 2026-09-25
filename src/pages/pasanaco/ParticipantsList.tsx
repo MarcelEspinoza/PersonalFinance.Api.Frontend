@@ -37,7 +37,7 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
     return () => clearTimeout(t);
   }, [highlightedId]);
 
-  if (!participants || participants.length === 0) return <div className="text-sm text-slate-500">No hay participantes</div>;
+  if (!participants || participants.length === 0) return <div className="text-sm text-muted-foreground">No hay participantes</div>;
 
   const handleDelete = async (participantId: string) => {
     if (!confirm("¿Eliminar participante?")) return;
@@ -105,15 +105,15 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
           return (
             <li
               key={p.id}
-              className={`flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition bg-white ${isHighlighted ? "ring-2 ring-emerald-300 bg-emerald-50 animate-pulse" : ""}`}
+              className={`flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition bg-card ${isHighlighted ? "bg-positive-soft animate-pulse" : ""}`}
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-semibold">
+                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-semibold">
                   #{p.assignedNumber}
                 </div>
                 <div>
-                  <div className="font-medium text-slate-800">{p.name}</div>
-                  <div className="text-xs text-slate-500">Mes: {displayMonth}</div>
+                  <div className="font-medium text-card-foreground">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">Mes: {displayMonth}</div>
                 </div>
               </div>
 
@@ -122,21 +122,21 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                 <div>
                   {payment ? (
                     payment.paid ? (
-                      <div className="text-sm text-emerald-700">Pagado</div>
+                      <div className="text-sm text-positive">Pagado</div>
                     ) : (
-                      <div className="text-sm text-amber-800">Pendiente</div>
+                      <div className="text-sm text-warning">Pendiente</div>
                     )
                   ) : (
-                    <div className="text-sm text-slate-500">Sin pago</div>
+                    <div className="text-sm text-muted-foreground">Sin pago</div>
                   )}
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-muted-foreground">
                     {payment?.paymentDate ? new Date(payment.paymentDate).toLocaleString() : "—"}
                   </div>
                 </div>
 
                 {/* Acciones */}
                 <div className="flex items-center gap-2">
-                  <button onClick={() => handleCreateLoan(p.id)} className="px-3 py-1 border rounded hover:bg-slate-50 text-sm">
+                  <button onClick={() => handleCreateLoan(p.id)} className="px-3 py-1 border rounded hover:bg-accent hover:text-accent-foreground text-sm">
                     Prestar ahora
                   </button>
 
@@ -144,13 +144,13 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                   {payment && !payment.paid && (
                     <button
                       onClick={() => handleMarkPaid(p)}
-                      className="px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm"
+                      className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
                     >
                       Pagado
                     </button>
                   )}
 
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100">
+                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-negative-soft text-negative rounded hover:bg-negative-soft/80">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

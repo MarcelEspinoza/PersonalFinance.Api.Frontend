@@ -51,8 +51,8 @@ export function EntryRow({
   const disabled = locked || busy;
 
   return (
-    <tr className={`border-t border-border/60 text-sm ${skipped ? "opacity-55" : ""}`}>
-      <td className="py-2 pl-10 pr-2">
+    <tr className={`border-t border-border/60 text-sm transition-colors hover:bg-accent/40 ${skipped ? "opacity-55" : ""}`}>
+      <td className="py-3 pl-10 pr-3">
         <div className="flex items-center gap-2">
           <span className={skipped ? "line-through" : ""}>
             {entry.description || "(sin descripción)"}
@@ -71,29 +71,29 @@ export function EntryRow({
         )}
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
         {shortDate(entry.valueDate ?? entry.dueDate)}
       </td>
 
-      <td className="px-2 py-2">
+      <td className="px-3 py-3">
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
           {status.label}
         </span>
       </td>
 
-      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">
+      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
         {money(entry.forecastAmount)}
       </td>
 
-      <td className="px-2 py-2 text-right font-medium tabular-nums">
+      <td className="px-3 py-3 text-right font-medium tabular-nums">
         {confirmed ? money(entry.actualAmount) : <span className="text-muted-foreground">—</span>}
       </td>
 
-      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">
+      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
         {skipped ? "—" : money(entry.remaining)}
       </td>
 
-      <td className="px-2 py-2">
+      <td className="px-3 py-3">
         <div className="flex items-center justify-end gap-0.5">
           {!skipped && !confirmed && (
             <Button

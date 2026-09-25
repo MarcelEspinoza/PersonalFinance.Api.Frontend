@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Settings2, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
@@ -278,19 +278,19 @@ export function TransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border bg-card p-6 text-card-foreground shadow-xl">
+        <div className="mb-6 flex items-center justify-between border-b pb-4">
+          <h2 className="text-xl font-semibold tracking-tight">
             {editingId ? "Editar" : "Nuevo"} {type === "income" ? "Ingreso" : "Gasto"}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition">
-            <X className="w-5 h-5 text-slate-600" />
+          <button onClick={onClose} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="space-y-5">
             <Input label="Nombre" value={formData.description || ""} onChange={(v) => setFormData({ ...formData, description: v })} />
             <Input label="Cantidad" type="number" value={formData.amount ?? ""} onChange={(v) => setFormData({ ...formData, amount: v })} />
             <Input label="Fecha" type="date" value={formData.date ?? ""} onChange={(v) => setFormData({ ...formData, date: v })} />
@@ -303,11 +303,11 @@ export function TransactionModal({
             <Textarea label="Notas (opcional)" value={formData.notes ?? ""} onChange={(v) => setFormData({ ...formData, notes: v })} />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Categoría</label>
-              <div className="flex space-x-2">
+              <label className="mb-1.5 block text-sm font-medium">Categoría</label>
+              <div className="flex gap-2">
                 <select
                   value={formData.categoryId ?? ""}
                   onChange={(e) => {
@@ -319,7 +319,7 @@ export function TransactionModal({
                       loanId: isLoan ? formData.loanId : null,
                     });
                   }}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className="h-9 flex-1 rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {categories.length === 0 && <option value="">Sin categorías</option>}
                   {categories.map((cat) => (
@@ -329,26 +329,26 @@ export function TransactionModal({
                 <button
                   type="button"
                   onClick={() => setShowCategoryManager(!showCategoryManager)}
-                  className="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+                  className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-secondary-foreground transition-colors hover:bg-accent"
                 >
-                  ⚙️
+                  <Settings2 className="h-4 w-4" />
                 </button>
               </div>
 
               {showCategoryManager && (
-                <div className="mt-3 space-y-3 border-t pt-3">
-                  <div className="flex space-x-2">
+                <div className="mt-4 space-y-3 border-t pt-4">
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       placeholder="Nueva categoría"
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      className="flex-1 px-2 py-1 border rounded"
+                      className="h-8 flex-1 rounded-md border bg-background px-2 text-sm"
                     />
                     <button
                       type="button"
                       onClick={handleCreateCategory}
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      className="rounded-md bg-primary px-3 py-1 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       Añadir
                     </button>
@@ -360,12 +360,12 @@ export function TransactionModal({
                           type="text"
                           defaultValue={cat.name}
                           onBlur={(e) => handleUpdateCategory(cat.id, e.target.value)}
-                          className="flex-1 px-2 py-1 border rounded"
+                          className="h-8 flex-1 rounded-md border bg-background px-2 text-sm"
                         />
                         <button
                           type="button"
                           onClick={() => handleDeleteCategory(cat.id)}
-                          className="px-2 py-1 text-red-600 hover:bg-red-100 rounded"
+                          className="rounded-md px-2 py-1 text-sm text-destructive transition-colors hover:bg-destructive/10"
                         >
                           Eliminar
                         </button>
@@ -378,11 +378,11 @@ export function TransactionModal({
 
             {/* Bank */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Banco</label>
+              <label className="mb-1.5 block text-sm font-medium">Banco</label>
               <select
                 value={formData.bankId || ""}
                 onChange={(e) => setFormData({ ...formData, bankId: e.target.value || null })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">Selecciona banco</option>
                 {banks.map((b) => (
@@ -401,19 +401,19 @@ export function TransactionModal({
                 checked={!!formData.isTransfer}
                 onChange={(e) => setFormData({ ...formData, isTransfer: e.target.checked })}
               />
-              <label htmlFor="isTransfer" className="text-sm text-slate-700">Es traspaso</label>
+              <label htmlFor="isTransfer" className="text-sm text-muted-foreground">Es traspaso</label>
             </div>
 
             {formData.isTransfer && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="mb-1.5 block text-sm font-medium">
                     {Number(formData.amount) < 0 ? "Banco destino" : "Banco origen"}
                   </label>
                   <select
                     value={formData.counterpartyBankId || ""}
                     onChange={(e) => setFormData({ ...formData, counterpartyBankId: e.target.value || null })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="">
                       {Number(formData.amount) < 0 ? "Selecciona banco destino" : "Selecciona banco origen"}
@@ -447,7 +447,7 @@ export function TransactionModal({
                 checked={formData.isIndefinite || false}
                 onChange={(e) => setFormData({ ...formData, isIndefinite: e.target.checked })}
               />
-              <label className="text-sm text-slate-700">Sin fecha de fin (indefinido)</label>
+              <label className="text-sm text-muted-foreground">Sin fecha de fin (indefinido)</label>
             </div>
 
             <Input
@@ -460,11 +460,11 @@ export function TransactionModal({
 
             {type === "expense" && isLoanCategory && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Vincular a préstamo</label>
+                <label className="mb-1.5 block text-sm font-medium">Vincular a préstamo</label>
                 <select
                   value={formData.loanId || ""}
                   onChange={(e) => setFormData({ ...formData, loanId: e.target.value || null })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
                   required
                 >
                   <option value="">Selecciona préstamo</option>
@@ -479,7 +479,7 @@ export function TransactionModal({
 
             <button
               type="submit"
-              className="w-full py-2 mt-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold transition"
+              className="mt-4 w-full rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Guardar
             </button>

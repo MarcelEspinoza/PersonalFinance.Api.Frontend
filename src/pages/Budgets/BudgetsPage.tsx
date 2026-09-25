@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { PageHeader } from "../../components/PageHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
 import apiClient from "../../lib/apiClient";
 import { BudgetPayload, budgetService } from "../../services/budgetService";
 
@@ -27,34 +31,40 @@ export function BudgetForm({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <div className="bg-white border rounded-xl p-4 space-y-4">
-      <h3 className="font-semibold text-lg">Nuevo presupuesto</h3>
+    <div className="space-y-6">
+      <PageHeader title="Presupuestos" />
 
-      <select
-        className="w-full border rounded p-2"
-        value={form.categoryId}
-        onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}
-      >
-        <option value={0}>Selecciona categoría</option>
-        {categories.map(c => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Nuevo presupuesto</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <select
+            aria-label="Selecciona categoría"
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={form.categoryId}
+            onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}
+          >
+            <option value={0}>Selecciona categoría</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
 
-      <input
-        type="number"
-        className="w-full border rounded p-2"
-        placeholder="Límite mensual"
-        value={form.monthlyLimit}
-        onChange={e => setForm({ ...form, monthlyLimit: Number(e.target.value) })}
-      />
+          <Input
+            type="number"
+            placeholder="Límite mensual"
+            value={form.monthlyLimit}
+            onChange={e => setForm({ ...form, monthlyLimit: Number(e.target.value) })}
+          />
 
-      <button
-        onClick={submit}
-        className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
-      >
-        Guardar presupuesto
-      </button>
+          <div className="flex justify-end pt-1">
+            <Button type="button" onClick={submit}>
+              Guardar presupuesto
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

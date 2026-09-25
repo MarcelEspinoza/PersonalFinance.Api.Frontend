@@ -54,7 +54,7 @@ export function CloseMonthDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-xl border bg-card p-6 shadow-xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="capitalize">Cerrar {monthLabel(year, month)}</DialogTitle>
@@ -64,15 +64,15 @@ export function CloseMonthDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="rounded-md border border-border bg-secondary p-3">
+          <div className="grid gap-5 py-5">
+            <div className="rounded-xl border bg-secondary p-4">
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Saldo calculado
               </p>
               <p className="text-lg font-semibold tabular-nums">{money(computedBalance)}</p>
             </div>
 
-            <label className="flex items-start gap-2 text-sm">
+            <label className="flex items-start gap-3 rounded-xl border bg-background p-4 text-sm">
               <input
                 type="checkbox"
                 className="mt-1 accent-primary"
@@ -81,7 +81,7 @@ export function CloseMonthDialog({
               />
               <span>
                 Tengo el saldo real del banco y no coincide
-                <span className="block text-xs text-muted-foreground">
+                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                   El saldo que escribas manda sobre el calculado; la diferencia queda registrada.
                 </span>
               </span>
@@ -102,7 +102,11 @@ export function CloseMonthDialog({
               </div>
             )}
 
-            {error && <p className="text-sm text-negative">{error}</p>}
+            {error && (
+              <p className="rounded-lg border border-negative/25 bg-negative-soft p-3 text-sm text-negative">
+                {error}
+              </p>
+            )}
           </div>
 
           <DialogFooter>

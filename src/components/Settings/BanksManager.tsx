@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { Card, CardContent } from "../ui/card";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { bankService } from "../../services/bankService";
 import { Bank } from "../../types/bank";
-
-/**
- * BanksManager (corregido)
- * - Normaliza la respuesta de bankService.getAll()
- * - Al guardar (handleSave) toma el banco actualizado desde el state para asegurar que
- *   enviamos el color más reciente.
- */
 
 export default function BanksManager() {
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -58,12 +55,10 @@ export default function BanksManager() {
   }
 
   async function handleSave(id: string) {
-    // Tomamos la versión más reciente desde el state (asegura color actualizado)
     const current = banks.find((x) => x.id === id);
     if (!current) return;
     setSavingId(id);
     try {
-      // Enviar payload completo para evitar validaciones 400 en backend
       await bankService.update(id, {
         name: current.name,
         entity: (current.entity as string) ?? undefined,
@@ -90,85 +85,90 @@ export default function BanksManager() {
   }
 
   return (
-    <div>
-      {/* Add form — compact and inline */}
-      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center gap-3">
-        <input
-          className="border px-3 py-2 rounded w-full md:w-72"
-          placeholder="Nombre banco"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          className="border px-3 py-2 rounded w-full md:w-56"
-          placeholder="Entidad"
-          value={entity}
-          onChange={(e) => setEntity(e.target.value)}
-        />
-        <div className="flex items-center gap-2">
-          <input
-            aria-label="Color banco"
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="w-10 h-10 p-0 border rounded"
-          />
-          <button
-            onClick={handleAdd}
-            className="bg-emerald-600 text-white px-4 py-2 rounded disabled:opacity-60"
-            disabled={creating}
-          >
-            {creating ? "Creando..." : "Agregar"}
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <Card className="shadow-none">
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_auto] md:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="bank-name">Nombre banco</Label>
+              <Input
+                id="bank-name"
+                placeholder="Nombre banco"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bank-entity">Entidad</Label>
+              <Input
+                id="bank-entity"
+                placeholder="Entidad"
+                value={entity}
+                onChange={(e) => setEntity(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="bank-color" className="sr-only">Color banco</Label>
+                <input
+                  id="bank-color"
+                  aria-label="Color banco"
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="block h-9 w-11 cursor-pointer rounded-md border bg-background p-1"
+                />
+              </div>
+              <Button onClick={handleAdd} disabled={creating}>
+                {creating ? "Creando..." : "Agregar"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Banks list */}
-      <div className="divide-y">
-        {loading && <div className="text-sm text-slate-500 py-4">Cargando bancos...</div>}
-        {!loading && banks.length === 0 && <div className="text-sm text-slate-500 py-4">No hay bancos registrados.</div>}
+      <div className="space-y-3">
+        {loading && <p className="py-4 text-sm text-muted-foreground">Cargando bancos...</p>}
+        {!loading && banks.length === 0 && <p className="py-4 text-sm text-muted-foreground">No hay bancos registrados.</p>}
 
         {banks.map((b) => (
-          <div key={b.id} className="flex items-center justify-between gap-4 py-4">
-            <div className="flex items-start gap-4">
-              <div style={{ backgroundColor: b.color ?? "#CBD5E1" }} className="w-10 h-10 rounded-md border" />
-              <div>
-                <input
-                  className="font-medium text-slate-800 bg-transparent border-0 p-0"
-                  value={b.name}
-                  onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, name: e.target.value } : x)))}
-                />
-                <div className="text-sm text-slate-500">
-                  <input
-                    className="bg-transparent border-0 p-0 text-sm text-slate-500"
+          <Card key={b.id} className="shadow-none">
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div style={{ backgroundColor: b.color ?? "#CBD5E1" }} className="h-10 w-10 shrink-0 rounded-lg border" />
+                <div className="min-w-0 space-y-1">
+                  <Input
+                    aria-label={`Nombre para ${b.name}`}
+                    className="h-7 border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
+                    value={b.name}
+                    onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, name: e.target.value } : x)))}
+                  />
+                  <Input
+                    aria-label={`Entidad para ${b.name}`}
+                    className="h-6 border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none focus-visible:ring-0"
                     value={b.entity ?? ""}
                     onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, entity: e.target.value } : x)))}
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Controls: color picker + Guardar + Eliminar */}
-            <div className="flex items-center gap-3">
-              <input
-                aria-label={`Color para ${b.name}`}
-                type="color"
-                value={b.color ?? "#00A86B"}
-                onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, color: e.target.value } : x)))}
-                className="w-10 h-10 p-0 border rounded"
-              />
-              <button
-                onClick={() => handleSave(b.id)}
-                className="bg-emerald-600 text-white px-3 py-2 rounded text-sm disabled:opacity-60"
-                disabled={savingId === b.id}
-              >
-                {savingId === b.id ? "Guardando..." : "Guardar"}
-              </button>
-              <button onClick={() => handleDelete(b.id)} className="text-red-600 text-sm">
-                Eliminar
-              </button>
-            </div>
-          </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <input
+                  aria-label={`Color para ${b.name}`}
+                  type="color"
+                  value={b.color ?? "#00A86B"}
+                  onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, color: e.target.value } : x)))}
+                  className="h-9 w-11 cursor-pointer rounded-md border bg-background p-1"
+                />
+                <Button onClick={() => handleSave(b.id)} size="sm" disabled={savingId === b.id}>
+                  {savingId === b.id ? "Guardando..." : "Guardar"}
+                </Button>
+                <Button onClick={() => handleDelete(b.id)} variant="destructive" size="sm">
+                  Eliminar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>

@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
+import { ShieldCheck, Users } from "lucide-react";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Label } from "../ui/label";
 import { adminService } from "../../services/adminService";
 
 type UserDto = {
@@ -50,8 +54,6 @@ export default function ManageRoles() {
     try {
       const res = await adminService.getUser(u.id);
       const data = unwrap(res) ?? u;
-
-      // ensure roles up-to-date: will be returned by GetUser, but fallback to getUserRoles
       const roles = data.roles ?? unwrap(await adminService.getUserRoles(u.id)) ?? [];
       setSelectedUser({
         id: data.id,
@@ -72,7 +74,6 @@ export default function ManageRoles() {
     if (!newRole) return alert("Selecciona un rol para añadir.");
     setSaving(true);
     try {
-      // POST returns updated roles (backend) - but to be safe we fetch roles again
       await adminService.addRole(selectedUser.id, newRole);
       const rolesRes = await adminService.getUserRoles(selectedUser.id);
       const roles = unwrap(rolesRes) ?? [];
@@ -123,75 +124,78 @@ export default function ManageRoles() {
   };
 
   return (
-    <div className="bg-white rounded border p-6">
-      <h3 className="text-lg font-semibold mb-4">Gestión de roles (Admin)</h3>
-
-      <div className="flex gap-6">
-        <div style={{ minWidth: 240 }} className="border-r pr-4">
-          <div className="text-sm text-slate-600 mb-2">Usuarios</div>
-          {loading && <div className="text-sm text-slate-500">Cargando...</div>}
-          {!loading && users.length === 0 && <div className="text-sm text-slate-500">No hay usuarios.</div>}
-          <ul>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+          Gestión de roles (Admin)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="rounded-lg border bg-muted/30 p-3">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Users className="h-4 w-4" />
+            Usuarios
+          </div>
+          {loading && <p className="px-2 py-3 text-sm text-muted-foreground">Cargando...</p>}
+          {!loading && users.length === 0 && <p className="px-2 py-3 text-sm text-muted-foreground">No hay usuarios.</p>}
+          <ul className="space-y-1">
             {users.map(u => (
               <li key={u.id}>
-                <button
-                  className={`text-left w-full py-2 pr-2 ${selectedUser?.id === u.id ? "font-semibold text-slate-800" : "text-slate-700"}`}
+                <Button
+                  className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left"
+                  variant={selectedUser?.id === u.id ? "secondary" : "ghost"}
                   onClick={() => selectUser(u)}
                 >
-                  <span>{u.email}</span>
-                </button>
+                  <span className="truncate">{u.email}</span>
+                </Button>
               </li>
             ))}
           </ul>
-        </div>
+        </aside>
 
-        <div className="flex-1">
-          {!selectedUser && <div className="text-sm text-slate-500">Selecciona un usuario para ver detalles</div>}
+        <section className="min-w-0 rounded-lg border p-5">
+          {!selectedUser && <p className="text-sm text-muted-foreground">Selecciona un usuario para ver detalles</p>}
 
           {selectedUser && (
-            <div>
-              <div className="mb-3 flex items-start justify-between">
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <div className="text-sm text-slate-500">Información de usuario</div>
-                  <div className="font-medium text-lg">{selectedUser.fullName ?? selectedUser.userName ?? selectedUser.id}</div>
-                  {selectedUser.createdAt && <div className="text-xs text-slate-400 mt-1">Creado: {new Date(selectedUser.createdAt).toLocaleString()}</div>}
+                  <p className="text-sm text-muted-foreground">Información de usuario</p>
+                  <p className="mt-1 text-lg font-semibold">{selectedUser.fullName ?? selectedUser.userName ?? selectedUser.id}</p>
+                  {selectedUser.createdAt && <p className="mt-1 text-xs text-muted-foreground">Creado: {new Date(selectedUser.createdAt).toLocaleString()}</p>}
                 </div>
-
-                <div className="flex flex-col items-end gap-2">
-                  <button
-                    onClick={handleDeleteUser}
-                    className="text-sm text-rose-600"
-                    disabled={deleting}
-                  >
-                    {deleting ? "Eliminando..." : "Eliminar usuario"}
-                  </button>
-                </div>
+                <Button onClick={handleDeleteUser} variant="destructive" size="sm" disabled={deleting}>
+                  {deleting ? "Eliminando..." : "Eliminar usuario"}
+                </Button>
               </div>
 
-              <div className="mb-4">
-                <div className="text-sm text-slate-600 mb-2">Roles de {selectedUser.fullName ?? selectedUser.userName ?? selectedUser.email}</div>
-                <div className="flex gap-2 flex-wrap mb-3">
-                  {(selectedUser.roles || []).length === 0 && <div className="text-sm text-slate-500">Sin roles</div>}
+              <div className="space-y-3 border-t pt-5">
+                <Label>Roles de {selectedUser.fullName ?? selectedUser.userName ?? selectedUser.email}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(selectedUser.roles || []).length === 0 && <p className="text-sm text-muted-foreground">Sin roles</p>}
                   {(selectedUser.roles || []).map(r => (
-                    <div key={r} className="px-3 py-1 bg-slate-100 rounded flex items-center gap-2 text-sm">
+                    <div key={r} className="flex items-center gap-2 rounded-md bg-secondary px-3 py-1.5 text-sm text-secondary-foreground">
                       <span>{r}</span>
-                      <button
+                      <Button
                         onClick={() => handleRemoveRole(r)}
-                        className="text-xs text-rose-600"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1 text-xs"
                         title={`Quitar rol ${r}`}
                         disabled={saving}
                       >
                         Quitar
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
-                    className="border px-3 py-1 rounded"
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
                   >
                     <option value="">Seleccionar rol...</option>
                     {availableRoles
@@ -200,23 +204,19 @@ export default function ManageRoles() {
                         <option key={r} value={r}>{r}</option>
                       ))}
                   </select>
-                  <button
-                    onClick={handleAddRole}
-                    className="bg-emerald-600 text-white px-3 py-1 rounded disabled:opacity-60"
-                    disabled={!newRole || saving}
-                  >
+                  <Button onClick={handleAddRole} disabled={!newRole || saving}>
                     {saving ? "Guardando..." : "Agregar rol"}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400">
+              <p className="border-t pt-4 text-xs text-muted-foreground">
                 Puedes asignar varios roles a un usuario. Los cambios se aplican inmediatamente.
-              </div>
+              </p>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </section>
+      </CardContent>
+    </Card>
   );
 }

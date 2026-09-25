@@ -1,7 +1,11 @@
-import { DollarSign } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { AuthLayout } from '../../components/AuthLayout';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -11,7 +15,7 @@ export function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -31,79 +35,51 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex items-center justify-center mb-8">
-            <div className="bg-emerald-500 p-3 rounded-full">
-              <DollarSign className="w-8 h-8 text-white" />
-            </div>
-          </div>
-
-          <h1 className="text-3xl font-bold text-center text-slate-800 mb-2">
-            Bienvenido
-          </h1>
-          <p className="text-center text-slate-600 mb-8">
-            Gestiona tus finanzas personales
-          </p>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Correo electrónico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                placeholder="tu@email.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-slate-600">
-              ¿No tienes cuenta?{' '}
-              <Link
-                to="/register"
-                className="text-emerald-600 hover:text-emerald-700 font-medium"
-              >
-                Regístrate
-              </Link>
-            </p>
-          </div>
+    <AuthLayout title="Bienvenido" subtitle="Inicia sesión para gestionar tus finanzas">
+      {error && (
+        <div className="flex items-center gap-2 rounded-md border border-negative/25 bg-negative-soft p-3 text-sm text-negative">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
         </div>
-      </div>
-    </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Correo electrónico</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="tu@email.com"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Contraseña</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+          />
+        </div>
+
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        ¿No tienes cuenta?{' '}
+        <Link to="/register" className="font-medium text-foreground hover:underline">
+          Regístrate
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }

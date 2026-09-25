@@ -4,11 +4,15 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CalendarDays,
+  Loader2,
   PiggyBank,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PlanSavingsForm } from "../../components/Savings/PlanSavingsForm";
+import { PageHeader } from "../../components/PageHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   MonthlyData,
@@ -52,8 +56,8 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin h-10 w-10 border-b-2 border-emerald-600 rounded-full" />
+      <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" /> Cargando…
       </div>
     );
   }
@@ -62,27 +66,17 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">
-            Dashboard financiero
-          </h1>
-          <p className="text-slate-600">
-            Situación actual y proyección a 6 meses
-          </p>
-        </div>
+      <PageHeader
+        title="Dashboard financiero"
+        description="Situación actual y proyección a 6 meses"
+        actions={
+          <Button onClick={() => setShowDrawer(true)}>
+            <PiggyBank className="h-4 w-4" />
+            Planificar ahorro
+          </Button>
+        }
+      />
 
-        <button
-          onClick={() => setShowDrawer(true)}
-          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700"
-        >
-          <PiggyBank className="w-5 h-5" />
-          Planificar ahorro
-        </button>
-      </div>
-
-      {/* ALERTAS */}
       {alerts && alerts.items.length > 0 && (
         <div className="space-y-3">
           {alerts.items.map((a, i) => (
@@ -96,44 +90,43 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <SummaryCard title="Ingresos" value={summary.totalIncome} icon={<ArrowUpCircle />} />
-        <SummaryCard title="Gastos" value={summary.totalExpense} icon={<ArrowDownCircle />} />
-        <SummaryCard title="Balance" value={summary.balance} icon={<Wallet />} />
-        <SummaryCard title="Ahorro real" value={summary.savings} icon={<PiggyBank />} />
-        <SummaryCard title="Ahorro proyectado" value={summary.projectedSavings} icon={<PiggyBank />} />
-        <SummaryCard title="Balance planificado" value={summary.plannedBalance} icon={<Wallet />} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <SummaryCard title="Ingresos" value={summary.totalIncome} icon={<ArrowUpCircle className="h-4 w-4" />} />
+        <SummaryCard title="Gastos" value={summary.totalExpense} icon={<ArrowDownCircle className="h-4 w-4" />} />
+        <SummaryCard title="Balance" value={summary.balance} icon={<Wallet className="h-4 w-4" />} />
+        <SummaryCard title="Ahorro real" value={summary.savings} icon={<PiggyBank className="h-4 w-4" />} />
+        <SummaryCard title="Ahorro proyectado" value={summary.projectedSavings} icon={<PiggyBank className="h-4 w-4" />} />
+        <SummaryCard title="Balance planificado" value={summary.plannedBalance} icon={<Wallet className="h-4 w-4" />} />
       </div>
 
-      {/* MES ACTUAL */}
       {currentMonth && (
-        <div className="bg-white border rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <CalendarDays className="w-5 h-5" />
-            Mes actual
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <MiniStat label="Ingresos" value={currentMonth.income} />
-            <MiniStat label="Gastos" value={currentMonth.expense} />
-            <MiniStat label="Balance" value={currentMonth.balance} />
-            <MiniStat label="Ahorro" value={currentMonth.savings} />
-            <MiniStat
-              label="Planificado"
-              value={currentMonth.plannedBalance ?? 0}
-            />
-          </div>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <CalendarDays className="h-5 w-5 text-muted-foreground" />
+              Mes actual
+            </h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+              <MiniStat label="Ingresos" value={currentMonth.income} />
+              <MiniStat label="Gastos" value={currentMonth.expense} />
+              <MiniStat label="Balance" value={currentMonth.balance} />
+              <MiniStat label="Ahorro" value={currentMonth.savings} />
+              <MiniStat
+                label="Planificado"
+                value={currentMonth.plannedBalance ?? 0}
+              />
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* DRAWER */}
       {showDrawer && (
         <>
           <div
-            className="fixed inset-0 bg-black/40 z-40"
+            className="fixed inset-0 z-40 bg-black/40"
             onClick={() => setShowDrawer(false)}
           />
-          <div className="fixed right-0 top-0 h-full w-[420px] bg-white z-50 shadow-xl">
+          <div className="fixed right-0 top-0 z-50 h-full w-[420px] bg-card shadow-xl">
             <PlanSavingsForm onSuccess={loadFinancialData} />
           </div>
         </>
@@ -154,36 +147,19 @@ function AlertCard({
   action?: string;
 }) {
   const styles = {
-    Budget: {
-      bg: "bg-yellow-50",
-      border: "border-yellow-400",
-      text: "text-yellow-700",
-    },
-    Commitment: {
-      bg: "bg-orange-50",
-      border: "border-orange-400",
-      text: "text-orange-700",
-    },
-    Balance: {
-      bg: "bg-rose-50",
-      border: "border-rose-400",
-      text: "text-rose-700",
-    },
+    Budget: "border-warning bg-warning-soft text-warning",
+    Commitment: "border-warning bg-warning-soft text-warning",
+    Balance: "border-negative bg-negative-soft text-negative",
   }[type];
 
   return (
-    <div
-      className={`flex items-center justify-between border-l-4 p-4 rounded-md ${styles.bg} ${styles.border}`}
-    >
-      <div className={`flex items-center gap-2 text-sm font-medium ${styles.text}`}>
-        <AlertTriangle className="w-4 h-4" />
+    <div className={`flex items-center justify-between rounded-md border-l-4 p-4 ${styles}`}>
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <AlertTriangle className="h-4 w-4" />
         {message}
       </div>
       {action && (
-        <a
-          href={action}
-          className="text-sm font-medium text-emerald-700 hover:underline"
-        >
+        <a href={action} className="text-sm font-medium underline-offset-2 hover:underline">
           Ver
         </a>
       )}
@@ -198,25 +174,27 @@ function SummaryCard({
 }: {
   title: string;
   value: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
-    <div className="bg-white border rounded-xl p-4">
-      <div className="flex items-center gap-2 text-slate-600">
-        {icon}
-        <span>{title}</span>
-      </div>
-      <div className="text-2xl font-bold mt-2">
-        {value.toFixed(2)} €
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {icon}
+          <span>{title}</span>
+        </div>
+        <div className="mt-2 text-2xl font-semibold tracking-tight">
+          {value.toFixed(2)} €
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="font-semibold">{value.toFixed(2)} €</div>
     </div>
   );

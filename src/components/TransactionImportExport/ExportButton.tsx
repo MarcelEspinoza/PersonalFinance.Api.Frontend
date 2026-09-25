@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+import { Button } from "../ui/button";
 import apiClient from "../../lib/apiClient";
 
 interface Props {
@@ -7,17 +9,13 @@ interface Props {
 export function ExportButton({ mode }: Props) {
   const handleExport = async () => {
     try {
-      // Usar apiClient (baseURL configurado) y arraybuffer para no corromper el xlsx
       const response = await apiClient.get("/template/export", {
         responseType: "arraybuffer",
       });
 
-      // Determinar mime y nombre del archivo
       const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       const filename = `${mode}-template.xlsx`;
-
       const data = (response && (response.data ?? response)) ?? response;
-
       const blob = new Blob([data], { type: mime });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -29,16 +27,13 @@ export function ExportButton({ mode }: Props) {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error exportando plantilla:", err);
-      // opcional: mostrar notificación al usuario
     }
   };
 
   return (
-    <button
-      onClick={handleExport}
-      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
-    >
+    <Button type="button" variant="outline" onClick={handleExport}>
+      <Download className="h-4 w-4" />
       Exportar plantilla
-    </button>
+    </Button>
   );
 }

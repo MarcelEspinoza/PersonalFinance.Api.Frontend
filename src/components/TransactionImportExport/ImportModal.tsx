@@ -101,14 +101,14 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
     <div
       aria-modal="true"
       role="dialog"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-40"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
       onMouseDown={(e) => {
         // close when clicking on overlay (but not when clicking inside the panel)
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div
-        className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 space-y-4
+        className="w-full max-w-3xl space-y-5 rounded-xl border bg-card p-6 text-card-foreground shadow-xl
                    max-h-[calc(100vh-6rem)] overflow-y-auto"
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -121,7 +121,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
               <button
                 aria-label="Cerrar"
                 onClick={handleClose}
-                className="text-slate-500 hover:text-slate-700"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
@@ -130,35 +130,35 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                ${isDragActive ? "border-emerald-500 bg-emerald-50" : "border-slate-300 bg-white"}`}
+                ${isDragActive ? "border-primary bg-accent" : "border-border bg-background"}`}
             >
               <input {...getInputProps()} aria-label="Seleccionar archivo Excel" />
               {isDragActive ? (
-                <p className="text-emerald-600">Suelta el archivo aquí...</p>
+                <p className="text-foreground">Suelta el archivo aquí...</p>
               ) : file ? (
                 <div className="text-left">
-                  <p className="text-slate-700 font-medium">{file.name}</p>
-                  <p className="text-xs text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-foreground font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               ) : (
-                <p className="text-slate-500">
+                <p className="text-muted-foreground">
                   Arrastra un archivo .xlsx/.xls aquí o haz click para seleccionar
                 </p>
               )}
             </div>
 
             {errorMessage && (
-              <div className="text-sm text-rose-600 mt-1">{errorMessage}</div>
+              <div className="text-sm text-destructive mt-1">{errorMessage}</div>
             )}
 
             <div className="flex justify-between items-center mt-2">
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-muted-foreground">
                 Formato esperado: hoja con columnas (description, amount, date, categoryId/ categoryName, type)
               </div>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleClose}
-                  className="px-4 py-2 bg-slate-200 rounded-lg text-sm"
+                  className="px-4 py-2 bg-secondary rounded-lg text-sm"
                   disabled={loading}
                 >
                   Cancelar
@@ -166,7 +166,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
                 <button
                   onClick={handleImport}
                   disabled={!file || loading}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg disabled:opacity-50 text-sm"
+                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg disabled:opacity-50 text-sm"
                 >
                   {loading ? "Importando..." : "Importar"}
                 </button>
@@ -182,13 +182,13 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
               <button
                 aria-label="Cerrar"
                 onClick={handleClose}
-                className="text-slate-500 hover:text-slate-700"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ✕
               </button>
             </div>
 
-            <div className="text-slate-700 mb-2">
+            <div className="text-foreground mb-2">
               <p>
                 ✅ Importados: <span className="font-semibold">{imported.length}</span>
               </p>
@@ -198,35 +198,35 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
             </div>
 
             {pending.length === 0 ? (
-              <div className="text-slate-600">
+              <div className="text-muted-foreground">
                 <p>Todos los registros se importaron correctamente ✅</p>
                 {imported.length > 0 && (
-                  <div className="mt-2 text-sm text-slate-500">
+                  <div className="mt-2 text-sm text-muted-foreground">
                     Se han importado {imported.length} registros.
                   </div>
                 )}
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-slate-600">Registros pendientes de importar:</p>
+                <p className="text-muted-foreground">Registros pendientes de importar:</p>
 
                 {/* constrain table area height and allow internal scrolling */}
                 <div className="overflow-x-auto border rounded-md">
                   <div className="max-h-[40vh] overflow-auto">
                     <table className="min-w-full table-fixed text-sm">
-                      <thead className="bg-slate-100 sticky top-0 z-10">
+                      <thead className="bg-muted sticky top-0 z-10">
                         <tr>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Descripción</th>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Monto</th>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Fecha</th>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Categoría</th>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Tipo</th>
-                          <th className="px-3 py-2 border-b border-slate-200 text-left">Errores</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Descripción</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Monto</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Fecha</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Categoría</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Tipo</th>
+                          <th className="px-3 py-2 border-b border-border text-left">Errores</th>
                         </tr>
                       </thead>
                       <tbody>
                         {pending.map((p, idx) => (
-                          <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                          <tr key={idx} className={idx % 2 === 0 ? "bg-card" : "bg-muted/60"}>
                             <td className="px-3 py-2 align-top break-words max-w-[220px]">{p.description ?? "-"}</td>
                             <td className="px-3 py-2 align-top">{p.amount ?? "-"}</td>
                             <td className="px-3 py-2 align-top">{p.date ?? "-"}</td>
@@ -234,7 +234,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
                               {p.category ?? p.categoryId ?? "-"}
                             </td>
                             <td className="px-3 py-2 align-top">{p.type ?? "-"}</td>
-                            <td className="px-3 py-2 align-top text-rose-600">
+                            <td className="px-3 py-2 align-top text-destructive">
                               {p.errors && p.errors.length > 0 ? (
                                 <ul className="list-disc pl-4">
                                   {p.errors.map((err: string, eIdx: number) => (
@@ -262,14 +262,14 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
                   setPending([]);
                   setImported([]);
                 }}
-                className="px-4 py-2 bg-white border rounded text-slate-700"
+                className="px-4 py-2 bg-card border rounded text-foreground"
               >
                 Volver
               </button>
 
               <button
                 onClick={handleClose}
-                className="px-4 py-2 bg-emerald-500 text-white rounded"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded"
               >
                 Cerrar
               </button>

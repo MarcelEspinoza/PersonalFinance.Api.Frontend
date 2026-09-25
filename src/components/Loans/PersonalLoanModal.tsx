@@ -1,7 +1,16 @@
-import { X } from "lucide-react";
 import { useState } from "react";
 import { PersonalLoan } from "../../pages/LoansPage/LoansPage";
 import { LoansService } from "../../services/loansService";
+import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 interface Props {
   userId: string;
@@ -12,6 +21,9 @@ interface Props {
 
 const toInputDate = (iso?: string | null) =>
   iso ? new Date(iso).toISOString().split("T")[0] : "";
+
+const selectClassName =
+  "flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export default function PersonalLoanModal({ userId, initial, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
@@ -51,46 +63,45 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md rounded-xl p-0">
+        <DialogHeader className="border-b px-6 py-5 pr-12">
+          <DialogTitle className="text-xl">
             {initial ? "Editar" : "Nuevo"} Préstamo Personal
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition">
-            <X className="w-5 h-5 text-slate-600" />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Tipo</label>
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+          <div className="space-y-2">
+            <Label htmlFor="personal-loan-type">Tipo</Label>
             <select
+              id="personal-loan-type"
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as "given" | "received" })}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+              className={selectClassName}
             >
               <option value="given">Prestado (yo presté)</option>
               <option value="received">Recibido (me prestaron)</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Nombre / Entidad</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="personal-loan-name">Nombre / Entidad</Label>
+            <Input
+              id="personal-loan-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               placeholder="Ej: Juan Pérez"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Monto principal</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="personal-loan-principal">Monto principal</Label>
+              <Input
+                id="personal-loan-principal"
                 type="number"
                 step="0.01"
                 value={form.principalAmount}
@@ -103,52 +114,52 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
                   });
                 }}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                 placeholder="0.00"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Monto pendiente</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="personal-loan-outstanding">Monto pendiente</Label>
+              <Input
+                id="personal-loan-outstanding"
                 type="number"
                 step="0.01"
                 value={form.outstandingAmount}
                 onChange={(e) => setForm({ ...form, outstandingAmount: e.target.value })}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                 placeholder="0.00"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Fecha inicio</label>
-              <input
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="personal-loan-start-date">Fecha inicio</Label>
+              <Input
+                id="personal-loan-start-date"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Fecha devolución (opcional)</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="personal-loan-due-date">Fecha devolución (opcional)</Label>
+              <Input
+                id="personal-loan-due-date"
                 type="date"
                 value={form.dueDate ?? ""}
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
+          <div className="space-y-2">
+            <Label htmlFor="personal-loan-status">Estado</Label>
             <select
+              id="personal-loan-status"
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value as "active" | "paid" | "overdue" })}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+              className={selectClassName}
             >
               <option value="active">Activo</option>
               <option value="paid">Pagado</option>
@@ -156,23 +167,14 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
             </select>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
-            >
+          <DialogFooter className="gap-2 border-t pt-5">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition"
-            >
-              {initial ? "Actualizar" : "Guardar"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit">{initial ? "Actualizar" : "Guardar"}</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

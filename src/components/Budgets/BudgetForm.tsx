@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import apiClient from "../../lib/apiClient";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
 import { BudgetPayload, budgetService } from "../../services/budgetService";
 
 interface Category {
@@ -27,34 +30,36 @@ export function BudgetForm({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <div className="bg-white border rounded-xl p-4 space-y-4">
-      <h3 className="font-semibold text-lg">Nuevo presupuesto</h3>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Nuevo presupuesto</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <select
+          aria-label="Selecciona categoría"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          value={form.categoryId}
+          onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}
+        >
+          <option value={0}>Selecciona categoría</option>
+          {categories.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
 
-      <select
-        className="w-full border rounded p-2"
-        value={form.categoryId}
-        onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}
-      >
-        <option value={0}>Selecciona categoría</option>
-        {categories.map(c => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
+        <Input
+          type="number"
+          placeholder="Límite mensual"
+          value={form.monthlyLimit}
+          onChange={e => setForm({ ...form, monthlyLimit: Number(e.target.value) })}
+        />
 
-      <input
-        type="number"
-        className="w-full border rounded p-2"
-        placeholder="Límite mensual"
-        value={form.monthlyLimit}
-        onChange={e => setForm({ ...form, monthlyLimit: Number(e.target.value) })}
-      />
-
-      <button
-        onClick={submit}
-        className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
-      >
-        Guardar presupuesto
-      </button>
-    </div>
+        <div className="flex justify-end pt-1">
+          <Button type="button" onClick={submit}>
+            Guardar presupuesto
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

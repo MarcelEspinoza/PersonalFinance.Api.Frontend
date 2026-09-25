@@ -1,12 +1,11 @@
+﻿import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Transaction } from "../../types/Transaction";
-
 
 interface Props {
   transactions: Transaction[];
 }
 
 export function CategorySummary({ transactions }: Props) {
-  // Agrupar por categoría
   const grouped = transactions.reduce<Record<string, { income: number; expense: number }>>(
     (acc, tx) => {
       const key = tx.categoryName || "Sin categoría";
@@ -21,32 +20,36 @@ export function CategorySummary({ transactions }: Props) {
   const categories = Object.entries(grouped);
 
   if (categories.length === 0) {
-    return <div className="p-8 text-center text-slate-500">No hay movimientos este mes</div>;
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          No hay movimientos este mes
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-6 border-b border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800">Resumen por Categorías</h2>
-      </div>
-      <div className="divide-y divide-slate-200">
-        {categories.map(([category, { income, expense }]) => (
-          <div key={category} className="p-4 flex justify-between">
-            <span className="font-medium text-slate-700 capitalize">{category}</span>
-            <div className="flex space-x-6">
-              <span className="text-green-600 font-bold">+{income.toFixed(2)} €</span>
-              <span className="text-red-600 font-bold">-{expense.toFixed(2)} €</span>
-              <span
-                className={`font-bold ${
-                  income - expense >= 0 ? "text-emerald-600" : "text-red-600"
-                }`}
-              >
-                {(income - expense).toFixed(2)} €
-              </span>
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="text-lg">Resumen por Categorías</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {categories.map(([category, { income, expense }]) => (
+            <div key={category} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-medium capitalize">{category}</span>
+              <div className="flex items-center gap-4 text-sm tabular-nums sm:gap-6">
+                <span className="font-semibold text-positive">+{income.toFixed(2)} €</span>
+                <span className="font-semibold text-negative">-{expense.toFixed(2)} €</span>
+                <span className={`font-semibold ${income - expense >= 0 ? "text-positive" : "text-negative"}`}>
+                  {(income - expense).toFixed(2)} €
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

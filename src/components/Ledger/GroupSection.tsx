@@ -25,12 +25,12 @@ export function GroupSection({ group, locked, busy, onAddEntry, ...rowHandlers }
     setCollapsed((current) => ({ ...current, [conceptId]: !current[conceptId] }));
 
   return (
-    <section className="mb-5 overflow-hidden rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary px-4 py-2.5">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+    <section className="mb-6 overflow-hidden rounded-xl border bg-card shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-secondary/70 px-5 py-4">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
           {group.name}
         </h2>
-        <div className="flex gap-5 text-xs tabular-nums">
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums">
           <span className="text-muted-foreground">
             Previsto <span className="text-foreground">{money(group.forecastTotal)}</span>
           </span>
@@ -110,8 +110,8 @@ function ConceptRows({
 }) {
   return (
     <>
-      <tr className="border-t border-border first:border-t-0">
-        <td className="py-2 pl-4 pr-2">
+      <tr className="border-t border-border first:border-t-0 transition-colors hover:bg-accent/30">
+        <td className="py-3 pl-5 pr-3">
           <button
             type="button"
             onClick={onToggle}
@@ -147,17 +147,17 @@ function ConceptRows({
         <td />
         <td />
 
-        <td className="px-2 py-2 text-right text-sm tabular-nums text-muted-foreground">
+        <td className="px-3 py-3 text-right text-sm tabular-nums text-muted-foreground">
           {money(concept.forecastTotal)}
         </td>
-        <td className="px-2 py-2 text-right text-sm font-medium tabular-nums">
+        <td className="px-3 py-3 text-right text-sm font-medium tabular-nums">
           {money(concept.actualTotal)}
         </td>
-        <td className="px-2 py-2 text-right text-sm tabular-nums text-muted-foreground">
+        <td className="px-3 py-3 text-right text-sm tabular-nums text-muted-foreground">
           {money(concept.remainingTotal)}
         </td>
 
-        <td className="px-2 py-2 text-right">
+        <td className="px-3 py-3 text-right">
           <Button
             variant="ghost"
             size="icon"

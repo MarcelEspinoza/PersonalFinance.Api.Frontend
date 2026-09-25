@@ -1,5 +1,8 @@
 // components/Savings/PlanSavingsForm.tsx
 import { useState } from 'react';
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { useAuth } from '../../contexts/AuthContext';
 import { planSavings } from '../../services/savingsService';
 
@@ -34,48 +37,44 @@ export function PlanSavingsForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Cantidad mensual (€)</label>
-        <input
+    <form onSubmit={handleSubmit} className="space-y-6 p-6">
+      <div className="space-y-2">
+        <Label htmlFor="monthly-amount">Cantidad mensual (€)</Label>
+        <Input
+          id="monthly-amount"
           type="number"
           value={monthlyAmount}
           onChange={(e) => setMonthlyAmount(Number(e.target.value))}
-          className="mt-1 block w-full border border-slate-300 rounded-md p-2"
           min={0}
           step="0.01"
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Meses</label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="savings-months">Meses</Label>
+        <Input
+          id="savings-months"
           type="number"
           value={months}
           onChange={(e) => setMonths(Number(e.target.value))}
-          className="mt-1 block w-full border border-slate-300 rounded-md p-2"
           min={1}
           max={24}
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Fecha de inicio</label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="savings-start-date">Fecha de inicio</Label>
+        <Input
+          id="savings-start-date"
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          className="mt-1 block w-full border border-slate-300 rounded-md p-2"
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 disabled:opacity-60"
-      >
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? 'Guardando...' : 'Guardar plan'}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -145,33 +145,33 @@ export function PasanacoDetail({
   return (
     <div className="space-y-6">
       {/* Resumen superior */}
-      <div className="p-4 bg-white rounded-2xl shadow-sm border">
+      <div className="p-4 rounded-xl border bg-card shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{pasanaco.name}</h2>
-            <div className="text-sm text-slate-600 mt-1">
+            <h2 className="text-xl font-bold text-card-foreground">{pasanaco.name}</h2>
+            <div className="text-sm text-muted-foreground mt-1">
               <span className="mr-3">Monto mensual: <strong>{pasanaco.monthlyAmount}€</strong></span>
               <span className="mr-3">Participantes: <strong>{participants.length}/{pasanaco.totalParticipants}</strong></span>
               <span className="mr-3">Turno: <strong>{pasanaco.currentRound}</strong></span>
             </div>
-            <div className="mt-2 text-sm text-slate-500">Mes actual: <strong>{formatMonthYear(month, year)}</strong></div>
+            <div className="mt-2 text-sm text-muted-foreground">Mes actual: <strong>{formatMonthYear(month, year)}</strong></div>
           </div>
 
           <div className="flex items-center gap-3">          
             <div className="text-center">
-              <div className="text-xs text-slate-500">Destinatario actual</div>
+              <div className="text-xs text-muted-foreground">Destinatario actual</div>
               <div className="mt-1 inline-flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-emerald-800 leading-tight">
+                  <div className="text-2xl font-bold text-positive leading-tight">
                     {currentRecipient?.name ?? "—"}
                   </div>
-                  <div className="text-sm text-slate-500">Nº {pasanaco.currentRound}</div>
+                  <div className="text-sm text-muted-foreground">Nº {pasanaco.currentRound}</div>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              <Button onClick={handleRetreat} className="bg-gray-100 text-slate-800 hover:bg-gray-200 px-3 py-2">
+              <Button onClick={handleRetreat} className="bg-secondary text-secondary-foreground hover:bg-accent px-3 py-2">
                 Anterior
               </Button>
               <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export function PasanacoDetail({
                   <input type="checkbox" checked={advanceWithLoans} onChange={(e) => setAdvanceWithLoans(e.target.checked)} />
                   Generar préstamos
                 </label>
-                <Button onClick={handleAdvance} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2">
+                <Button onClick={handleAdvance} className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-2">
                   Avanzar ronda
                 </Button>
               </div>
@@ -190,47 +190,47 @@ export function PasanacoDetail({
 
       {/* Añadir participante: solo si faltan participantes */}
       {participants.length < totalAllowed ? (
-        <div className="p-4 bg-white rounded-2xl shadow-sm border">
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">Añadir participante</h3>
+        <div className="p-4 rounded-xl border bg-card shadow-sm">
+          <h3 className="text-sm font-semibold text-card-foreground mb-2">Añadir participante</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Nombre</label>
+              <label className="block text-xs text-muted-foreground mb-1">Nombre</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Número asignado</label>
+              <label className="block text-xs text-muted-foreground mb-1">Número asignado</label>
               <input
                 type="number"
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
                 placeholder={`Número (1..${totalAllowed})`}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                className="w-full px-3 py-2 border rounded-lg"
               />
-              <div className="text-xs text-slate-400 mt-1">Mes: {formattedAssignedMonth}</div>
+              <div className="text-xs text-muted-foreground mt-1">Mes: {formattedAssignedMonth}</div>
             </div>
             <div className="flex gap-2">
-              <Button disabled={adding} onClick={handleAddParticipant} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4">
+              <Button disabled={adding} onClick={handleAddParticipant} className="bg-primary hover:bg-primary/90 text-primary-foreground px-4">
                 {adding ? "Añadiendo..." : "Añadir participante"}
               </Button>
-              <div className="text-sm text-slate-500 self-center">{participants.length}/{totalAllowed}</div>
+              <div className="text-sm text-muted-foreground self-center">{participants.length}/{totalAllowed}</div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="p-4 bg-amber-50 rounded-2xl border">
-          <div className="text-sm text-slate-700">Todos los participantes están añadidos.</div>
+        <div className="p-4 bg-warning-soft rounded-xl border">
+          <div className="text-sm text-card-foreground">Todos los participantes están añadidos.</div>
         </div>
       )}
 
       {/* Lista unificada: participantes + histórico (scrollable) */}
-      <div className="p-4 bg-white rounded-2xl shadow-sm border">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Participantes y historial (mes actual)</h3>
+      <div className="p-4 rounded-xl border bg-card shadow-sm">
+        <h3 className="text-sm font-semibold text-card-foreground mb-3">Participantes y historial (mes actual)</h3>
         <ParticipantsList
           participants={enriched}
           payments={payments}

@@ -1,15 +1,12 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
+import { ChevronDown, Landmark, ShieldCheck, Tags } from "lucide-react";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
+import { PageHeader } from "../../components/PageHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
-
-/**
- * SettingsPage (mejorada)
- * - AccordionCard ahora alinea título/ subtítulo a la izquierda (no centrado).
- * - Mantiene BanksManager (ahora con editor de color inline).
- * - Mantiene CategoriesManager y ManageRoles.
- */
 
 function AccordionCard({
   id,
@@ -32,25 +29,31 @@ function AccordionCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  return (
-    <div className="rounded-lg bg-white border border-slate-200 shadow-sm overflow-hidden">
-      {/* NOTE: items-start + text-left => ensures left alignment */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-start justify-between p-5 hover:bg-slate-50 transition"
-      >
-        <div className="text-left">
-          <div className="text-lg font-medium text-slate-800">{title}</div>
-          {subtitle && <div className="text-sm text-slate-500 mt-0.5">{subtitle}</div>}
-        </div>
-        <div className="text-sm text-slate-500">{open ? "Ocultar" : "Mostrar"}</div>
-      </button>
+  const Icon = id === "admin" ? ShieldCheck : id === "banks" ? Landmark : Tags;
 
-      <div className={`transition-all duration-200 ${open ? "max-h-[2000px] p-6" : "max-h-0 p-0"}`}>
-        <div className={`${open ? "opacity-100" : "opacity-0"} transition-opacity`}>{children}</div>
-      </div>
-    </div>
+  return (
+    <Card className="overflow-hidden">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setOpen((v) => !v)}
+        className="h-auto w-full justify-between rounded-none px-5 py-5 text-left hover:bg-accent"
+      >
+        <span className="flex items-start gap-3">
+          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+          <span>
+            <span className="block text-lg font-medium text-foreground">{title}</span>
+            {subtitle && <span className="mt-1 block text-sm font-normal text-muted-foreground">{subtitle}</span>}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-sm font-normal text-muted-foreground">
+          {open ? "Ocultar" : "Mostrar"}
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </Button>
+
+      {open && <CardContent className="border-t p-5 sm:p-6">{children}</CardContent>}
+    </Card>
   );
 }
 
@@ -59,33 +62,29 @@ export default function SettingsPage() {
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("Admin");
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Configuración</h1>
-      </header>
+    <div className="space-y-8">
+      <PageHeader title="Configuración" />
 
-      {isAdmin && (
-        <AccordionCard id="admin" title="Administración" subtitle="Gestión de roles y usuarios" defaultOpen={false}>
-          <div className="mb-4">
+      <div className="space-y-4">
+        {isAdmin && (
+          <AccordionCard id="admin" title="Administración" subtitle="Gestión de roles y usuarios" defaultOpen={false}>
             <ManageRoles />
-          </div>
-        </AccordionCard>
-      )}
+          </AccordionCard>
+        )}
 
-      <AccordionCard
-        id="banks"
-        title="Cuentas bancarias"
-        subtitle="Configura nombre, entidad y color representativo de cada banco"
-        defaultOpen={true}
-      >
-        <div className="mb-6">
+        <AccordionCard
+          id="banks"
+          title="Cuentas bancarias"
+          subtitle="Configura nombre, entidad y color representativo de cada banco"
+          defaultOpen={true}
+        >
           <BanksManager />
-        </div>
-      </AccordionCard>
+        </AccordionCard>
 
-      <AccordionCard id="categories" title="Categorías" subtitle="Gestiona categorías de gastos e ingresos" defaultOpen={false}>
-        <CategoriesManager />
-      </AccordionCard>
+        <AccordionCard id="categories" title="Categorías" subtitle="Gestiona categorías de gastos e ingresos" defaultOpen={false}>
+          <CategoriesManager />
+        </AccordionCard>
+      </div>
     </div>
   );
 }

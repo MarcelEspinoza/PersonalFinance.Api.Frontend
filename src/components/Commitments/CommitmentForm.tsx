@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { commitmentService } from "../../services/commitmentService";
 
 export function CommitmentForm({ onSaved }: { onSaved: () => void }) {
@@ -21,33 +23,30 @@ export function CommitmentForm({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <div className="flex gap-3 items-end">
-      <input
-        className="border rounded px-2 py-1"
+    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] md:items-end">
+      <Input
         placeholder="Nombre"
         value={name}
         onChange={e => setName(e.target.value)}
       />
       <select
-        className="border rounded px-2 py-1"
+        aria-label="Tipo"
+        className="h-9 w-full rounded-md border bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         value={type}
-        onChange={e => setType(e.target.value as any)}
+        onChange={e => setType(e.target.value === "Income" ? "Income" : "Expense")}
       >
         <option value="Expense">Gasto</option>
         <option value="Income">Ingreso</option>
       </select>
-      <input
+      <Input
         type="number"
-        className="border rounded px-2 py-1"
+        aria-label="Importe"
         value={amount}
         onChange={e => setAmount(Number(e.target.value))}
       />
-      <button
-        onClick={submit}
-        className="bg-emerald-600 text-white px-4 py-1 rounded"
-      >
+      <Button type="button" onClick={submit} className="w-full md:w-auto">
         Añadir
-      </button>
+      </Button>
     </div>
   );
 }

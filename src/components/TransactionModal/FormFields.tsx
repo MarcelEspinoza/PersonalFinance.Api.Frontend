@@ -1,3 +1,5 @@
+import { Input as UiInput } from "../ui/input";
+import { Label } from "../ui/label";
 
 export function Input({
   label,
@@ -13,16 +15,13 @@ export function Input({
   disabled?: boolean;
 }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-2">
-        {label}
-      </label>
-      <input
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <UiInput
         type={type}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-100"
       />
     </div>
   );
@@ -40,14 +39,12 @@ export function Select({
   options: string[];
 }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-2">
-        {label}
-      </label>
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+        className="flex h-9 w-full rounded-md border bg-background px-3 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
@@ -69,15 +66,13 @@ export function Textarea({
   onChange: (v: string) => void;
 }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-2">
-        {label}
-      </label>
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
-        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+        className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
       />
     </div>
   );

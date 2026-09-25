@@ -1,15 +1,8 @@
-"use client";
+﻿"use client";
 import { useEffect, useMemo, useState } from "react";
-import type {
-  Formatter,
-  NameType,
-  ValueType,
-} from "recharts/types/component/DefaultTooltipContent";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import apiClient from "../../lib/apiClient";
 
-// ============================
-// Types
-// ============================
 export type MonthlyInsightsResponse = {
   year: number;
   month: number;
@@ -57,9 +50,6 @@ export type MonthlyInsightsProps = {
   endpoint?: string;
 };
 
-// ============================
-// Utils
-// ============================
 const fmtCurrency = (n: number, currency = "EUR") =>
   new Intl.NumberFormat("es-ES", {
     style: "currency",
@@ -68,20 +58,6 @@ const fmtCurrency = (n: number, currency = "EUR") =>
 
 const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
-const toNumberAny = (v: unknown): number => {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") return Number(v) || 0;
-  if (Array.isArray(v) && v.length) {
-    const x = v[0] as unknown;
-    if (typeof x === "number") return x;
-    if (typeof x === "string") return Number(x) || 0;
-  }
-  return 0;
-};
-
-// ============================
-// Component
-// ============================
 export default function MonthlyInsights({
   year,
   month,
@@ -120,23 +96,15 @@ export default function MonthlyInsights({
 
   const currency = data?.currency ?? "EUR";
 
-  // formatter seguro (por si algún día lo reutilizas)
-  const tooltipCurrencyFormatter = useMemo<
-    Formatter<ValueType, NameType>
-  >(
-    () => (value) => fmtCurrency(toNumberAny(value), currency),
-    [currency]
-  );
-
   const kpis = useMemo(() => {
     if (!data) return null;
     return [
-      { label: "Ingresos del mes", value: fmtCurrency(data.totalIncomes, currency) },
-      { label: "Gastos del mes", value: fmtCurrency(data.totalExpenses, currency) },
+      { label: "Ingresos del mes", value: fmtCurrency(data.totalIncomes, currency), accent: "text-positive" },
+      { label: "Gastos del mes", value: fmtCurrency(data.totalExpenses, currency), accent: "text-negative" },
       {
         label: "Balance del mes",
         value: fmtCurrency(data.balance, currency),
-        accent: data.balance >= 0 ? "text-emerald-600" : "text-rose-600",
+        accent: data.balance >= 0 ? "text-positive" : "text-negative",
       },
       { label: "Tasa de ahorro", value: fmtPct(data.savingsRate || 0) },
       { label: "Movimientos", value: String(data.txCount) },
@@ -144,142 +112,100 @@ export default function MonthlyInsights({
       {
         label: "Gasto medio diario",
         value: fmtCurrency(data.avgDailySpend, currency),
+        accent: "text-negative",
       },
     ];
   }, [data, currency]);
 
   return (
-    <div className="w-full grid grid-cols-1 xl:grid-cols-3 gap-6">
-      {/* KPIs */}
-      <section className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {loading && (
-          <div className="col-span-full text-sm text-slate-500">
-            Cargando insights…
-          </div>
-        )}
-        {error && (
-          <div className="col-span-full text-sm text-rose-600">
-            {error}
-          </div>
-        )}
+    <div className="grid w-full grid-cols-1 gap-5 xl:grid-cols-3">
+      <section className="col-span-full grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        {loading && <p className="col-span-full text-sm text-muted-foreground">Cargando insights…</p>}
+        {error && <p className="col-span-full text-sm text-negative">{error}</p>}
         {kpis?.map((k) => (
-          <article
-            key={k.label}
-            className="rounded-2xl border bg-white shadow-sm px-4 py-5 flex flex-col items-center justify-center text-center"
-          >
-            <div className="text-xs text-slate-500">{k.label}</div>
-            <div
-              className={`mt-2 text-xl font-semibold tracking-tight ${
-                k.accent ?? "text-slate-900"
-              }`}
-            >
-              {k.value}
-            </div>
-          </article>
+          <Card key={k.label}>
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-muted-foreground">{k.label}</p>
+              <p className={`mt-2 text-xl font-semibold tracking-tight tabular-nums ${k.accent ?? "text-card-foreground"}`}>
+                {k.value}
+              </p>
+            </CardContent>
+          </Card>
         ))}
       </section>
 
-      {/* Gasto por categoría */}
-      <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-semibold">Gasto por categoría</h4>
-          <span className="text-xs text-slate-500">Top 10</span>
-        </header>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-sm">Gasto por categoría</CardTitle>
+          <span className="text-xs text-muted-foreground">Top 10</span>
+        </CardHeader>
+        <CardContent>
+          {data?.byCategory?.length ? (
+            <ul className="space-y-3">
+              {data.byCategory.slice(0, 10).map((c) => (
+                <li key={c.categoryId} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{c.categoryName}</p>
+                    <p className="text-xs text-muted-foreground">{fmtPct(c.pct)}</p>
+                  </div>
+                  <span className="shrink-0 font-semibold text-negative tabular-nums">-{fmtCurrency(c.amount, currency)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin datos</p>
+          )}
+        </CardContent>
+      </Card>
 
-        {data?.byCategory?.length ? (
-          <ul className="space-y-3">
-            {data.byCategory.slice(0, 10).map((c) => (
-              <li
-                key={c.categoryId}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium text-slate-700">
-                    {c.categoryName}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {fmtPct(c.pct)}
-                  </span>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-sm">Top gastos</CardTitle>
+          <span className="text-xs text-muted-foreground">Mayor a menor</span>
+        </CardHeader>
+        <CardContent>
+          {data?.topExpenses?.length ? (
+            <div className="space-y-3">
+              {data.topExpenses.slice(0, 5).map((e) => (
+                <div key={e.id} className="flex items-center justify-between gap-3 text-sm">
+                  <p className="truncate text-muted-foreground">{e.description}</p>
+                  <p className="shrink-0 font-semibold text-negative tabular-nums">-{fmtCurrency(e.amount, currency)}</p>
                 </div>
-                <span className="font-semibold text-rose-600 tabular-nums">
-                  -{fmtCurrency(c.amount, currency)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-xs text-slate-500">Sin datos</div>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin datos</p>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Top gastos */}
-      <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-semibold">Top gastos</h4>
-          <span className="text-xs text-slate-500">Mayor a menor</span>
-        </header>
-
-        {data?.topExpenses?.length ? (
-          <div className="space-y-3">
-            {data.topExpenses.slice(0, 5).map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="truncate text-slate-600">
-                  {e.description}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-sm">Top ingresos</CardTitle>
+          <span className="text-xs text-muted-foreground">Mayor a menor</span>
+        </CardHeader>
+        <CardContent>
+          {data?.topIncomes?.length ? (
+            <div className="space-y-3">
+              {data.topIncomes.slice(0, 5).map((i) => (
+                <div key={i.id} className="flex items-center justify-between gap-3 text-sm">
+                  <p className="truncate text-muted-foreground">{i.description}</p>
+                  <p className="shrink-0 font-semibold text-positive tabular-nums">{fmtCurrency(i.amount, currency)}</p>
                 </div>
-                <div className="font-semibold text-rose-600 tabular-nums">
-                  -{fmtCurrency(e.amount, currency)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-xs text-slate-500">Sin datos</div>
-        )}
-      </section>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin datos</p>
+          )}
 
-      {/* Top ingresos */}
-      <section className="rounded-2xl border p-4 bg-white shadow-sm">
-        <header className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-semibold">Top ingresos</h4>
-          <span className="text-xs text-slate-500">Mayor a menor</span>
-        </header>
-
-        {data?.topIncomes?.length ? (
-          <div className="space-y-3">
-            {data.topIncomes.slice(0, 5).map((i) => (
-              <div
-                key={i.id}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="truncate text-slate-600">
-                  {i.description}
-                </div>
-                <div className="font-semibold text-emerald-600 tabular-nums">
-                  {fmtCurrency(i.amount, currency)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-xs text-slate-500">Sin datos</div>
-        )}
-
-        {data?.largestIncome && (
-          <div className="mt-4 text-xs text-slate-500">
-            Mayor ingreso:{" "}
-            <span className="font-medium text-slate-700">
-              {data.largestIncome.description}
-            </span>{" "}
-            por{" "}
-            <span className="font-semibold text-emerald-600">
-              {fmtCurrency(data.largestIncome.amount, currency)}
-            </span>
-          </div>
-        )}
-      </section>
+          {data?.largestIncome && (
+            <p className="mt-5 border-t pt-4 text-xs text-muted-foreground">
+              Mayor ingreso: <span className="font-medium text-card-foreground">{data.largestIncome.description}</span>{" "}
+              por <span className="font-semibold text-positive">{fmtCurrency(data.largestIncome.amount, currency)}</span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

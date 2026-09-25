@@ -157,7 +157,7 @@ export function ImportsPage() {
       </div>
 
       {error && <div className="flex gap-2 rounded-md border border-negative/25 bg-negative-soft p-3 text-sm text-negative"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
-      {message && <div className="flex gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4 shrink-0" />{message}</div>}
+      {message && <div className="flex gap-2 rounded-md border border-positive/25 bg-positive-soft p-3 text-sm text-positive"><CheckCircle2 className="h-4 w-4 shrink-0" />{message}</div>}
 
       {!review && (
         <div className="rounded-lg border bg-card p-5 space-y-4">
@@ -205,7 +205,7 @@ export function ImportsPage() {
                     <tr key={row.id} className="border-t">
                       <td className="whitespace-nowrap px-3 py-2">{row.valueDate}</td>
                       <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
-                      <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-emerald-700"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
                       <td className="px-3 py-2">
                         <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
                           <option value="">Sin concepto (revisar)</option>

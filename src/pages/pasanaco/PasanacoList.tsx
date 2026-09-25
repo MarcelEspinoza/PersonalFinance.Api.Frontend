@@ -17,9 +17,9 @@ export function PasanacoList({
   onSelect,
   onDelete,
 }: Props) {
-  if (loading) return <p className="text-slate-500">Cargando pasanacos...</p>;
+  if (loading) return <p className="text-muted-foreground">Cargando pasanacos...</p>;
   if (pasanacos.length === 0)
-    return <p className="text-slate-500">No tienes pasanacos creados aún</p>;
+    return <p className="text-muted-foreground">No tienes pasanacos creados aún</p>;
 
   return (
     <div className="space-y-3">
@@ -36,17 +36,17 @@ export function PasanacoList({
             onClick={() => onSelect(p.id)}
             className={`p-4 rounded-xl border shadow-sm cursor-pointer transition-all ${
               selectedPasanaco === p.id
-                ? "bg-emerald-50 border-emerald-400"
-                : "bg-white hover:bg-slate-50 border-slate-200"
+                ? "bg-accent border"
+                : "bg-card hover:bg-accent border"
             }`}
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-bold text-slate-800">{p.name}</p>
-                <p className="text-sm text-slate-600">
+                <p className="font-bold text-card-foreground">{p.name}</p>
+                <p className="text-sm text-muted-foreground">
                   {p.totalParticipants} participantes • Turno {p.currentRound}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Inicio: {month}/{year}
                 </p>
               </div>
@@ -55,10 +55,10 @@ export function PasanacoList({
                   e.stopPropagation();
                   onDelete(p.id);
                 }}
-                className="p-2 hover:bg-red-100 rounded-lg"
+                className="p-2 hover:bg-negative-soft rounded-lg"
                 title="Eliminar pasanaco"
               >
-                <Trash2 className="w-4 h-4 text-red-600" />
+                <Trash2 className="w-4 h-4 text-negative" />
               </button>
             </div>
           </div>

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageHeader } from "../PageHeader";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import * as XLSX from "xlsx";
 import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
 import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
@@ -412,187 +415,67 @@ export function TransactionPage({ mode, service }: Props) {
   const allSelected = visibleItems.length > 0 && selectedIds.length === visibleItems.length;
 
   return (
-    <div className="py-6">
-      <div className="max-w-[1800px] mx-auto px-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <h1 className="text-3xl font-bold text-slate-800">
-            Gestión de {mode === "income" ? "Ingresos" : "Gastos"}
-          </h1>
-
-          {/* BUTTON ROW (moved up so filters align under it) */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={exportVisibleToExcel}
-              className="px-4 h-10 py-2 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-50 hover:bg-emerald-200 transition"
-            >
-              Exportar vista (Excel)
-            </button>
-
-            <ExportButton mode={mode} />
-
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="px-4 h-10 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition"
-            >
-              Importar plantilla
-            </button>
-
-            {selectedIds.length > 0 && (
-              <button
-                onClick={handleDeleteSelected}
-                disabled={deleting}
-                className="flex items-center gap-2 px-4 h-10 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition disabled:opacity-50"
-              >
-                {deleting ? "Eliminando..." : `Eliminar (${selectedIds.length})`}
-              </button>
-            )}
-
-            <button
-              onClick={() => {
+    <div className="py-8">
+      <div className="mx-auto max-w-[1800px] space-y-6 px-4 sm:px-6">
+        <PageHeader
+          title={"Gestión de " + (mode === "income" ? "Ingresos" : "Gastos")}
+          actions={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" onClick={exportVisibleToExcel}>Exportar vista (Excel)</Button>
+              <ExportButton mode={mode} />
+              <Button type="button" variant="outline" onClick={() => setShowImportModal(true)}>Importar plantilla</Button>
+              {selectedIds.length > 0 && (
+                <Button type="button" variant="destructive" onClick={handleDeleteSelected} disabled={deleting}>
+                  {deleting ? "Eliminando..." : "Eliminar (" + selectedIds.length + ")"}
+                </Button>
+              )}
+              <Button type="button" onClick={() => {
                 setEditingId(null);
                 setFormData(getInitialFormData());
                 setShowModal(true);
-              }}
-              className={`flex items-center px-4 h-10 py-2 ${
-                mode === "income" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-rose-500 hover:bg-rose-600"
-              } text-white rounded-lg transition`}
-            >
-              Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
-            </button>
-          </div>
-        </div>
-
-        {/* SEARCH + FILTERS (incluye filtro de fecha) */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4">
-          <input
-            type="text"
-            placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
-
-          <div className="flex items-center gap-3">
-            <select
-              value={originFilter ?? ""}
-              onChange={(e) => setOriginFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos orígenes</option>
-              {bankOptions.map((b) => (
-                <option key={b.id} value={b.id}>{b.label}</option>
-              ))}
-            </select>
-
-            <select
-              value={destFilter ?? ""}
-              onChange={(e) => setDestFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos destinos</option>
-              {bankOptions.map((b) => (
-                <option key={b.id} value={b.id}>{b.label}</option>
-              ))}
-            </select>
-
-            <select
-              value={categoryFilter !== null ? String(categoryFilter) : ""}
-              onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todas categorías</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-
-            <select
-              value={typeFilter ?? ""}
-              onChange={(e) => setTypeFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              <option value="">Todos tipos</option>
-              <option value="fixed">Fixed</option>
-              <option value="variable">Variable</option>
-              <option value="temporary">Temporary</option>
-            </select>
-
-            {/* Date range */}
-            <input
-              type="date"
-              value={startDateFilter ?? ""}
-              onChange={(e) => setStartDateFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            />
-            <input
-              type="date"
-              value={endDateFilter ?? ""}
-              onChange={(e) => setEndDateFilter(e.target.value || null)}
-              className="px-3 py-2 border border-slate-300 rounded-lg"
-            />
-          </div>
-
-          <div className="ml-auto text-sm text-slate-500">
-            {visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">
-              Cargando {mode === "income" ? "ingresos" : "gastos"}...
+              }}>
+                Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
+              </Button>
             </div>
+          }
+        />
+
+        <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <Input
+              type="text"
+              placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1"
+            />
+            <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap">
+              <select value={originFilter ?? ""} onChange={(e) => setOriginFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">Todos orígenes</option>{bankOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}</select>
+              <select value={destFilter ?? ""} onChange={(e) => setDestFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">Todos destinos</option>{bankOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}</select>
+              <select value={categoryFilter !== null ? String(categoryFilter) : ""} onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">Todas categorías</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <select value={typeFilter ?? ""} onChange={(e) => setTypeFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">Todos tipos</option><option value="fixed">Fixed</option><option value="variable">Variable</option><option value="temporary">Temporary</option></select>
+              <input type="date" value={startDateFilter ?? ""} onChange={(e) => setStartDateFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm" />
+              <input type="date" value={endDateFilter ?? ""} onChange={(e) => setEndDateFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm" />
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">{visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales</div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+          {loading ? (
+            <div className="p-10 text-center text-muted-foreground">Cargando {mode === "income" ? "ingresos" : "gastos"}...</div>
           ) : (
             <>
-              <TransactionList
-                mode={mode}
-                transactions={visibleItems}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                selectedIds={selectedIds}
-                onToggleSelect={handleToggleSelect}
-                onSelectAll={handleSelectAll}  
-                allSelected={allSelected}
-                sortBy={sortBy}
-                sortDir={sortDir}
-                onRequestSort={requestSort}
-                highlight={debouncedSearch}
-              />
-
+              <TransactionList mode={mode} transactions={visibleItems} onEdit={handleEdit} onDelete={handleDelete} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} onSelectAll={handleSelectAll} allSelected={allSelected} sortBy={sortBy} sortDir={sortDir} onRequestSort={requestSort} highlight={debouncedSearch} />
               <div ref={sentinelRef} className="h-6" />
-
-              {visibleCount < items.length && (
-                <div className="p-4 text-center text-slate-500">Cargando más...</div>
-              )}
+              {visibleCount < items.length && <div className="p-4 text-center text-sm text-muted-foreground">Cargando más...</div>}
             </>
           )}
         </div>
       </div>
 
-      {user && (
-        <TransactionModal
-          type={mode}
-          showModal={showModal}
-          editingId={editingId}
-          formData={formData}
-          setFormData={setFormData}
-          onClose={handleCloseModal}
-          onSubmit={handleModalSubmit} // <-- pass payload-style handler
-          onSaved={() => {}}
-          categories={categories}
-          setCategories={setCategories}
-          userId={user.id}
-        />
-      )}
-
-      {user && (
-        <ImportModal
-          mode={mode}
-          show={showImportModal}
-          onClose={() => setShowImportModal(false)}
-          userId={user.id}
-        />
-      )}
+      {user && <TransactionModal type={mode} showModal={showModal} editingId={editingId} formData={formData} setFormData={setFormData} onClose={handleCloseModal} onSubmit={handleModalSubmit} onSaved={() => {}} categories={categories} setCategories={setCategories} userId={user.id} />}
+      {user && <ImportModal mode={mode} show={showImportModal} onClose={() => setShowImportModal(false)} userId={user.id} />}
     </div>
   );
 }

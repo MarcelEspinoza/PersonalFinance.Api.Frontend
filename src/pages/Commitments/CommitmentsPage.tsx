@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { CommitmentForm } from "../../components/Commitments/CommitmentForm";
+import { PageHeader } from "../../components/PageHeader";
+import { Card, CardContent } from "../../components/ui/card";
 import { commitmentService } from "../../services/commitmentService";
 import type { CommitmentStatus } from "../../types/CommitmentStatus";
 
@@ -25,82 +27,83 @@ export function CommitmentsPage() {
 
   const renderStatus = (c: CommitmentStatus) => {
     if (c.isOutOfRange) {
-      return <span className="text-red-600 font-semibold">❌ Fuera de rango</span>;
+      return <span className="font-semibold text-negative">❌ Fuera de rango</span>;
     }
     if (c.isSatisfied) {
-      return <span className="text-emerald-600 font-semibold">✅ Cumplido</span>;
+      return <span className="font-semibold text-positive">✅ Cumplido</span>;
     }
-    return <span className="text-yellow-600 font-semibold">⏳ Pendiente</span>;
+    return <span className="font-semibold text-warning">⏳ Pendiente</span>;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Compromisos mensuales</h1>
-      </div>
+      <PageHeader title="Compromisos mensuales" />
 
-      {/* Form */}
-      <div className="bg-white border rounded-xl p-4">
-        <CommitmentForm onSaved={load} />
-      </div>
+      <Card>
+        <CardContent className="p-5">
+          <CommitmentForm onSaved={load} />
+        </CardContent>
+      </Card>
 
-      {/* Table */}
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-100 text-slate-600">
-            <tr>
-              <th className="p-3 text-left">Compromiso</th>
-              <th className="p-3 text-right">Esperado</th>
-              <th className="p-3 text-right">Real</th>
-              <th className="p-3 text-center">Estado</th>
-            </tr>
-          </thead>
+      <Card className="overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3 text-left font-medium">Compromiso</th>
+                  <th className="px-5 py-3 text-right font-medium">Esperado</th>
+                  <th className="px-5 py-3 text-right font-medium">Real</th>
+                  <th className="px-5 py-3 text-center font-medium">Estado</th>
+                </tr>
+              </thead>
 
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={4} className="p-6 text-center text-slate-500">
-                  No hay compromisos activos este mes
-                </td>
-              </tr>
-            )}
+              <tbody>
+                {items.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-12 text-center text-muted-foreground">
+                      No hay compromisos activos este mes
+                    </td>
+                  </tr>
+                )}
 
-            {items.map((c) => (
-              <tr key={c.commitmentId} className="border-t">
-                <td className="p-3 font-medium text-slate-800">
-                  {c.name}
-                </td>
+                {items.map((c) => (
+                  <tr key={c.commitmentId} className="border-t transition-colors hover:bg-muted/60">
+                    <td className="px-5 py-4 font-medium text-foreground">
+                      {c.name}
+                    </td>
 
-                <td className="p-3 text-right">
-                  {c.expectedAmount.toFixed(2)} €
-                </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      {c.expectedAmount.toFixed(2)} €
+                    </td>
 
-                <td className="p-3 text-right">
-                  {c.actualAmount.toFixed(2)} €
-                </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      {c.actualAmount.toFixed(2)} €
+                    </td>
 
-                <td className="p-3 text-center">
-                  {renderStatus(c)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    <td className="px-5 py-4 text-center">
+                      {renderStatus(c)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="text-xs text-slate-500">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         Los compromisos comparan importes esperados con los movimientos reales del mes,
         teniendo en cuenta tolerancias configuradas.
-      </div>
+      </p>
     </div>
   );
 }

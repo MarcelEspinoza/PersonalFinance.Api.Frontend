@@ -1,13 +1,15 @@
-import { Calendar, Plus } from "lucide-react";
+import { Calendar, Loader2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import BankLoanModal from "../../components/Loans/BankLoanModal";
 import BankLoans from "../../components/Loans/BankLoans";
 import PaymentModal from "../../components/Loans/PaymentModal";
 import PersonalLoanModal from "../../components/Loans/PersonalLoanModal";
 import PersonalLoans from "../../components/Loans/PersonalLoans";
+import { PageHeader } from "../../components/PageHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { LoansService } from "../../services/loansService";
-
 
 export interface BaseLoan {
   id: string;
@@ -144,35 +146,31 @@ export default function LoansPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Gestión de Préstamos</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={openCreatePersonal}
-            className="flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Nuevo Personal
-          </button>
-          <button
-            onClick={openCreateBank}
-            className="flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Nuevo Bancario
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Gestión de Préstamos"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={openCreatePersonal}>
+              <Plus />
+              Nuevo Personal
+            </Button>
+            <Button variant="secondary" onClick={openCreateBank}>
+              <Plus />
+              Nuevo Bancario
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PersonalLoans
           loans={personalLoans}
           selectedId={selectedLoanId}
@@ -190,44 +188,40 @@ export default function LoansPage() {
         />
       </div>
 
-      {/* Historial de pagos del préstamo seleccionado */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-800">Historial de Pagos</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">Historial de Pagos</h2>
           {selectedLoanId && (
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="flex items-center px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition text-sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
+            <Button size="sm" onClick={() => setShowPaymentModal(true)}>
+              <Plus />
               Añadir Pago
-            </button>
+            </Button>
           )}
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <Card className="overflow-hidden">
           {!selectedLoanId ? (
-            <div className="p-8 text-center text-slate-500">
+            <CardContent className="py-12 text-center text-sm text-muted-foreground">
               Selecciona un préstamo para ver los pagos
-            </div>
+            </CardContent>
           ) : payments.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
+            <CardContent className="py-12 text-center text-sm text-muted-foreground">
               No hay pagos registrados para este préstamo
-            </div>
+            </CardContent>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y">
               {payments.map((p) => (
-                <div key={p.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2 text-sm text-slate-500 mb-1">
-                        <Calendar className="w-3 h-3" />
+                <div key={p.id} className="p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
                         <span>
                           {new Date(p.paymentDate).toLocaleDateString("es-ES")}
                         </span>
                       </div>
-                      {p.notes && <p className="text-sm text-slate-600">{p.notes}</p>}
+                      {p.notes && <p className="text-sm text-card-foreground">{p.notes}</p>}
                     </div>
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="shrink-0 text-lg font-semibold text-positive">
                       {p.amount.toFixed(2)} €
                     </p>
                   </div>
@@ -235,10 +229,9 @@ export default function LoansPage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </section>
 
-      {/* Modales */}
       {showPersonalModal && (
         <PersonalLoanModal
           userId={user!.id}
