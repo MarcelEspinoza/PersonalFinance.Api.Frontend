@@ -182,6 +182,17 @@ export interface ImportBatchResult {
   problems: string[];
 }
 
+export interface ImportChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ImportChatResponse {
+  reply: string;
+  appliedChanges: number;
+  unrecognized: string[];
+}
+
 export interface CreateLedgerEntryPayload {
   conceptId: string;
   accountId?: string | null;

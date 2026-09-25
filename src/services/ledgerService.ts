@@ -5,6 +5,8 @@ import type {
   CreateLedgerEntryPayload,
   Account,
   ImportBatchResult,
+  ImportChatMessage,
+  ImportChatResponse,
   ImportReview,
   MonthlyEntry,
   MonthlySummary,
@@ -136,6 +138,18 @@ export const LedgerService = {
     const { data } = await apiClient.post<{ applied: number; batchId: string }>(
       `/imports/${batchId}/apply`,
     );
+    return data;
+  },
+
+  chatImport: async (
+    batchId: string,
+    message: string,
+    history: ImportChatMessage[],
+  ): Promise<ImportChatResponse> => {
+    const { data } = await apiClient.post<ImportChatResponse>(`/imports/${batchId}/chat`, {
+      message,
+      history,
+    });
     return data;
   },
 };

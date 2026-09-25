@@ -1,8 +1,8 @@
-import { ChangeEvent, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, Loader2, MessageCircle, Send, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
-import type { Account, ImportReview, ImportRow } from "../../types/ledger";
+import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 
 export function ImportsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -105,6 +105,40 @@ export function ImportsPage() {
     }
   };
 
+  const [chatMessages, setChatMessages] = useState<ImportChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const sendChat = async (event: FormEvent) => {
+    event.preventDefault();
+    const text = chatInput.trim();
+    if (!text || !review) return;
+
+    const history = chatMessages;
+    setChatMessages((current) => [...current, { role: "user", content: text }]);
+    setChatInput("");
+    setChatBusy(true);
+    try {
+      const result = await LedgerService.chatImport(review.id, text, history);
+      setChatMessages((current) => [...current, { role: "assistant", content: result.reply }]);
+      if (result.appliedChanges > 0) {
+        setReview(await LedgerService.getImportReview(review.id));
+      }
+    } catch (err) {
+      setChatMessages((current) => [
+        ...current,
+        { role: "assistant", content: ledgerErrorMessage(err, "No he podido responder ahora mismo.") },
+      ]);
+    } finally {
+      setChatBusy(false);
+    }
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFile(event.target.files?.[0] ?? null);
   };
@@ -150,6 +184,7 @@ export function ImportsPage() {
       )}
 
       {review && (
+        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="rounded-lg border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
             <div>
@@ -184,6 +219,51 @@ export function ImportsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="flex h-[65vh] flex-col rounded-lg border bg-card">
+          <div className="flex items-center gap-2 border-b p-4">
+            <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold">Asistente</h2>
+          </div>
+          <div className="flex-1 space-y-3 overflow-auto p-4">
+            {chatMessages.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Pídeme cosas como «pon Mercadona en Alimentación» o «¿por qué está sin concepto la fila de Amazon?».
+              </p>
+            )}
+            {chatMessages.map((entry, index) => (
+              <div
+                key={index}
+                className={`rounded-md px-3 py-2 text-sm ${
+                  entry.role === "user"
+                    ? "ml-6 bg-primary/10 text-foreground"
+                    : "mr-6 bg-muted text-foreground"
+                }`}
+              >
+                {entry.content}
+              </div>
+            ))}
+            {chatBusy && (
+              <div className="mr-6 flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Pensando…
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          <form onSubmit={(e) => void sendChat(e)} className="flex gap-2 border-t p-3">
+            <input
+              className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
+              placeholder="Escribe un mensaje…"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              disabled={chatBusy || review.status === "Applied"}
+            />
+            <Button type="submit" size="icon" disabled={chatBusy || !chatInput.trim() || review.status === "Applied"}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
         </div>
       )}
     </div>
