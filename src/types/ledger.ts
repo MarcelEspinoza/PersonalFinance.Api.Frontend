@@ -140,6 +140,30 @@ export interface Account {
   openingBalance: number;
   openingDate: CivilDate;
   isActive: boolean;
+  entity?: string | null;
+  accountNumber?: string | null;
+  color?: string | null;
+}
+
+export interface CreateAccountInput {
+  name: string;
+  type: "checking" | "savings" | "card" | "cash";
+  currency: string;
+  openingBalance: number;
+  openingDate: CivilDate;
+  entity?: string | null;
+  accountNumber?: string | null;
+  color?: string | null;
+}
+
+export interface UpdateAccountInput {
+  name: string;
+  type: "checking" | "savings" | "card" | "cash";
+  currency: string;
+  entity?: string | null;
+  accountNumber?: string | null;
+  color?: string | null;
+  isActive: boolean;
 }
 
 export interface ImportConceptOption {

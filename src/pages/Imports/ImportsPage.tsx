@@ -1,6 +1,9 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2, MessageCircle, Send, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 
@@ -13,6 +16,10 @@ export function ImportsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountEntity, setNewAccountEntity] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -31,28 +38,38 @@ export function ImportsPage() {
     void loadAccounts();
   }, []);
 
-  const createAccount = async () => {
-    const name = window.prompt("Nombre de la cuenta", "Personal");
-    if (!name?.trim()) return;
+  const openNewAccount = () => {
+    setNewAccountName("");
+    setNewAccountEntity("");
+    setShowNewAccount(true);
+  };
 
-    setBusy(true);
+  const createAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = newAccountName.trim();
+    if (!name) return;
+
+    setCreatingAccount(true);
     setError(null);
     try {
       const created = await LedgerService.createAccount({
-        name: name.trim(),
+        name,
         type: "checking",
         currency: "EUR",
         openingBalance: 0,
-        openingDate: "2026-01-01",
+        openingDate: new Date().toISOString().slice(0, 10),
+        entity: newAccountEntity.trim() || undefined,
       });
       setAccounts((current) => [...current, created]);
       setAccountId(created.id);
+      setShowNewAccount(false);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido crear la cuenta."));
     } finally {
-      setBusy(false);
+      setCreatingAccount(false);
     }
   };
+
 
   const upload = async () => {
     if (!accountId || !file) {
@@ -169,7 +186,7 @@ export function ImportsPage() {
                 {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
             </label>
-            <Button type="button" variant="outline" onClick={() => void createAccount()} disabled={busy}>Nueva cuenta</Button>
+            <Button type="button" variant="outline" onClick={openNewAccount} disabled={busy}>Nueva cuenta</Button>
           </div>
           <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-4 text-sm">
             <Upload className="h-5 w-5 text-muted-foreground" />
@@ -266,6 +283,41 @@ export function ImportsPage() {
         </div>
         </div>
       )}
+
+      <Dialog open={showNewAccount} onOpenChange={setShowNewAccount}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva cuenta</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => void createAccount(e)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-account-name">Nombre</Label>
+              <Input
+                id="new-account-name"
+                placeholder="Ej. Cuenta nómina"
+                value={newAccountName}
+                onChange={(e) => setNewAccountName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-account-entity">Entidad (opcional)</Label>
+              <Input
+                id="new-account-entity"
+                placeholder="Ej. BBVA"
+                value={newAccountEntity}
+                onChange={(e) => setNewAccountEntity(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowNewAccount(false)}>Cancelar</Button>
+              <Button type="submit" disabled={creatingAccount || !newAccountName.trim()}>
+                {creatingAccount ? "Creando…" : "Crear cuenta"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

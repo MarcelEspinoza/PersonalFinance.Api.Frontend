@@ -3,11 +3,15 @@ import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { bankService } from "../../services/bankService";
-import { Bank } from "../../types/bank";
+import { LedgerService } from "../../services/ledgerService";
+import { Account } from "../../types/ledger";
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function BanksManager() {
-  const [banks, setBanks] = useState<Bank[]>([]);
+  const [banks, setBanks] = useState<Account[]>([]);
   const [name, setName] = useState("");
   const [entity, setEntity] = useState("");
   const [color, setColor] = useState("#00A86B");
@@ -23,11 +27,10 @@ export default function BanksManager() {
   async function load() {
     setLoading(true);
     try {
-      const res = await bankService.getAll();
-      const data = (res as any)?.data ?? res;
+      const data = await LedgerService.getAccounts();
       setBanks(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Error loading banks", err);
+      console.error("Error loading accounts", err);
       setBanks([]);
     } finally {
       setLoading(false);
@@ -36,19 +39,27 @@ export default function BanksManager() {
 
   async function handleAdd() {
     if (!name.trim()) {
-      alert("Introduce el nombre del banco");
+      alert("Introduce el nombre de la cuenta");
       return;
     }
     setCreating(true);
     try {
-      await bankService.create({ name: name.trim(), entity: entity.trim() || undefined, color });
+      await LedgerService.createAccount({
+        name: name.trim(),
+        type: "checking",
+        currency: "EUR",
+        openingBalance: 0,
+        openingDate: today(),
+        entity: entity.trim() || undefined,
+        color,
+      });
       setName("");
       setEntity("");
       setColor("#00A86B");
       await load();
     } catch (err) {
-      console.error("Error creating bank", err);
-      alert("No se pudo crear el banco");
+      console.error("Error creating account", err);
+      alert("No se pudo crear la cuenta");
     } finally {
       setCreating(false);
     }
@@ -59,14 +70,18 @@ export default function BanksManager() {
     if (!current) return;
     setSavingId(id);
     try {
-      await bankService.update(id, {
+      await LedgerService.updateAccount(id, {
         name: current.name,
-        entity: (current.entity as string) ?? undefined,
-        color: (current.color as string) ?? undefined,
+        type: current.type,
+        currency: current.currency,
+        entity: current.entity ?? undefined,
+        accountNumber: current.accountNumber ?? undefined,
+        color: current.color ?? undefined,
+        isActive: current.isActive,
       });
       await load();
     } catch (err) {
-      console.error("Error updating bank", err);
+      console.error("Error updating account", err);
       alert("No se pudo guardar");
     } finally {
       setSavingId(null);
@@ -74,12 +89,12 @@ export default function BanksManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Eliminar banco?")) return;
+    if (!confirm("Eliminar cuenta?")) return;
     try {
-      await bankService.remove(id);
+      await LedgerService.deleteAccount(id);
       await load();
     } catch (err) {
-      console.error("Error deleting bank", err);
+      console.error("Error deleting account", err);
       alert("No se pudo eliminar");
     }
   }

@@ -2,6 +2,7 @@ import apiClient from "../lib/apiClient";
 import type {
   ChartOfAccounts,
   ConfirmLedgerEntryPayload,
+  CreateAccountInput,
   CreateLedgerEntryPayload,
   Account,
   ImportBatchResult,
@@ -11,6 +12,7 @@ import type {
   MonthlyEntry,
   MonthlySummary,
   SeedChartOfAccountsResult,
+  UpdateAccountInput,
   UpdateLedgerEntryPayload,
 } from "../types/ledger";
 
@@ -92,15 +94,18 @@ export const LedgerService = {
     return data;
   },
 
-  createAccount: async (payload: {
-    name: string;
-    type: Account["type"];
-    currency: string;
-    openingBalance: number;
-    openingDate: string;
-  }): Promise<Account> => {
+  createAccount: async (payload: CreateAccountInput): Promise<Account> => {
     const { data } = await apiClient.post<Account>("/accounts", payload);
     return data;
+  },
+
+  updateAccount: async (id: string, payload: UpdateAccountInput): Promise<Account> => {
+    const { data } = await apiClient.put<Account>(`/accounts/${id}`, payload);
+    return data;
+  },
+
+  deleteAccount: async (id: string): Promise<void> => {
+    await apiClient.delete(`/accounts/${id}`);
   },
 
   seedImportMappings: async (): Promise<{ created: number }> => {
