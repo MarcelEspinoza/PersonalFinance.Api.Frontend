@@ -115,12 +115,20 @@ export const LedgerService = {
     return data;
   },
 
-  createImport: async (accountId: string, file: File): Promise<ImportBatchResult> => {
+  createImport: async (
+    accountId: string,
+    file: File,
+    onUploadProgress?: (percentage: number) => void,
+  ): Promise<ImportBatchResult> => {
     const form = new FormData();
     form.append("accountId", accountId);
     form.append("file", file);
     const { data } = await apiClient.post<ImportBatchResult>("/imports", form, {
       headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (event) => {
+        if (!event.total || !onUploadProgress) return;
+        onUploadProgress(Math.min(100, Math.round((event.loaded * 100) / event.total)));
+      },
     });
     return data;
   },

@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ImportProgressProvider } from './contexts/ImportProgressContext';
 import { Login } from './pages/AuthPages/Login';
 import { Register } from './pages/AuthPages/Register';
 import { Dashboard } from './pages/DashboardPage/Dashboard';
@@ -111,7 +112,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <ImportProgressProvider>
+          <AppRoutes />
+        </ImportProgressProvider>
       </AuthProvider>
     </Router>
   );

@@ -18,6 +18,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { ChatBubble } from './Chat/ChatBubble';
+import { GlobalImportProgress } from './Imports/GlobalImportProgress';
 
 interface LayoutProps {
   children: ReactNode;
@@ -136,9 +137,12 @@ export function Layout({ children }: LayoutProps) {
       )}
 
       <main className="flex-1 overflow-x-hidden">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+        <div className={`mx-auto px-4 py-8 sm:px-6 lg:px-8 ${currentPath === 'imports' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
+          {children}
+        </div>
       </main>
       <ChatBubble />
+      <GlobalImportProgress />
     </div>
   );
 }

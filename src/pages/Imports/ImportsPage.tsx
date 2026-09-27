@@ -7,6 +7,7 @@ import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
+import { useImportProgress } from "../../contexts/ImportProgressContext";
 
 const conceptKindLabel = (kind: string) => {
   if (kind.toLowerCase() === "income") return "Ingreso";
@@ -15,6 +16,7 @@ const conceptKindLabel = (kind: string) => {
 };
 
 export function ImportsPage() {
+  const importProgress = useImportProgress();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -29,6 +31,11 @@ export function ImportsPage() {
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [activeFlow, setActiveFlow] = useState<"revolut" | "templates">("revolut");
   const [reviewMode, setReviewMode] = useState<"groups" | "unassigned" | "rows">("groups");
+  const [showImportAssistant, setShowImportAssistant] = useState(false);
+  const importWorking =
+    importProgress.status === "preparing" ||
+    importProgress.status === "uploading" ||
+    importProgress.status === "processing";
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -46,6 +53,24 @@ export function ImportsPage() {
   useEffect(() => {
     void loadAccounts();
   }, []);
+
+  useEffect(() => {
+    if (importProgress.status !== "completed" || !importProgress.result || review) return;
+
+    let active = true;
+    void LedgerService.getImportReview(importProgress.result.id)
+      .then((loadedReview) => {
+        if (!active) return;
+        setReview(loadedReview);
+        setMessage(`Lote creado: ${importProgress.result?.acceptedRows ?? 0} filas para revisar.`);
+      })
+      .catch((err) => {
+        if (active) setError(ledgerErrorMessage(err, "No se ha podido cargar el lote importado."));
+      });
+    return () => {
+      active = false;
+    };
+  }, [importProgress.status, importProgress.result, review]);
 
   const openNewAccount = () => {
     setNewAccountName("");
@@ -86,17 +111,14 @@ export function ImportsPage() {
       return;
     }
 
-    setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const result = await LedgerService.createImport(accountId, file);
+      const result = await importProgress.startImport(accountId, file);
       setReview(await LedgerService.getImportReview(result.id));
       setMessage(`Lote creado: ${result.acceptedRows} filas para revisar.`);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido importar el CSV."));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -172,6 +194,8 @@ export function ImportsPage() {
     setError(null);
     setMessage(null);
     try {
+      await LedgerService.seedChartOfAccounts();
+      await LedgerService.seedImportMappings();
       const result = await LedgerService.suggestImport(review.id);
       setReview(await LedgerService.getImportReview(review.id));
       setReviewMode(result.remaining > 0 ? "unassigned" : "groups");
@@ -191,6 +215,7 @@ export function ImportsPage() {
     setChatMessages([]);
     setChatInput("");
     setReviewMode("groups");
+    importProgress.clearImport();
     setMessage(null);
     setError(null);
   };
@@ -338,7 +363,7 @@ export function ImportsPage() {
                 {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
             </label>
-            <Button type="button" variant="outline" onClick={openNewAccount} disabled={busy}>Nueva cuenta</Button>
+            <Button type="button" variant="outline" onClick={openNewAccount} disabled={busy || importWorking}>Nueva cuenta</Button>
           </div>
           <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-4 text-sm">
             <Upload className="h-5 w-5 text-muted-foreground" />
@@ -346,21 +371,31 @@ export function ImportsPage() {
             <input className="sr-only" type="file" accept=".csv,text/csv" onChange={onFileChange} />
           </label>
           <div className="flex justify-between items-center">
-            <Button type="button" variant="outline" onClick={() => void prepareCategoriesAndRules()} disabled={busy}>Preparar categorías y reglas</Button>
-            <Button onClick={() => void upload()} disabled={busy || !accountId || !file}>{busy ? "Importando…" : "Importar para revisar"}</Button>
+            <Button type="button" variant="outline" onClick={() => void prepareCategoriesAndRules()} disabled={busy || importWorking}>Actualizar categorías y reglas</Button>
+            <Button onClick={() => void upload()} disabled={busy || importWorking || !accountId || !file}>
+              {importProgress.status === "preparing"
+                ? "Preparando…"
+                : importProgress.status === "uploading"
+                ? `Subiendo ${importProgress.uploadPercentage}%`
+                : importProgress.status === "processing"
+                  ? "Analizando…"
+                  : "Importar para revisar"}
+            </Button>
           </div>
         </div>
       )}
 
       {review && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div className="rounded-lg border bg-card">
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
             <div>
               <h2 className="font-semibold">{review.fileName}</h2>
               <p className="text-sm text-muted-foreground">{review.rows.length} filas · estado: {review.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowImportAssistant(true)}>
+                <MessageCircle className="h-4 w-4" /> Asistente
+              </Button>
               <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
                 {review.status === "Applied" ? "Nueva importación" : "Cancelar y elegir otro"}
               </Button>
@@ -402,21 +437,27 @@ export function ImportsPage() {
           </div>
           <div className="max-h-[65vh] overflow-auto">
             {reviewMode === "groups" ? (
-              <table className="min-w-full text-sm">
+              <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 bg-muted">
-                  <tr><th className="px-3 py-2 text-left">Comercio / descripción</th><th className="px-3 py-2 text-right">Mov.</th><th className="px-3 py-2 text-right">Neto</th><th className="px-3 py-2 text-left">Concepto para el grupo</th><th className="px-3 py-2 text-left">Origen</th></tr>
+                  <tr>
+                    <th className="w-[38%] px-4 py-3 text-left">Comercio / descripción</th>
+                    <th className="w-[7%] px-3 py-3 text-right">Mov.</th>
+                    <th className="w-[13%] px-3 py-3 text-right">Neto</th>
+                    <th className="w-[32%] px-3 py-3 text-left">Concepto para el grupo</th>
+                    <th className="w-[10%] px-3 py-3 text-left">Origen</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {importGroups.map((group) => (
                     <tr key={group.normalizedDescription} className="border-t">
-                      <td className="max-w-[30rem] px-3 py-2">
-                        <div className="font-medium">{group.rows[0]?.rawDescription}</div>
-                        {group.count > 1 && <div className="mt-0.5 truncate text-xs text-muted-foreground">{group.normalizedDescription}</div>}
+                      <td className="px-4 py-3">
+                        <div className="break-words font-medium leading-snug">{group.rows[0]?.rawDescription}</div>
+                        {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground">{group.normalizedDescription}</div>}
                       </td>
                       <td className="px-3 py-2 text-right font-medium">{group.count}</td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right ${group.total < 0 ? "text-negative" : "text-positive"}`}>{group.total.toFixed(2)} EUR</td>
                       <td className="px-3 py-2">
-                        <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
+                        <select className="h-9 w-full rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
                           <option value="">Sin concepto (revisar)</option>
                           {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                         </select>
@@ -454,13 +495,16 @@ export function ImportsPage() {
             )}
           </div>
         </div>
+      )}
 
-        <div className="flex h-[65vh] flex-col rounded-lg border bg-card">
-          <div className="flex items-center gap-2 border-b p-4">
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">Asistente</h2>
-          </div>
-          <div className="flex-1 space-y-3 overflow-auto p-4">
+      <Dialog open={showImportAssistant} onOpenChange={setShowImportAssistant}>
+        <DialogContent className="flex h-[75vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b p-5">
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-primary" /> Asistente de importación
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 space-y-3 overflow-auto p-5">
             {chatMessages.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Pídeme cosas como «pon Mercadona en Alimentación» o «¿por qué está sin concepto la fila de Amazon?».
@@ -469,37 +513,36 @@ export function ImportsPage() {
             {chatMessages.map((entry, index) => (
               <div
                 key={index}
-                className={`rounded-md px-3 py-2 text-sm ${
+                className={`rounded-lg px-3 py-2 text-sm ${
                   entry.role === "user"
-                    ? "ml-6 bg-primary/10 text-foreground"
-                    : "mr-6 bg-muted text-foreground"
+                    ? "ml-12 bg-primary/10 text-foreground"
+                    : "mr-12 bg-muted text-foreground"
                 }`}
               >
                 {entry.content}
               </div>
             ))}
             {chatBusy && (
-              <div className="mr-6 flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="mr-12 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Pensando…
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
-          <form onSubmit={(e) => void sendChat(e)} className="flex gap-2 border-t p-3">
+          <form onSubmit={(e) => void sendChat(e)} className="flex gap-2 border-t p-4">
             <input
-              className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
+              className="h-10 flex-1 rounded-md border bg-background px-3 text-sm"
               placeholder="Escribe un mensaje…"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              disabled={chatBusy || review.status === "Applied"}
+              disabled={chatBusy || review?.status === "Applied"}
             />
-            <Button type="submit" size="icon" disabled={chatBusy || !chatInput.trim() || review.status === "Applied"}>
+            <Button type="submit" size="icon" disabled={chatBusy || !chatInput.trim() || review?.status === "Applied"}>
               <Send className="h-4 w-4" />
             </Button>
           </form>
-        </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showNewAccount} onOpenChange={setShowNewAccount}>
         <DialogContent>
