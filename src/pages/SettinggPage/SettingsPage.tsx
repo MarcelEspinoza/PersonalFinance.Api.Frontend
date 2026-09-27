@@ -1,106 +1,127 @@
-﻿import React, { useEffect, useState } from "react";
-import { ChevronDown, Landmark, ShieldCheck, SlidersHorizontal, Tags } from "lucide-react";
+﻿import {
+  Landmark,
+  ShieldCheck,
+  SlidersHorizontal,
+  Tags,
+  type LucideIcon,
+} from "lucide-react";
+import { useState } from "react";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
 import ExpensePlanningManager from "../../components/Settings/ExpensePlanningManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
 import { PageHeader } from "../../components/PageHeader";
-import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
+import { cn } from "../../lib/utils";
 
-function AccordionCard({
-  id,
-  title,
-  subtitle,
-  defaultOpen = false,
-  children,
-  onToggle,
-}: {
-  id: string;
+type SettingsTab = "planning" | "banks" | "categories" | "admin";
+
+type TabDefinition = {
+  id: SettingsTab;
   title: string;
-  subtitle?: string;
-  defaultOpen?: boolean;
-  children?: React.ReactNode;
-  onToggle?: (open: boolean) => void;
-}) {
-  const [open, setOpen] = useState<boolean>(defaultOpen);
-  useEffect(() => {
-    onToggle?.(open);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  shortTitle: string;
+  subtitle: string;
+  icon: LucideIcon;
+};
 
-  const Icon = id === "admin"
-    ? ShieldCheck
-    : id === "banks"
-      ? Landmark
-      : id === "planning"
-        ? SlidersHorizontal
-        : Tags;
-
-  return (
-    <Card className="overflow-hidden">
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => setOpen((v) => !v)}
-        className="h-auto w-full justify-between rounded-none px-5 py-5 text-left hover:bg-accent"
-      >
-        <span className="flex items-start gap-3">
-          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-          <span>
-            <span className="block text-lg font-medium text-foreground">{title}</span>
-            {subtitle && <span className="mt-1 block text-sm font-normal text-muted-foreground">{subtitle}</span>}
-          </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2 text-sm font-normal text-muted-foreground">
-          {open ? "Ocultar" : "Mostrar"}
-          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-        </span>
-      </Button>
-
-      {open && <CardContent className="border-t p-5 sm:p-6">{children}</CardContent>}
-    </Card>
-  );
-}
+const tabs: TabDefinition[] = [
+  {
+    id: "planning",
+    title: "Planificación de gastos",
+    shortTitle: "Planificación",
+    subtitle: "Define gastos fijos y límites mensuales para los variables.",
+    icon: SlidersHorizontal,
+  },
+  {
+    id: "banks",
+    title: "Cuentas bancarias",
+    shortTitle: "Cuentas",
+    subtitle: "Configura el nombre, la entidad y el color de cada cuenta.",
+    icon: Landmark,
+  },
+  {
+    id: "categories",
+    title: "Categorías",
+    shortTitle: "Categorías",
+    subtitle: "Gestiona las categorías de gastos e ingresos.",
+    icon: Tags,
+  },
+  {
+    id: "admin",
+    title: "Administración",
+    shortTitle: "Administración",
+    subtitle: "Gestiona los roles y usuarios de la aplicación.",
+    icon: ShieldCheck,
+  },
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("Admin");
+  const availableTabs = tabs.filter((tab) => tab.id !== "admin" || isAdmin);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("planning");
+  const active = availableTabs.find((tab) => tab.id === activeTab) ?? availableTabs[0];
+  const ActiveIcon = active.icon;
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Configuración" />
+    <div className="space-y-6">
+      <PageHeader
+        title="Configuración"
+        description="Selecciona una sección para trabajar sin perderte en una página larga."
+      />
 
-      <div className="space-y-4">
-        {isAdmin && (
-          <AccordionCard id="admin" title="Administración" subtitle="Gestión de roles y usuarios" defaultOpen={false}>
-            <ManageRoles />
-          </AccordionCard>
-        )}
-
-        <AccordionCard
-          id="banks"
-          title="Cuentas bancarias"
-          subtitle="Configura nombre, entidad y color representativo de cada banco"
-          defaultOpen={true}
-        >
-          <BanksManager />
-        </AccordionCard>
-
-        <AccordionCard
-          id="planning"
-          title="Planificación de gastos"
-          subtitle="Indica qué gastos son fijos y qué límite mensual tienen los variables"
-          defaultOpen={true}
-        >
-          <ExpensePlanningManager />
-        </AccordionCard>
-
-        <AccordionCard id="categories" title="Categorías" subtitle="Gestiona categorías de gastos e ingresos" defaultOpen={false}>
-          <CategoriesManager />
-        </AccordionCard>
+      <div
+        role="tablist"
+        aria-label="Secciones de configuración"
+        className="flex gap-2 overflow-x-auto rounded-xl border bg-muted/35 p-2"
+      >
+        {availableTabs.map((tab) => {
+          const Icon = tab.icon;
+          const selected = tab.id === active.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`settings-panel-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex min-w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+                selected
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{tab.shortTitle}</span>
+            </button>
+          );
+        })}
       </div>
+
+      <Card
+        id={`settings-panel-${active.id}`}
+        role="tabpanel"
+        className="overflow-hidden"
+      >
+        <div className="border-b bg-muted/20 px-5 py-4 sm:px-6">
+          <div className="flex items-start gap-3">
+            <ActiveIcon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <h2 className="text-lg font-semibold">{active.title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{active.subtitle}</p>
+            </div>
+          </div>
+        </div>
+        <CardContent className="p-5 sm:p-6">
+          {active.id === "planning" && <ExpensePlanningManager />}
+          {active.id === "banks" && <BanksManager />}
+          {active.id === "categories" && <CategoriesManager />}
+          {active.id === "admin" && isAdmin && <ManageRoles />}
+        </CardContent>
+      </Card>
     </div>
   );
 }
