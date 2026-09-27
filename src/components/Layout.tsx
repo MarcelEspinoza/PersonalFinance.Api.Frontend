@@ -25,15 +25,15 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'ledger', label: 'Plan mensual', icon: ClipboardList },
-  { id: 'monthly', label: 'Resumen mensual', icon: BarChart3 },
-  { id: 'imports', label: 'Importar / Exportar', icon: Upload },
-  { id: 'movements', label: 'Movimientos', icon: ReceiptText },
-  { id: 'loans', label: 'Préstamos', icon: Coins },
-  { id: 'pasanaco', label: 'Pasanaco', icon: Users },
-  { id: 'assistant', label: 'Asistente', icon: MessageCircle },
-  { id: 'settings', label: 'Configuración', icon: Settings },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, activeClass: 'bg-indigo-600 text-white' },
+  { id: 'ledger', label: 'Plan mensual', icon: ClipboardList, activeClass: 'bg-sky-600 text-white' },
+  { id: 'monthly', label: 'Resumen mensual', icon: BarChart3, activeClass: 'bg-violet-600 text-white' },
+  { id: 'imports', label: 'Importar / Exportar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
+  { id: 'movements', label: 'Movimientos', icon: ReceiptText, activeClass: 'bg-emerald-600 text-white' },
+  { id: 'loans', label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
+  { id: 'pasanaco', label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
+  { id: 'assistant', label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
+  { id: 'settings', label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -67,7 +67,7 @@ export function Layout({ children }: LayoutProps) {
             className={cn(
               'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
               active
-                ? 'bg-primary text-primary-foreground font-medium'
+                ? `${item.activeClass} font-medium shadow-sm`
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >
