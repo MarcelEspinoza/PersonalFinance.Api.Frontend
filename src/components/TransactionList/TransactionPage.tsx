@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -11,11 +12,12 @@ import bankService from "../../services/bankService";
 import { CategoriesService } from "../../services/categoriesService";
 import { formatDate, getInitialFormData } from "./transaction.utils";
 import { TransactionList } from "./TransactionList";
+import { money, monthLabel, monthName, nextMonth, previousMonth } from "../../utils/civilDate";
 
 interface Props {
   mode: "income" | "expense";
   service: {
-    getAll: () => Promise<any>;
+    getAll: (year?: number, month?: number) => Promise<any>;
     getById?: (id: number) => Promise<any>;
     create: (payload: any) => Promise<any>;
     update: (id: number, payload: any) => Promise<any>;
@@ -30,6 +32,7 @@ interface Category { id: number; name: string; }
 
 export function TransactionPage({ mode, service }: Props) {
   const { user } = useAuth();
+  const now = new Date();
 
   const [allRaw, setAllRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,8 @@ export function TransactionPage({ mode, service }: Props) {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
 
   // search + debounce
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -59,11 +64,8 @@ export function TransactionPage({ mode, service }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // pagination/infinite scroll (client-side)
-  const pageSize = 20;
-  const [visibleCount, setVisibleCount] = useState<number>(pageSize);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const loadingMoreRef = useRef(false);
+  const pageSize = 25;
+  const [page, setPage] = useState(1);
 
   // debounce input
   useEffect(() => {
@@ -74,10 +76,15 @@ export function TransactionPage({ mode, service }: Props) {
   useEffect(() => {
     if (!user) return;
     loadBanks();
-    loadData();
     loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedYear, selectedMonth]);
 
   const loadBanks = async () => {
     try {
@@ -112,10 +119,10 @@ export function TransactionPage({ mode, service }: Props) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data } = await service.getAll();
+      const { data } = await service.getAll(selectedYear, selectedMonth);
       setAllRaw(Array.isArray(data) ? data : []);
       setSelectedIds([]);
-      setVisibleCount(pageSize);
+      setPage(1);
     } catch (error) {
       console.error("Error loading data:", error);
       setAllRaw([]);
@@ -213,37 +220,35 @@ export function TransactionPage({ mode, service }: Props) {
     return sorted;
   }, [allRaw, bankMap, debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
-  // infinite scroll: observe sentinel and increase visibleCount
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !loadingMoreRef.current) {
-          loadingMoreRef.current = true;
-          setTimeout(() => {
-            setVisibleCount((v) => Math.min(items.length, v + pageSize));
-            loadingMoreRef.current = false;
-          }, 200);
-        }
-      });
-    }, { rootMargin: "300px" });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [items.length]);
-
-  // reset visibleCount when filters/search change
-  useEffect(() => {
-    setVisibleCount(pageSize);
+    setPage(1);
   }, [debouncedSearch, originFilter, destFilter, categoryFilter, typeFilter, startDateFilter, endDateFilter, sortBy, sortDir]);
 
-  const visibleItems = items.slice(0, visibleCount);
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const visibleItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const monthTotal = allRaw.reduce((sum, item) => sum + Number(item.amount ?? item.Amount ?? 0), 0);
+  const monthAverage = allRaw.length > 0 ? monthTotal / allRaw.length : 0;
+  const yearOptions = Array.from({ length: 15 }, (_, index) => now.getFullYear() + 2 - index);
 
-  // Export visible/current view to Excel (.xlsx) using SheetJS, with numeric formatting and summary sheet
+  const changeMonth = (direction: "previous" | "next") => {
+    const target = direction === "previous"
+      ? previousMonth(selectedYear, selectedMonth)
+      : nextMonth(selectedYear, selectedMonth);
+    setSelectedYear(target.year);
+    setSelectedMonth(target.month);
+  };
+
+  const goToCurrentMonth = () => {
+    const current = new Date();
+    setSelectedYear(current.getFullYear());
+    setSelectedMonth(current.getMonth() + 1);
+  };
+
+  // Export the complete filtered month, not only the current page.
   const exportVisibleToExcel = () => {
     try {
-      // Map visible items to simple objects for SheetJS
-      const rows = visibleItems.map((r) => ({
+      const rows = items.map((r) => ({
         Id: r.id,
         Description: r.description ?? "",
         Bank: r.bankName ?? "",
@@ -271,7 +276,7 @@ export function TransactionPage({ mode, service }: Props) {
       // Summary sheet: totals by category and by bank
       const totalsByCategory: Record<string, number> = {};
       const totalsByBank: Record<string, number> = {};
-      visibleItems.forEach((r) => {
+      items.forEach((r) => {
         const cat = r.category || "Sin categoría";
         totalsByCategory[cat] = (totalsByCategory[cat] || 0) + (Number(r.amount) || 0);
         const bank = r.bankName || "Sin banco";
@@ -378,7 +383,14 @@ export function TransactionPage({ mode, service }: Props) {
   };
 
   const handleSelectAll = () => {
-    setSelectedIds(selectedIds.length === visibleItems.length ? [] : visibleItems.map((i) => i.id));
+    const visibleIds = visibleItems.map((item) => item.id);
+    const allVisibleSelected = visibleIds.every((id) => selectedIds.includes(id));
+
+    setSelectedIds((current) =>
+      allVisibleSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : Array.from(new Set([...current, ...visibleIds]))
+    );
   };
 
   const handleDeleteSelected = async () => {
@@ -412,7 +424,7 @@ export function TransactionPage({ mode, service }: Props) {
     }
   };
 
-  const allSelected = visibleItems.length > 0 && selectedIds.length === visibleItems.length;
+  const allSelected = visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id));
 
   return (
     <div className="py-8">
@@ -440,6 +452,59 @@ export function TransactionPage({ mode, service }: Props) {
           }
         />
 
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-sm">
+            <Button type="button" variant="outline" size="icon" onClick={() => changeMonth("previous")} aria-label="Mes anterior">
+              <ChevronLeft />
+            </Button>
+            <div className="min-w-44 px-2 text-center">
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Periodo</div>
+              <div className="text-lg font-semibold capitalize">{monthLabel(selectedYear, selectedMonth)}</div>
+            </div>
+            <Button type="button" variant="outline" size="icon" onClick={() => changeMonth("next")} aria-label="Mes siguiente">
+              <ChevronRight />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={goToCurrentMonth}>
+              Mes actual
+            </Button>
+            <select
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(Number(event.target.value))}
+              className="h-9 rounded-md border bg-background px-3 text-sm capitalize"
+              aria-label="Seleccionar mes"
+            >
+              {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                <option key={month} value={month}>{monthName(month)}</option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(Number(event.target.value))}
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              aria-label="Seleccionar año"
+            >
+              {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 overflow-hidden rounded-xl border bg-card shadow-sm">
+            <div className="min-w-28 px-4 py-3">
+              <div className="text-xs text-muted-foreground">Movimientos</div>
+              <div className="mt-1 text-lg font-semibold">{allRaw.length}</div>
+            </div>
+            <div className="min-w-32 border-l px-4 py-3">
+              <div className="text-xs text-muted-foreground">Total del mes</div>
+              <div className={`mt-1 text-lg font-semibold ${mode === "income" ? "text-positive" : "text-negative"}`}>
+                {money(monthTotal)}
+              </div>
+            </div>
+            <div className="min-w-32 border-l px-4 py-3">
+              <div className="text-xs text-muted-foreground">Media</div>
+              <div className="mt-1 text-lg font-semibold">{money(monthAverage)}</div>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <Input
@@ -458,7 +523,10 @@ export function TransactionPage({ mode, service }: Props) {
               <input type="date" value={endDateFilter ?? ""} onChange={(e) => setEndDateFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm" />
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">{visibleItems.length} visibles · {items.length} filtrados / {allRaw.length} totales</div>
+          <div className="text-sm text-muted-foreground">
+            {items.length} {mode === "income" ? "ingresos" : "gastos"} en {monthLabel(selectedYear, selectedMonth)}
+            {items.length !== allRaw.length ? ` · ${allRaw.length} antes de aplicar filtros` : ""}
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
@@ -467,8 +535,34 @@ export function TransactionPage({ mode, service }: Props) {
           ) : (
             <>
               <TransactionList mode={mode} transactions={visibleItems} onEdit={handleEdit} onDelete={handleDelete} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} onSelectAll={handleSelectAll} allSelected={allSelected} sortBy={sortBy} sortDir={sortDir} onRequestSort={requestSort} highlight={debouncedSearch} />
-              <div ref={sentinelRef} className="h-6" />
-              {visibleCount < items.length && <div className="p-4 text-center text-sm text-muted-foreground">Cargando más...</div>}
+              {items.length > pageSize && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+                  <div className="text-sm text-muted-foreground">
+                    Mostrando {(safePage - 1) * pageSize + 1}-{Math.min(safePage * pageSize, items.length)} de {items.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={safePage === 1}
+                    >
+                      <ChevronLeft /> Anterior
+                    </Button>
+                    <span className="min-w-24 text-center text-sm">Página {safePage} de {pageCount}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                      disabled={safePage === pageCount}
+                    >
+                      Siguiente <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
