@@ -69,14 +69,21 @@ export function GlobalImportProgress() {
 
           {working && (
             <>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full bg-primary transition-all duration-300 ${
-                    status === "processing" ? "animate-pulse" : ""
-                  }`}
-                  style={{ width: `${status === "preparing" ? 12 : status === "processing" ? 100 : uploadPercentage}%` }}
-                />
-              </div>
+              {status === "uploading" ? (
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${uploadPercentage}%` }}
+                  />
+                </div>
+              ) : (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  {status === "preparing"
+                    ? "Preparando la clasificación…"
+                    : "Subida completada. El servidor sigue analizando el archivo…"}
+                </div>
+              )}
               <p className="mt-2 text-xs text-muted-foreground">
                 {status === "preparing"
                   ? "Comprobando el plan financiero antes de leer el archivo."

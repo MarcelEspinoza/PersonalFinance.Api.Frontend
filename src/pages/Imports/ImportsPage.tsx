@@ -393,20 +393,25 @@ export function ImportsPage() {
               <p className="text-sm text-muted-foreground">{review.rows.length} filas · estado: {review.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowImportAssistant(true)}>
+              <Button type="button" variant="outline" onClick={() => setShowImportAssistant(true)} disabled={review.rows.length === 0}>
                 <MessageCircle className="h-4 w-4" /> Asistente
               </Button>
               <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
                 {review.status === "Applied" ? "Nueva importación" : "Cancelar y elegir otro"}
               </Button>
               {review.status !== "Applied" && (
-                <Button type="button" variant="outline" onClick={() => void suggestPending()} disabled={busy}>
+                <Button type="button" variant="outline" onClick={() => void suggestPending()} disabled={busy || review.rows.length === 0}>
                   Clasificar automáticamente
                 </Button>
               )}
-              <Button onClick={() => void apply()} disabled={busy || review.status === "Applied"}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
+              <Button onClick={() => void apply()} disabled={busy || review.status === "Applied" || review.rows.length === 0}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
             </div>
           </div>
+          {review.rows.length === 0 && (
+            <div className="border-b bg-warning-soft px-4 py-3 text-sm text-warning">
+              Este lote está vacío. Pulsa <strong>Cancelar y elegir otro</strong> y vuelve a importar el CSV.
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
             <div className="flex rounded-lg border bg-card p-1">
               <button
