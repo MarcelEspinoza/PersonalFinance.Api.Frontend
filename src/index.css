@@ -11,7 +11,7 @@
     --card-foreground: 215 25% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 14%;
-    --primary: 215 28% 17%;
+    --primary: 231 48% 40%;
     --primary-foreground: 210 20% 98%;
     --secondary: 215 16% 95%;
     --secondary-foreground: 215 25% 20%;
@@ -23,7 +23,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 215 16% 91%;
     --input: 215 16% 88%;
-    --ring: 215 25% 27%;
+    --ring: 231 48% 45%;
 
     /* Semánticos del dinero: apagados a propósito. El verde y el rojo
        saturados chillan en una tabla llena de cifras. */
@@ -34,10 +34,10 @@
     --warning: 33 58% 41%;
     --warning-soft: 40 70% 95%;
 
-    --chart-1: 215 28% 30%;
+    --chart-1: 231 48% 52%;
     --chart-2: 162 44% 38%;
     --chart-3: 33 58% 50%;
-    --chart-4: 215 16% 62%;
+    --chart-4: 271 40% 55%;
     --chart-5: 355 42% 55%;
     --radius: 0.625rem
   }
@@ -48,8 +48,8 @@
     --card-foreground: 210 20% 96%;
     --popover: 215 26% 12%;
     --popover-foreground: 210 20% 96%;
-    --primary: 210 20% 96%;
-    --primary-foreground: 215 28% 12%;
+    --primary: 231 62% 68%;
+    --primary-foreground: 224 30% 12%;
     --secondary: 215 20% 18%;
     --secondary-foreground: 210 20% 96%;
     --muted: 215 20% 17%;
@@ -60,7 +60,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 215 18% 22%;
     --input: 215 18% 24%;
-    --ring: 215 16% 70%;
+    --ring: 231 62% 68%;
 
     --positive: 162 42% 52%;
     --positive-soft: 162 30% 17%;
@@ -69,10 +69,10 @@
     --warning: 38 62% 58%;
     --warning-soft: 38 30% 17%;
 
-    --chart-1: 210 20% 80%;
+    --chart-1: 231 62% 68%;
     --chart-2: 162 42% 52%;
     --chart-3: 38 62% 58%;
-    --chart-4: 215 16% 50%;
+    --chart-4: 271 50% 68%;
     --chart-5: 355 60% 62%
   }
 }
