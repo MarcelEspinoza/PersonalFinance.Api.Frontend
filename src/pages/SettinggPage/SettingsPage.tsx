@@ -28,9 +28,9 @@ type TabDefinition = {
 const tabs: TabDefinition[] = [
   {
     id: "planning",
-    title: "Planificación de gastos",
+    title: "Planificación mensual",
     shortTitle: "Planificación",
-    subtitle: "Define gastos fijos y límites mensuales para los variables.",
+    subtitle: "Define ingresos y gastos fijos, además de estimaciones para los variables.",
     icon: SlidersHorizontal,
   },
   {

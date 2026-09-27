@@ -5,7 +5,7 @@ import {
   type ExpensePlanning,
   type ExpensePlanningItem,
 } from "../../services/expensePlanningService";
-import { ConceptNature } from "../../types/ledger";
+import { ConceptKind, ConceptNature } from "../../types/ledger";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
@@ -33,6 +33,7 @@ const numberOrNull = (value: string): number | null => {
 };
 
 export default function ExpensePlanningManager() {
+  const [activeKind, setActiveKind] = useState<ConceptKind>(ConceptKind.Expense);
   const [planning, setPlanning] = useState<ExpensePlanning | null>(null);
   const [items, setItems] = useState<Record<string, EditableItem>>({});
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,10 @@ export default function ExpensePlanningManager() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totals = useMemo(() => Object.values(items).reduce(
+  const totals = useMemo(() => Object.values(items)
+    .filter((item) => planning?.groups.some((group) =>
+      group.kind === activeKind && group.items.some((candidate) => candidate.conceptId === item.conceptId)))
+    .reduce(
     (result, item) => {
       if (item.nature === ConceptNature.Fixed) {
         result.fixed += numberOrNull(item.monthlyAmountText) ?? 0;
@@ -60,7 +64,7 @@ export default function ExpensePlanningManager() {
       return result;
     },
     { fixed: 0, variable: 0 },
-  ), [items]);
+  ), [activeKind, items, planning]);
 
   const updateItem = (conceptId: string, patch: Partial<EditableItem>) => {
     setItems((current) => ({
@@ -75,8 +79,8 @@ export default function ExpensePlanningManager() {
     const monthlyBudget = numberOrNull(item.monthlyBudgetText);
     const dayOfMonth = numberOrNull(item.dayOfMonthText);
 
-    if (item.nature === ConceptNature.Fixed && (!monthlyAmount || !dayOfMonth)) {
-      setError("Los gastos fijos necesitan importe mensual y día de cobro.");
+    if (item.nature === ConceptNature.Fixed && (!monthlyAmount || !dayOfMonth || !item.accountId)) {
+      setError("Los movimientos fijos necesitan importe mensual, día y cuenta.");
       return;
     }
     if (item.nature === ConceptNature.Variable && monthlyBudget != null && monthlyBudget < 0) {
@@ -114,20 +118,43 @@ export default function ExpensePlanningManager() {
 
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border bg-muted/35 p-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveKind(ConceptKind.Income)}
+          className={`rounded-lg px-4 py-2.5 text-sm font-medium ${
+            activeKind === ConceptKind.Income ? "bg-card text-positive shadow-sm" : "text-muted-foreground"
+          }`}
+        >
+          Ingresos
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveKind(ConceptKind.Expense)}
+          className={`rounded-lg px-4 py-2.5 text-sm font-medium ${
+            activeKind === ConceptKind.Expense ? "bg-card text-negative shadow-sm" : "text-muted-foreground"
+          }`}
+        >
+          Gastos
+        </button>
+      </div>
+
       <div className="rounded-xl border bg-muted/35 p-4">
         <div className="flex items-start gap-3">
           <SlidersHorizontal className="mt-0.5 h-5 w-5 text-primary" />
           <div>
-            <p className="font-medium">Tú decides qué entra en la previsión</p>
+            <p className="font-medium">
+              {activeKind === ConceptKind.Income ? "Planifica lo que esperas ingresar" : "Tú decides qué entra en la previsión"}
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Los fijos se repiten cada mes. En los variables, el límite es el máximo que quieres gastar.
-              Lo que no configures no se inventará con medias históricas.
+              Los fijos se repiten cada mes con una cuenta y fecha.
+              En los variables, indica {activeKind === ConceptKind.Income ? "una estimación prudente" : "el máximo que quieres gastar"}.
             </p>
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <Total label="Gastos fijos previstos" value={totals.fixed} />
-          <Total label="Límites variables" value={totals.variable} />
+          <Total label={activeKind === ConceptKind.Income ? "Ingresos fijos previstos" : "Gastos fijos previstos"} value={totals.fixed} />
+          <Total label={activeKind === ConceptKind.Income ? "Estimaciones variables" : "Límites variables"} value={totals.variable} />
           <Total label="Plan mensual total" value={totals.fixed + totals.variable} />
         </div>
       </div>
@@ -138,7 +165,7 @@ export default function ExpensePlanningManager() {
         </div>
       )}
 
-      {planning?.groups.map((group) => (
+      {planning?.groups.filter((group) => group.kind === activeKind).map((group) => (
         <section key={group.name} className="space-y-3">
           <h3 className="font-semibold">{group.name}</h3>
           <div className="divide-y rounded-xl border">
@@ -151,7 +178,11 @@ export default function ExpensePlanningManager() {
                   <div>
                     <div className="text-sm font-medium">{item.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {fixed ? "Se repetirá automáticamente cada mes." : "La previsión reservará como máximo este límite."}
+                      {fixed
+                        ? "Se repetirá automáticamente cada mes."
+                        : activeKind === ConceptKind.Income
+                          ? "Estimación mensual opcional para la proyección."
+                          : "La previsión reservará como máximo este límite."}
                     </div>
                   </div>
                   <Field label="Tipo">
@@ -166,7 +197,7 @@ export default function ExpensePlanningManager() {
                       <option value={ConceptNature.Variable}>Variable</option>
                     </select>
                   </Field>
-                  <Field label={fixed ? "Importe mensual" : "Límite mensual"}>
+                  <Field label={fixed ? "Importe mensual" : activeKind === ConceptKind.Income ? "Estimación mensual" : "Límite mensual"}>
                     <Input
                       type="number"
                       min="0"
@@ -195,7 +226,7 @@ export default function ExpensePlanningManager() {
                       onChange={(event) => updateItem(item.conceptId, { accountId: event.target.value || null })}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50"
                     >
-                      <option value="">Sin cuenta</option>
+                      <option value="">{fixed ? "Selecciona una cuenta" : "Todas las cuentas"}</option>
                       {planning.accounts.map((account) => (
                         <option key={account.id} value={account.id}>{account.name}</option>
                       ))}

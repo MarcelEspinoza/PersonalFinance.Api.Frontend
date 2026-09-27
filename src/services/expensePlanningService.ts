@@ -1,5 +1,5 @@
 import apiClient from "../lib/apiClient";
-import { ConceptNature } from "../types/ledger";
+import { ConceptKind, ConceptNature } from "../types/ledger";
 
 export interface ExpensePlanningItem {
   conceptId: string;
@@ -13,6 +13,7 @@ export interface ExpensePlanningItem {
 
 export interface ExpensePlanningGroup {
   name: string;
+  kind: ConceptKind;
   sortOrder: number;
   items: ExpensePlanningItem[];
 }
