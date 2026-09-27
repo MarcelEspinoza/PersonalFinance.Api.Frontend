@@ -224,7 +224,8 @@ export function Dashboard() {
                 />
               </ComposedChart>
             </ResponsiveContainer>
-          </CardContent>
+          </div>
+        </CardContent>
       </Card>
 
       <div>
