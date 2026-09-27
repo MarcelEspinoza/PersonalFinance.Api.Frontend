@@ -200,7 +200,7 @@ export function ImportsPage() {
       setReview(await LedgerService.getImportReview(review.id));
       setReviewMode(result.remaining > 0 ? "unassigned" : "groups");
       setMessage(
-        `Clasificación automática: ${result.mapped} por reglas, ${result.suggested} por IA y ${result.remaining} pendientes.`,
+        `Clasificación automática: ${result.mapped} por reglas específicas, ${result.suggested} por IA, ${result.fallback} por reglas generales y ${result.remaining} pendientes.${result.aiWarning ? ` IA: ${result.aiWarning}` : ""}`,
       );
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido completar la clasificación automática."));

@@ -167,8 +167,8 @@ export const LedgerService = {
 
   suggestImport: async (
     batchId: string,
-  ): Promise<{ mapped: number; suggested: number; remaining: number }> => {
-    const { data } = await apiClient.post<{ mapped: number; suggested: number; remaining: number }>(
+  ): Promise<{ mapped: number; suggested: number; fallback: number; remaining: number; aiWarning?: string }> => {
+    const { data } = await apiClient.post<{ mapped: number; suggested: number; fallback: number; remaining: number; aiWarning?: string }>(
       `/imports/${batchId}/suggest`,
     );
     return data;
