@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { MonthNavigator } from "../../components/Ledger/MonthNavigator";
 import { TotalsPanel } from "../../components/Ledger/TotalsPanel";
@@ -10,6 +11,7 @@ import {
   type ConfirmFormValues,
 } from "../../components/Ledger/ConfirmEntryDialog";
 import { CloseMonthDialog } from "../../components/Ledger/CloseMonthDialog";
+import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import {
   ConceptKind,
@@ -40,8 +42,12 @@ const CLOSED_ENTRY_DIALOG: EntryDialogState = {
 
 export function LedgerMonthPage() {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [year, setYear] = useState(() => Number(searchParams.get("year")) || now.getFullYear());
+  const [month, setMonth] = useState(() => {
+    const requested = Number(searchParams.get("month"));
+    return requested >= 1 && requested <= 12 ? requested : now.getMonth() + 1;
+  });
 
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +104,7 @@ export function LedgerMonthPage() {
   const goTo = (target: { year: number; month: number }) => {
     setYear(target.year);
     setMonth(target.month);
+    setSearchParams({ year: String(target.year), month: String(target.month) });
   };
 
   const handleAddEntry = (concept: MonthlyConcept, group: MonthlyGroup) =>
@@ -188,6 +195,8 @@ export function LedgerMonthPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <MonthWorkspaceTabs year={year} month={month} />
+
       <MonthNavigator
         year={year}
         month={month}

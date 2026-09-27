@@ -12,10 +12,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
+import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { reconciliationService } from "../../services/reconciliationService";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Reconciliation } from "../../types/bank";
@@ -50,8 +52,12 @@ type AccountReconciliation = {
 
 export function MonthlyView() {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [year, setYear] = useState(() => Number(searchParams.get("year")) || now.getFullYear());
+  const [month, setMonth] = useState(() => {
+    const requested = Number(searchParams.get("month"));
+    return requested >= 1 && requested <= 12 ? requested : now.getMonth() + 1;
+  });
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [accountReconciliations, setAccountReconciliations] = useState<AccountReconciliation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +121,7 @@ export function MonthlyView() {
   const goTo = (target: { year: number; month: number }) => {
     setYear(target.year);
     setMonth(target.month);
+    setSearchParams({ year: String(target.year), month: String(target.month) });
   };
 
   const saveReconciliation = async (item: AccountReconciliation) => {
@@ -149,9 +156,11 @@ export function MonthlyView() {
 
   return (
     <div className="space-y-6">
+      <MonthWorkspaceTabs year={year} month={month} />
+
       <PageHeader
-        title="Resumen mensual"
-        description="Qué ha entrado, en qué se ha gastado y cómo termina el mes."
+        title="Resumen y cuadre"
+        description="Comprueba qué ocurrió realmente y cuadra cada cuenta con su banco."
         actions={
           <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
             <Button variant="ghost" size="icon" onClick={() => goTo(previousMonth(year, month))} disabled={loading}>
@@ -268,18 +277,34 @@ function AccountReconciliationPanel({
   onChange: (accountId: string, value: string) => void;
   onSave: (item: AccountReconciliation) => void;
 }) {
+  const reconciledCount = items.filter((item) => {
+    const enteredBalance = Number(item.bankBalance.replace(",", "."));
+    return item.bankBalance.trim() !== ""
+      && Number.isFinite(enteredBalance)
+      && Math.abs(enteredBalance - item.calculatedBalance) <= 0.01;
+  }).length;
+
   return (
     <Card>
       <CardContent className="p-0">
         <div className="border-b p-5">
-          <div className="flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold">Cuadre con el banco</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Landmark className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Cuadre por cuenta</h2>
+            </div>
+            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
+              {reconciledCount} de {items.length} cuentas cuadradas
+            </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Escribe el saldo del banco en la misma fecha hasta la que has importado movimientos.
-            La diferencia debe ser como máximo de 0,01 €.
+            Cada cuenta se comprueba por separado. El total del Dashboard no se usa para decidir si una cuenta cuadra.
           </p>
+          <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+            <div className="rounded-lg bg-muted/60 p-3"><strong>1.</strong> Importa los movimientos de la cuenta.</div>
+            <div className="rounded-lg bg-muted/60 p-3"><strong>2.</strong> Copia su saldo actual del banco.</div>
+            <div className="rounded-lg bg-muted/60 p-3"><strong>3.</strong> Guarda cuando la diferencia sea 0,00 €.</div>
+          </div>
         </div>
         <div className="divide-y">
           {items.map((item) => {
@@ -289,14 +314,25 @@ function AccountReconciliationPanel({
             const reconciled = difference !== null && Math.abs(difference) <= 0.01;
 
             return (
-              <div key={item.account.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
+              <div
+                key={item.account.id}
+                className={`grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center ${
+                  reconciled ? "bg-positive-soft/40" : ""
+                }`}
+              >
                 <div className="min-w-0">
                   <p className="font-medium">{item.account.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {item.account.entity || "Cuenta bancaria"} · saldo calculado {money(item.calculatedBalance)}
+                    {item.account.entity || "Cuenta bancaria"}
+                  </p>
+                  <p className="mt-1 text-sm">
+                    Saldo calculado por la app: <strong>{money(item.calculatedBalance)}</strong>
                   </p>
                 </div>
                 <div className="w-full lg:w-44">
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Saldo que muestra el banco
+                  </label>
                   <Input
                     inputMode="decimal"
                     aria-label={`Saldo bancario de ${item.account.name}`}
@@ -324,12 +360,13 @@ function AccountReconciliationPanel({
                 <Button
                   size="sm"
                   onClick={() => onSave(item)}
-                  disabled={!hasBalance || savingAccountId === item.account.id}
+                  disabled={!hasBalance || !reconciled || savingAccountId === item.account.id}
+                  title={!reconciled ? "El saldo debe coincidir antes de guardar el cuadre" : undefined}
                 >
                   {savingAccountId === item.account.id
                     ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <Save className="h-4 w-4" />}
-                  Guardar saldo
+                  Guardar cuadre
                 </Button>
               </div>
             );

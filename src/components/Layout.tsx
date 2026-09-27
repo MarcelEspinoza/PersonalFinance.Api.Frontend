@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   ClipboardList,
   Coins,
   LayoutDashboard,
@@ -25,15 +24,14 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, activeClass: 'bg-indigo-600 text-white' },
-  { id: 'ledger', label: 'Plan mensual', icon: ClipboardList, activeClass: 'bg-sky-600 text-white' },
-  { id: 'monthly', label: 'Resumen mensual', icon: BarChart3, activeClass: 'bg-violet-600 text-white' },
-  { id: 'imports', label: 'Importar / Exportar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
-  { id: 'movements', label: 'Movimientos', icon: ReceiptText, activeClass: 'bg-emerald-600 text-white' },
-  { id: 'loans', label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
-  { id: 'pasanaco', label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
-  { id: 'assistant', label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
-  { id: 'settings', label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
+  { path: 'dashboard', activePaths: ['dashboard'], label: 'Dashboard', icon: LayoutDashboard, activeClass: 'bg-indigo-600 text-white' },
+  { path: 'ledger', activePaths: ['ledger', 'monthly'], label: 'Mes', icon: ClipboardList, activeClass: 'bg-sky-600 text-white' },
+  { path: 'imports', activePaths: ['imports'], label: 'Importar / Exportar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
+  { path: 'movements', activePaths: ['movements'], label: 'Movimientos', icon: ReceiptText, activeClass: 'bg-emerald-600 text-white' },
+  { path: 'loans', activePaths: ['loans'], label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
+  { path: 'pasanaco', activePaths: ['pasanaco'], label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
+  { path: 'assistant', activePaths: ['assistant'], label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
+  { path: 'settings', activePaths: ['settings'], label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -58,11 +56,11 @@ export function Layout({ children }: LayoutProps) {
     <nav className="flex-1 space-y-0.5 px-3">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const active = currentPath === item.id;
+        const active = item.activePaths.includes(currentPath);
         return (
           <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
+            key={item.path}
+            onClick={() => onNavigate(item.path)}
             aria-current={active ? 'page' : undefined}
             className={cn(
               'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
