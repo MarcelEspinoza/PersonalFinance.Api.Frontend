@@ -124,6 +124,35 @@ export function ImportsPage() {
     }
   };
 
+  const resetImport = () => {
+    setReview(null);
+    setFile(null);
+    setChatMessages([]);
+    setChatInput("");
+    setMessage(null);
+    setError(null);
+  };
+
+  const discardImport = async () => {
+    if (!review) return;
+    if (review.status === "Applied") {
+      resetImport();
+      return;
+    }
+    if (!window.confirm(`¿Cancelar la importación de "${review.fileName}"? Solo se eliminará este lote sin aplicar.`)) return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.discardImport(review.id);
+      resetImport();
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido cancelar esta importación."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const [chatMessages, setChatMessages] = useState<ImportChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -237,7 +266,12 @@ export function ImportsPage() {
               <h2 className="font-semibold">{review.fileName}</h2>
               <p className="text-sm text-muted-foreground">{review.rows.length} filas · estado: {review.status}</p>
             </div>
-            <Button onClick={() => void apply()} disabled={busy || review.status === "Applied"}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
+                {review.status === "Applied" ? "Nueva importación" : "Cancelar y elegir otro"}
+              </Button>
+              <Button onClick={() => void apply()} disabled={busy || review.status === "Applied"}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
+            </div>
           </div>
           <div className="max-h-[65vh] overflow-auto">
             <table className="min-w-full text-sm">

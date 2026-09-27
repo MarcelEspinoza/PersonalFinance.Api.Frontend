@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { CalendarDays, ChevronRight, Trash2, Users } from "lucide-react";
 import { Pasanaco } from "../../services/pasanacoService";
 import { getCurrentGameMonth } from "./PasanacoPage";
 
@@ -29,33 +29,39 @@ export function PasanacoList({
           p.startYear,
           p.currentRound
         );
+        const progress = Math.min(100, Math.max(0, (p.currentRound / p.totalParticipants) * 100));
 
         return (
           <div
             key={p.id}
             onClick={() => onSelect(p.id)}
-            className={`p-4 rounded-xl border shadow-sm cursor-pointer transition-all ${
+            className={`group rounded-xl border p-4 shadow-sm cursor-pointer transition-all ${
               selectedPasanaco === p.id
-                ? "bg-accent border"
-                : "bg-card hover:bg-accent border"
+                ? "border-primary/30 bg-primary/[0.06]"
+                : "bg-card hover:border-primary/20 hover:bg-muted/50"
             }`}
           >
             <div className="flex justify-between items-start">
-              <div>
-                <p className="font-bold text-card-foreground">{p.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {p.totalParticipants} participantes • Turno {p.currentRound}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Inicio: {month}/{year}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate font-semibold text-card-foreground">{p.name}</p>
+                  <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${selectedPasanaco === p.id ? "translate-x-0.5 text-primary" : "text-muted-foreground group-hover:translate-x-0.5"}`} />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{p.totalParticipants}</span>
+                  <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{month}/{year}</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">Ronda {p.currentRound} de {p.totalParticipants}</p>
               </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(p.id);
                 }}
-                className="p-2 hover:bg-negative-soft rounded-lg"
+                className="ml-2 rounded-lg p-2 opacity-0 transition-opacity hover:bg-negative-soft group-hover:opacity-100 focus:opacity-100"
                 title="Eliminar pasanaco"
               >
                 <Trash2 className="w-4 h-4 text-negative" />

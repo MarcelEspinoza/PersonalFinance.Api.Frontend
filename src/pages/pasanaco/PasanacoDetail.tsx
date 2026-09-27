@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, CalendarDays, CircleDollarSign, Users } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Participant,
@@ -60,6 +61,9 @@ export function PasanacoDetail({
   );
 
   const totalAllowed = pasanaco.totalParticipants;
+  const paidCount = payments.filter((payment) => payment.paid).length;
+  const pendingCount = Math.max(0, participants.length - paidCount);
+  const roundProgress = Math.min(100, Math.max(0, (pasanaco.currentRound / totalAllowed) * 100));
 
   // Calcula el mes/año correspondiente al número escrito en el input
   const assignedMonthYear = useMemo(() => {
@@ -145,53 +149,55 @@ export function PasanacoDetail({
   return (
     <div className="space-y-6">
       {/* Resumen superior */}
-      <div className="p-4 rounded-xl border bg-card shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <div className="border-b bg-gradient-to-r from-primary/[0.08] to-transparent p-5">
+          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-card-foreground">{pasanaco.name}</h2>
-            <div className="text-sm text-muted-foreground mt-1">
-              <span className="mr-3">Monto mensual: <strong>{pasanaco.monthlyAmount}€</strong></span>
-              <span className="mr-3">Participantes: <strong>{participants.length}/{pasanaco.totalParticipants}</strong></span>
-              <span className="mr-3">Turno: <strong>{pasanaco.currentRound}</strong></span>
+            <p className="text-xs font-medium uppercase tracking-wider text-primary">Ronda en curso</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight">{pasanaco.name}</h2>
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />{pasanaco.monthlyAmount} € / mes</span>
+              <span className="flex items-center gap-1.5"><Users className="h-4 w-4" />{participants.length}/{pasanaco.totalParticipants}</span>
+              <span className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{formatMonthYear(month, year)}</span>
             </div>
-            <div className="mt-2 text-sm text-muted-foreground">Mes actual: <strong>{formatMonthYear(month, year)}</strong></div>
           </div>
 
-          <div className="flex items-center gap-3">          
-            <div className="text-center">
-              <div className="text-xs text-muted-foreground">Destinatario actual</div>
-              <div className="mt-1 inline-flex items-center gap-3">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-positive leading-tight">
-                    {currentRecipient?.name ?? "—"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Nº {pasanaco.currentRound}</div>
-                </div>
-              </div>
-            </div>
+          <div className="rounded-xl border bg-card/80 px-5 py-3 text-center shadow-sm">
+            <div className="text-xs text-muted-foreground">Recibe este mes</div>
+            <div className="mt-1 text-xl font-semibold text-primary">{currentRecipient?.name ?? "Sin asignar"}</div>
+            <div className="text-xs text-muted-foreground">Turno #{pasanaco.currentRound}</div>
+          </div>
+          </div>
 
-            <div className="flex flex-col gap-2">
-              <Button onClick={handleRetreat} className="bg-secondary text-secondary-foreground hover:bg-accent px-3 py-2">
-                Anterior
-              </Button>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={advanceWithLoans} onChange={(e) => setAdvanceWithLoans(e.target.checked)} />
-                  Generar préstamos
-                </label>
-                <Button onClick={handleAdvance} className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-2">
-                  Avanzar ronda
-                </Button>
-              </div>
+          <div className="mt-5">
+            <div className="mb-2 flex justify-between text-xs text-muted-foreground">
+              <span>Progreso del ciclo</span><span>{roundProgress.toFixed(0)}%</span>
             </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${roundProgress}%` }} /></div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="grid grid-cols-2 gap-3 sm:max-w-sm">
+            <div className="rounded-lg bg-positive-soft p-3"><div className="text-xs text-positive">Pagados</div><div className="mt-1 text-xl font-semibold text-positive">{paidCount}</div></div>
+            <div className="rounded-lg bg-warning-soft p-3"><div className="text-xs text-warning">Pendientes</div><div className="mt-1 text-xl font-semibold text-warning">{pendingCount}</div></div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button onClick={handleRetreat} variant="outline" size="sm"><ArrowLeft /> Anterior</Button>
+            <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+              <input type="checkbox" checked={advanceWithLoans} onChange={(e) => setAdvanceWithLoans(e.target.checked)} />
+              Crear préstamos por impagos
+            </label>
+            <Button onClick={handleAdvance} size="sm">Avanzar <ArrowRight /></Button>
           </div>
         </div>
       </div>
 
       {/* Añadir participante: solo si faltan participantes */}
       {participants.length < totalAllowed ? (
-        <div className="p-4 rounded-xl border bg-card shadow-sm">
-          <h3 className="text-sm font-semibold text-card-foreground mb-2">Añadir participante</h3>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <h3 className="mb-1 font-semibold text-card-foreground">Añadir participante</h3>
+          <p className="mb-4 text-sm text-muted-foreground">Asigna su posición y verás automáticamente el mes en que recibirá.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Nombre</label>
@@ -230,7 +236,13 @@ export function PasanacoDetail({
 
       {/* Lista unificada: participantes + histórico (scrollable) */}
       <div className="p-4 rounded-xl border bg-card shadow-sm">
-        <h3 className="text-sm font-semibold text-card-foreground mb-3">Participantes y historial (mes actual)</h3>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-card-foreground">Participantes</h3>
+            <p className="text-sm text-muted-foreground">Estado de aportaciones del turno actual</p>
+          </div>
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{participants.length} personas</span>
+        </div>
         <ParticipantsList
           participants={enriched}
           payments={payments}

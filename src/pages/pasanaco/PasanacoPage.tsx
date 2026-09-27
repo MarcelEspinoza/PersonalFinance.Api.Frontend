@@ -26,6 +26,11 @@ export function PasanacoPage() {
     try {
       const { data } = await pasanacoService.getAll();
       setPasanacos(data);
+      setSelectedId((current) =>
+        current && data.some((item) => item.id === current)
+          ? current
+          : data[0]?.id ?? null
+      );
       return data;
     } catch (err) {
       console.error("Error al cargar pasanacos:", err);
@@ -121,13 +126,17 @@ export function PasanacoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Gestión de Pasanaco"
+        title="Pasanaco"
+        description="Gestiona participantes, turnos y pagos sin perder de vista el estado de la ronda."
         actions={<PasanacoModal onCreated={loadPasanacos} />}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Mis Pasanacos</h2>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Tus grupos</h2>
+            <p className="text-sm text-muted-foreground">{pasanacos.length} pasanacos registrados</p>
+          </div>
           <PasanacoList
             pasanacos={pasanacos}
             selectedPasanaco={selectedId}
@@ -137,7 +146,7 @@ export function PasanacoPage() {
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div>
           {selected ? (
             <PasanacoDetail
               pasanaco={selected}

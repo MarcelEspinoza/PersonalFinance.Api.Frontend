@@ -1,7 +1,16 @@
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@radix-ui/react-dialog";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
-import { DialogHeader } from "../../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { pasanacoService } from "../../services/pasanacoService";
 
 export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
@@ -12,13 +21,15 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
   const [startMonth, setStartMonth] = useState(new Date().getMonth() + 1);
   const [startYear, setStartYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim()) return alert("El nombre es obligatorio");
-    if (participants < 2) return alert("Debe haber al menos 2 participantes");
-    if (monthlyAmount <= 0) return alert("El monto debe ser mayor a 0");
+    if (!name.trim()) return setError("El nombre es obligatorio.");
+    if (participants < 2) return setError("Debe haber al menos 2 participantes.");
+    if (monthlyAmount <= 0) return setError("El importe mensual debe ser mayor que cero.");
 
     setLoading(true);
+    setError(null);
     try {
       await pasanacoService.create({
         name,
@@ -32,7 +43,7 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
       onCreated();
     } catch (err) {
       console.error("Error al crear pasanaco:", err);
-      alert("No se pudo crear pasanaco");
+      setError("No se pudo crear el pasanaco.");
     } finally {
       setLoading(false);
     }
@@ -41,66 +52,61 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          + Nuevo Pasanaco
+        <Button>
+          <Plus /> Nuevo pasanaco
         </Button>
       </DialogTrigger>
-      <DialogContent className="rounded-xl max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-bold text-card-foreground">
-            Crear nuevo Pasanaco
-          </DialogTitle>
+      <DialogContent className="max-w-md rounded-xl p-0">
+        <DialogHeader className="border-b px-6 py-5 pr-12">
+          <DialogTitle className="text-xl">Crear pasanaco</DialogTitle>
+          <p className="text-sm text-muted-foreground">Define el ciclo; después podrás añadir cada participante y asignarle su turno.</p>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          <div>
-            <label className="block text-sm font-medium text-card-foreground mb-1">
-              Nombre del pasanaco
-            </label>
-            <input
+        <div className="space-y-5 px-6 py-5">
+          <div className="space-y-2">
+            <Label htmlFor="pasanaco-name">Nombre</Label>
+            <Input
+              id="pasanaco-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="Ej: Pasanaco Amigos 2025"
+              placeholder="Ej. Familia 2027"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-1">
-                Monto mensual (€)
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="pasanaco-amount">Importe mensual</Label>
+              <Input
+                id="pasanaco-amount"
                 type="number"
+                min="0.01"
+                step="0.01"
                 value={monthlyAmount}
                 onChange={(e) => setMonthlyAmount(Number(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-1">
-                Participantes
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="pasanaco-participants">Participantes</Label>
+              <Input
+                id="pasanaco-participants"
                 type="number"
+                min="2"
                 value={participants}
                 onChange={(e) => setParticipants(Number(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-1">
-                Mes de inicio
-              </label>
+            <div className="space-y-2">
+              <Label htmlFor="pasanaco-month">Mes de inicio</Label>
               <select
+                id="pasanaco-month"
                 value={startMonth}
                 onChange={(e) => setStartMonth(Number(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm capitalize"
               >
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -110,27 +116,26 @@ export function PasanacoModal({ onCreated }: { onCreated: () => void }) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-1">
-                Año de inicio
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="pasanaco-year">Año de inicio</Label>
+              <Input
+                id="pasanaco-year"
                 type="number"
                 value={startYear}
                 onChange={(e) => setStartYear(Number(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg"
               />
             </div>
           </div>
 
-          <Button
-            disabled={loading}
-            onClick={handleCreate}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            {loading ? "Creando..." : "Crear Pasanaco"}
-          </Button>
+          {error && <p className="text-sm text-negative">{error}</p>}
         </div>
+
+        <DialogFooter className="border-t px-6 py-4">
+          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading}>Cancelar</Button>
+          <Button type="button" disabled={loading} onClick={() => void handleCreate()}>
+            {loading ? "Creando…" : "Crear pasanaco"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

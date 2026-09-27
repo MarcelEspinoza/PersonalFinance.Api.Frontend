@@ -130,6 +130,10 @@ export const LedgerService = {
     return data;
   },
 
+  discardImport: async (batchId: string): Promise<void> => {
+    await apiClient.delete(`/imports/${batchId}`);
+  },
+
   selectImportConcept: async (
     batchId: string,
     rowId: string,

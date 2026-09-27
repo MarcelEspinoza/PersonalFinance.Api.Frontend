@@ -1,5 +1,15 @@
-import { Trash2 } from "lucide-react";
+import { Banknote, Check, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import pasanacoService, { Participant, PasanacoPayment } from "../../services/pasanacoService";
 import { getCurrentGameMonth } from "./PasanacoPage";
 
@@ -30,6 +40,10 @@ function formatMonthYear(month: number, year: number) {
 
 export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount }: Props) {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [loanParticipant, setLoanParticipant] = useState<ParticipantWithPayment | null>(null);
+  const [loanAmount, setLoanAmount] = useState(String(monthlyAmount ?? ""));
+  const [loanBusy, setLoanBusy] = useState(false);
+  const [loanError, setLoanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!highlightedId) return;
@@ -50,22 +64,35 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
     }
   };
 
-  const handleCreateLoan = async (participantId: string) => {
-    const input = prompt("Importe del préstamo (ej: 50.00):", String(monthlyAmount ?? ""));
-    if (!input) return;
-    const amount = Number(input);
+  const openLoanDialog = (participant: ParticipantWithPayment) => {
+    setLoanParticipant(participant);
+    setLoanAmount(String(monthlyAmount ?? ""));
+    setLoanError(null);
+  };
+
+  const handleCreateLoan = async () => {
+    if (!loanParticipant) return;
+    const amount = Number(loanAmount.replace(",", "."));
     if (isNaN(amount) || amount <= 0) {
-      return alert("Importe inválido");
+      setLoanError("Introduce un importe válido mayor que cero.");
+      return;
     }
-    if (!confirm(`Crear préstamo de ${amount}€ para este participante?`)) return;
+
+    setLoanBusy(true);
+    setLoanError(null);
     try {
-      // note: backend will create Loan (status active) and create an Expense record that includes LoanId in the Notes (not in LoanId field)
-      await pasanacoService.createLoanForParticipant(pasanacoId, participantId, { amount, note: `Prestad por pasanaco ${pasanacoId}` });
-      alert("Préstamo creado");
+      await pasanacoService.createLoanForParticipant(
+        pasanacoId,
+        loanParticipant.id,
+        { amount, note: `Préstamo por pasanaco ${pasanacoId}` },
+      );
+      setLoanParticipant(null);
       await onRefresh();
     } catch (err: any) {
       console.error("Error creando préstamo", err);
-      alert(err?.response?.data || "No se pudo crear el préstamo");
+      setLoanError(err?.response?.data || "No se pudo crear el préstamo");
+    } finally {
+      setLoanBusy(false);
     }
   };
 
@@ -92,9 +119,8 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
   };
 
   return (
-    <div className="flex gap-6">
-      {/* Lista (scrollable) */}
-      <ul className="w-full max-h-[60vh] overflow-auto space-y-3 pr-2">
+    <>
+      <ul className="grid max-h-[60vh] gap-3 overflow-auto pr-1 xl:grid-cols-2">
         {participants.map((p) => {
           const payment = p.payment ?? payments.find((x) => x.participantId === p.id) ?? null;
           const { month, year } = getCurrentGameMonth(startMonth, startYear, p.assignedNumber);
@@ -105,60 +131,72 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
           return (
             <li
               key={p.id}
-              className={`flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition bg-card ${isHighlighted ? "bg-positive-soft animate-pulse" : ""}`}
+              className={`rounded-xl border p-4 transition ${isHighlighted ? "border-positive/30 bg-positive-soft animate-pulse" : "bg-card hover:border-primary/20"}`}
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-semibold">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
                   #{p.assignedNumber}
                 </div>
-                <div>
-                  <div className="font-medium text-card-foreground">{p.name}</div>
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-card-foreground">{p.name}</div>
                   <div className="text-xs text-muted-foreground">Mes: {displayMonth}</div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                {/* Estado */}
-                <div>
-                  {payment ? (
-                    payment.paid ? (
-                      <div className="text-sm text-positive">Pagado</div>
-                    ) : (
-                      <div className="text-sm text-warning">Pendiente</div>
-                    )
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Sin pago</div>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    {payment?.paymentDate ? new Date(payment.paymentDate).toLocaleString() : "—"}
-                  </div>
+                <div className={`rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : payment ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
+                  {payment?.paid ? "Pagado" : payment ? "Pendiente" : "Sin pago"}
                 </div>
+              </div>
 
-                {/* Acciones */}
-                <div className="flex items-center gap-2">
-                  <button onClick={() => handleCreateLoan(p.id)} className="px-3 py-1 border rounded hover:bg-accent hover:text-accent-foreground text-sm">
-                    Prestar ahora
-                  </button>
-
-                  {/* Botón verde "Pagado" */}
-                  {payment && !payment.paid && (
-                    <button
-                      onClick={() => handleMarkPaid(p)}
-                      className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 text-sm"
-                    >
-                      Pagado
-                    </button>
-                  )}
-
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-negative-soft text-negative rounded hover:bg-negative-soft/80">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
+                  <Banknote /> Crear préstamo
+                </Button>
+                {payment && !payment.paid && (
+                  <Button type="button" size="sm" onClick={() => void handleMarkPaid(p)}>
+                    <Check /> Marcar pagado
+                  </Button>
+                )}
+                <Button type="button" variant="ghost" size="icon" className="ml-auto text-negative" onClick={() => void handleDelete(p.id)} aria-label={`Eliminar ${p.name}`}>
+                  <Trash2 />
+                </Button>
               </div>
             </li>
           );
         })}
       </ul>
-    </div>
+
+      <Dialog open={loanParticipant !== null} onOpenChange={(open) => !open && setLoanParticipant(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear préstamo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Registra el importe prestado a <span className="font-medium text-foreground">{loanParticipant?.name}</span>.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="participant-loan-amount">Importe</Label>
+              <Input
+                id="participant-loan-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={loanAmount}
+                onChange={(event) => setLoanAmount(event.target.value)}
+                autoFocus
+              />
+            </div>
+            {loanError && <p className="text-sm text-negative">{loanError}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLoanParticipant(null)} disabled={loanBusy}>Cancelar</Button>
+            <Button type="button" onClick={() => void handleCreateLoan()} disabled={loanBusy}>
+              {loanBusy ? "Creando…" : "Crear préstamo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
