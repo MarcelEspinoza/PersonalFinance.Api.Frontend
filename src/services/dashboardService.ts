@@ -8,9 +8,7 @@ export interface MonthlyData {
   income: number;
   expense: number;
   balance: number;
-  closingBalance: number;
   isCurrent: boolean;
-  isEstimate: boolean;
   projectionSource: string;
   pendingIncome: number;
   pendingExpense: number;
@@ -22,8 +20,6 @@ export interface Summary {
   currentMonthIncome: number;
   currentMonthExpense: number;
   currentMonthResult: number;
-  projectedBalance: number;
-  projectionChange: number;
 }
 
 export interface DashboardAccount {
@@ -40,4 +36,3 @@ export const getDashboardProjection = () =>
     alerts: DashboardAlerts;
     accounts: DashboardAccount[];
   }>("/dashboard/projection");
-

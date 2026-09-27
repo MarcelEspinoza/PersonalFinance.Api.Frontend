@@ -1,7 +1,8 @@
 ﻿import React, { useEffect, useState } from "react";
-import { ChevronDown, Landmark, ShieldCheck, Tags } from "lucide-react";
+import { ChevronDown, Landmark, ShieldCheck, SlidersHorizontal, Tags } from "lucide-react";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
+import ExpensePlanningManager from "../../components/Settings/ExpensePlanningManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
 import { PageHeader } from "../../components/PageHeader";
 import { Button } from "../../components/ui/button";
@@ -29,7 +30,13 @@ function AccordionCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const Icon = id === "admin" ? ShieldCheck : id === "banks" ? Landmark : Tags;
+  const Icon = id === "admin"
+    ? ShieldCheck
+    : id === "banks"
+      ? Landmark
+      : id === "planning"
+        ? SlidersHorizontal
+        : Tags;
 
   return (
     <Card className="overflow-hidden">
@@ -79,6 +86,15 @@ export default function SettingsPage() {
           defaultOpen={true}
         >
           <BanksManager />
+        </AccordionCard>
+
+        <AccordionCard
+          id="planning"
+          title="Planificación de gastos"
+          subtitle="Indica qué gastos son fijos y qué límite mensual tienen los variables"
+          defaultOpen={true}
+        >
+          <ExpensePlanningManager />
         </AccordionCard>
 
         <AccordionCard id="categories" title="Categorías" subtitle="Gestiona categorías de gastos e ingresos" defaultOpen={false}>

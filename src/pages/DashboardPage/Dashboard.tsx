@@ -12,9 +12,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Bar,
   CartesianGrid,
-  ComposedChart,
+  BarChart,
   Legend,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -43,8 +42,6 @@ export function Dashboard() {
     currentMonthIncome: 0,
     currentMonthExpense: 0,
     currentMonthResult: 0,
-    projectedBalance: 0,
-    projectionChange: 0,
   });
   const [accounts, setAccounts] = useState<DashboardAccount[]>([]);
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
@@ -81,7 +78,6 @@ export function Dashboard() {
   const currentMonth = monthlyData.find((m) => m.isCurrent);
   const futureMonths = monthlyData.filter((m) => !m.isCurrent);
   const resultTone = summary.currentMonthResult >= 0 ? "positive" : "negative";
-  const projectionTone = summary.projectedBalance >= 0 ? "positive" : "negative";
 
   return (
     <div className="space-y-6">
@@ -132,13 +128,8 @@ export function Dashboard() {
                 Comprobar cuadre
               </a>
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-3 border-t pt-4">
+            <div className="mt-6 border-t pt-4">
               <MiniStat label="Inicio del mes" value={summary.monthOpeningBalance} />
-              <MiniStat
-                label="Previsión a 6 meses"
-                value={summary.projectedBalance}
-                tone={projectionTone}
-              />
             </div>
           </CardContent>
         </Card>
@@ -192,21 +183,17 @@ export function Dashboard() {
 
       <Card>
         <CardContent className="p-6">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
+          <div className="mb-5">
             <div>
-              <h2 className="text-lg font-semibold">Proyección de saldo</h2>
+              <h2 className="text-lg font-semibold">Ingresos y gastos previstos</h2>
               <p className="text-sm text-muted-foreground">
-                Evolución estimada del dinero disponible, no solo ingresos menos gastos.
+                Basado únicamente en los gastos fijos y límites variables que configures.
               </p>
-            </div>
-            <div className={`text-right ${summary.projectionChange < 0 ? "text-negative" : "text-positive"}`}>
-              <div className="text-xs font-medium uppercase tracking-wide">Cambio previsto</div>
-              <div className="text-lg font-semibold">{money(summary.projectionChange)}</div>
             </div>
           </div>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={monthlyData} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
+              <BarChart data={monthlyData} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
                 <XAxis dataKey="month" tickFormatter={(value) => String(value).split(" ")[0].slice(0, 3)} />
                 <YAxis tickFormatter={(value) => `${Math.round(Number(value))} €`} width={72} />
@@ -214,15 +201,7 @@ export function Dashboard() {
                 <Legend />
                 <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expense" name="Gastos" fill="#f97316" radius={[4, 4, 0, 0]} />
-                <Line
-                  type="monotone"
-                  dataKey="closingBalance"
-                  name="Saldo"
-                  stroke="#6366f1"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                />
-              </ComposedChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
@@ -238,19 +217,14 @@ export function Dashboard() {
                   <div className="font-semibold capitalize">{month.month}</div>
                   <div className="mt-1 text-xs text-muted-foreground">{month.projectionSource}</div>
                 </div>
-                {month.isEstimate && (
-                  <span className="rounded-full bg-warning-soft px-2 py-1 text-[11px] font-medium text-warning">
-                    Estimación
-                  </span>
-                )}
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
                 <ProjectionValue label="Entrará" value={month.income} tone="positive" />
                 <ProjectionValue label="Saldrá" value={month.expense} tone="negative" />
                 <ProjectionValue
-                  label="Quedaría"
-                  value={month.closingBalance}
-                  tone={month.closingBalance >= 0 ? "positive" : "negative"}
+                  label="Diferencia"
+                  value={month.balance}
+                  tone={month.balance >= 0 ? "positive" : "negative"}
                 />
               </div>
             </div>
