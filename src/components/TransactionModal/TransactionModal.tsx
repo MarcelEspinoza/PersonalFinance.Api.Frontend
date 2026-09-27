@@ -1,6 +1,6 @@
 import { Settings2, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import bankService from "../../services/bankService";
+import { LedgerService } from "../../services/ledgerService";
 import { CategoriesService } from "../../services/categoriesService";
 import { LoansService } from "../../services/loansService";
 import { formatDate } from "../../utils/date";
@@ -87,7 +87,7 @@ export function TransactionModal({
 
     (async () => {
       try {
-        const { data } = await bankService.getAll();
+        const data = await LedgerService.getAccounts();
         setBanks(data || []);
       } catch (err) {
         console.error("Error loading banks", err);

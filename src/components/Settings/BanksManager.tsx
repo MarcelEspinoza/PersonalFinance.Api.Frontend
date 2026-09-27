@@ -27,7 +27,7 @@ export default function BanksManager() {
   async function load() {
     setLoading(true);
     try {
-      const data = await LedgerService.getAccounts();
+      const data = await LedgerService.getAccounts(true);
       setBanks(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error loading accounts", err);
@@ -88,14 +88,28 @@ export default function BanksManager() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Eliminar cuenta?")) return;
+  async function handleToggleActive(id: string) {
+    const current = banks.find((account) => account.id === id);
+    if (!current) return;
+    if (current.isActive && !confirm(`¿Deshabilitar "${current.name}"? Dejará de aparecer al crear o importar movimientos.`)) return;
+
+    setSavingId(id);
     try {
-      await LedgerService.deleteAccount(id);
+      await LedgerService.updateAccount(id, {
+        name: current.name,
+        type: current.type,
+        currency: current.currency,
+        entity: current.entity ?? undefined,
+        accountNumber: current.accountNumber ?? undefined,
+        color: current.color ?? undefined,
+        isActive: !current.isActive,
+      });
       await load();
     } catch (err) {
-      console.error("Error deleting account", err);
-      alert("No se pudo eliminar");
+      console.error("Error changing account status", err);
+      alert("No se pudo cambiar el estado de la cuenta");
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -147,11 +161,14 @@ export default function BanksManager() {
         {!loading && banks.length === 0 && <p className="py-4 text-sm text-muted-foreground">No hay bancos registrados.</p>}
 
         {banks.map((b) => (
-          <Card key={b.id} className="shadow-none">
+          <Card key={b.id} className={`shadow-none ${b.isActive ? "" : "bg-muted/40 opacity-75"}`}>
             <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div style={{ backgroundColor: b.color ?? "#CBD5E1" }} className="h-10 w-10 shrink-0 rounded-lg border" />
                 <div className="min-w-0 space-y-1">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${b.isActive ? "bg-positive-soft text-positive" : "bg-muted text-muted-foreground"}`}>
+                    {b.isActive ? "Activa" : "Deshabilitada"}
+                  </span>
                   <Input
                     aria-label={`Nombre para ${b.name}`}
                     className="h-7 border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
@@ -178,8 +195,8 @@ export default function BanksManager() {
                 <Button onClick={() => handleSave(b.id)} size="sm" disabled={savingId === b.id}>
                   {savingId === b.id ? "Guardando..." : "Guardar"}
                 </Button>
-                <Button onClick={() => handleDelete(b.id)} variant="destructive" size="sm">
-                  Eliminar
+                <Button onClick={() => handleToggleActive(b.id)} variant="outline" size="sm" disabled={savingId === b.id}>
+                  {b.isActive ? "Deshabilitar" : "Activar"}
                 </Button>
               </div>
             </CardContent>

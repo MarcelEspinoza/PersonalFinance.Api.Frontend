@@ -3,12 +3,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import * as XLSX from "xlsx";
-import { ExportButton } from "../../components/TransactionImportExport/ExportButton";
-import { ImportModal } from "../../components/TransactionImportExport/ImportModal";
 import { TransactionModal } from "../../components/TransactionModal/TransactionModal";
 import { useAuth } from "../../contexts/AuthContext";
-import bankService from "../../services/bankService";
+import { LedgerService } from "../../services/ledgerService";
 import { CategoriesService } from "../../services/categoriesService";
 import { formatDate, getInitialFormData } from "./transaction.utils";
 import { TransactionList } from "./TransactionList";
@@ -40,7 +37,6 @@ export function TransactionPage({ mode, service }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(getInitialFormData());
   const [categories, setCategories] = useState<Category[]>([]);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -88,14 +84,14 @@ export function TransactionPage({ mode, service }: Props) {
 
   const loadBanks = async () => {
     try {
-      const { data } = await bankService.getAll();
+      const data = await LedgerService.getAccounts(true);
       const map: Record<string, string> = {};
       const opts: { id: string; label: string }[] = [];
       (data || []).forEach((b: any) => {
         const id = String(b.id);
         const label = `${b.name}${b.entity ? ` | ${b.entity}` : ""}`;
         map[id] = label;
-        opts.push({ id, label });
+        if (b.isActive) opts.push({ id, label });
       });
       setBankMap(map);
       setBankOptions(opts);
@@ -245,76 +241,6 @@ export function TransactionPage({ mode, service }: Props) {
     setSelectedMonth(current.getMonth() + 1);
   };
 
-  // Export the complete filtered month, not only the current page.
-  const exportVisibleToExcel = () => {
-    try {
-      const rows = items.map((r) => ({
-        Id: r.id,
-        Description: r.description ?? "",
-        Bank: r.bankName ?? "",
-        Counterparty: r.counterpartyBankName ?? "",
-        Date: r.date ? new Date(r.date).toISOString() : "",
-        Category: r.category ?? "",
-        Type: r.type ?? "",
-        Amount: r.amount ?? 0,
-        Reference: r.transferReference ?? "",
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(rows, { dateNF: "yyyy-mm-dd" });
-      // Ensure Amount is numeric by converting column cells
-      for (let R = 2; R <= rows.length + 1; ++R) {
-        const cell = ws[`H${R}`]; // Amount column (H)
-        if (cell && typeof cell.v === "string") {
-          const num = Number(cell.v);
-          if (!Number.isNaN(num)) cell.v = num;
-        }
-      }
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-
-      // Summary sheet: totals by category and by bank
-      const totalsByCategory: Record<string, number> = {};
-      const totalsByBank: Record<string, number> = {};
-      items.forEach((r) => {
-        const cat = r.category || "Sin categoría";
-        totalsByCategory[cat] = (totalsByCategory[cat] || 0) + (Number(r.amount) || 0);
-        const bank = r.bankName || "Sin banco";
-        totalsByBank[bank] = (totalsByBank[bank] || 0) + (Number(r.amount) || 0);
-      });
-
-      const catRows: (string | number)[][] = [["Category", "Total"]];
-      Object.entries(totalsByCategory).forEach(([k, v]) => catRows.push([k, v]));
-      const bankRows: (string | number)[][] = [["Bank", "Total"]];
-      Object.entries(totalsByBank).forEach(([k, v]) => bankRows.push([k, v]));
-
-      const wsCat = XLSX.utils.aoa_to_sheet(catRows);
-      const wsBank = XLSX.utils.aoa_to_sheet(bankRows);
-      XLSX.utils.book_append_sheet(wb, wsCat, "TotalsByCategory");
-      XLSX.utils.book_append_sheet(wb, wsBank, "TotalsByBank");
-
-      // Column widths for Transactions sheet
-      const wscols = [
-        { wch: 8 },   // Id
-        { wch: 60 },  // Description
-        { wch: 20 },  // Bank
-        { wch: 20 },  // Counterparty
-        { wch: 14 },  // Date
-        { wch: 20 },  // Category
-        { wch: 12 },  // Type
-        { wch: 12 },  // Amount
-        { wch: 30 },  // Reference
-      ];
-      (ws as any)["!cols"] = wscols;
-
-      const filename = `transactions_view_${new Date().toISOString().slice(0,10)}.xlsx`;
-      XLSX.writeFile(wb, filename);
-    } catch (err) {
-      console.error("Error exporting to Excel", err);
-      alert("Error exportando a Excel");
-    }
-  };
-
   // Modal submit handler: receive normalized payload from modal and call service
   const handleModalSubmit = async (payload: any) => {
     try {
@@ -433,9 +359,6 @@ export function TransactionPage({ mode, service }: Props) {
           title={"Gestión de " + (mode === "income" ? "Ingresos" : "Gastos")}
           actions={
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="outline" onClick={exportVisibleToExcel}>Exportar vista (Excel)</Button>
-              <ExportButton mode={mode} />
-              <Button type="button" variant="outline" onClick={() => setShowImportModal(true)}>Importar plantilla</Button>
               {selectedIds.length > 0 && (
                 <Button type="button" variant="destructive" onClick={handleDeleteSelected} disabled={deleting}>
                   {deleting ? "Eliminando..." : "Eliminar (" + selectedIds.length + ")"}
@@ -569,7 +492,6 @@ export function TransactionPage({ mode, service }: Props) {
       </div>
 
       {user && <TransactionModal type={mode} showModal={showModal} editingId={editingId} formData={formData} setFormData={setFormData} onClose={handleCloseModal} onSubmit={handleModalSubmit} onSaved={() => {}} categories={categories} setCategories={setCategories} userId={user.id} />}
-      {user && <ImportModal mode={mode} show={showImportModal} onClose={() => setShowImportModal(false)} userId={user.id} />}
     </div>
   );
 }

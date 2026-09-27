@@ -27,7 +27,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'monthly', label: 'Vista mensual', icon: Calendar },
   { id: 'ledger', label: 'Mes (nuevo)', icon: Calendar },
-  { id: 'imports', label: 'Importar', icon: Upload },
+  { id: 'imports', label: 'Importar / Exportar', icon: Upload },
   { id: 'incomes', label: 'Ingresos', icon: TrendingUp },
   { id: 'expenses', label: 'Gastos', icon: TrendingDown },
   { id: 'loans', label: 'Préstamos', icon: Coins },

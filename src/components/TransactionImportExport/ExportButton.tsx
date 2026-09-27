@@ -2,11 +2,7 @@ import { Download } from "lucide-react";
 import { Button } from "../ui/button";
 import apiClient from "../../lib/apiClient";
 
-interface Props {
-  mode: "income" | "expense";
-}
-
-export function ExportButton({ mode }: Props) {
+export function ExportButton() {
   const handleExport = async () => {
     try {
       const response = await apiClient.get("/template/export", {
@@ -14,7 +10,7 @@ export function ExportButton({ mode }: Props) {
       });
 
       const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-      const filename = `${mode}-template.xlsx`;
+      const filename = "plantilla-movimientos.xlsx";
       const data = (response && (response.data ?? response)) ?? response;
       const blob = new Blob([data], { type: mime });
       const url = window.URL.createObjectURL(blob);
@@ -33,7 +29,7 @@ export function ExportButton({ mode }: Props) {
   return (
     <Button type="button" variant="outline" onClick={handleExport}>
       <Download className="h-4 w-4" />
-      Exportar plantilla
+      Descargar plantilla
     </Button>
   );
 }

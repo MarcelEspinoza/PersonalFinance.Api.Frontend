@@ -10,7 +10,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { analyticsService } from "../../services/analyticsService";
-import bankService from "../../services/bankService";
+import { LedgerService } from "../../services/ledgerService";
 import { reconciliationService } from "../../services/reconciliationService";
 
 type ReconSummary = {
@@ -86,7 +86,7 @@ export function MonthlyView() {
       setError(null);
       try {
         const [banksRes, reconsRes] = await Promise.all([
-          bankService.getAll().then((r: any) => (r && (r.data ?? r)) ?? []),
+          LedgerService.getAccounts(),
           reconciliationService.getForMonth(year, month).then((r: any) => (r && (r.data ?? r)) ?? []),
         ]);
 
@@ -215,7 +215,7 @@ export function MonthlyView() {
           onRefresh={async () => {
             try {
               const [banksRes, reconsRes] = await Promise.all([
-                bankService.getAll().then((r: any) => (r && (r.data ?? r)) ?? []),
+                LedgerService.getAccounts(),
                 reconciliationService.getForMonth(year, month).then((r: any) => (r && (r.data ?? r)) ?? []),
               ]);
               const bankMap: Record<string, BankDto> = {};

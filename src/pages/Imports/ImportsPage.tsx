@@ -1,11 +1,12 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, MessageCircle, Send, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Loader2, MessageCircle, Send, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
+import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 
 export function ImportsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -20,6 +21,7 @@ export function ImportsPage() {
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountEntity, setNewAccountEntity] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [activeFlow, setActiveFlow] = useState<"revolut" | "templates">("revolut");
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -167,9 +169,9 @@ export function ImportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Importar movimientos</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Importar / Exportar</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          El mapping propone primero; las filas restantes se revisan manualmente antes de aplicar.
+          Un único lugar para traer movimientos, revisar extractos y descargar tus datos.
         </p>
       </div>
 
@@ -177,7 +179,34 @@ export function ImportsPage() {
       {message && <div className="flex gap-2 rounded-md border border-positive/25 bg-positive-soft p-3 text-sm text-positive"><CheckCircle2 className="h-4 w-4 shrink-0" />{message}</div>}
 
       {!review && (
+        <div className="inline-flex rounded-lg border bg-muted/60 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveFlow("revolut")}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeFlow === "revolut" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <FileSearch className="h-4 w-4" /> Extracto Revolut
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFlow("templates")}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${activeFlow === "templates" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <FileSpreadsheet className="h-4 w-4" /> Plantillas y exportación
+          </button>
+        </div>
+      )}
+
+      {!review && activeFlow === "templates" && <TransactionTransferCenter />}
+
+      {!review && activeFlow === "revolut" && (
         <div className="rounded-lg border bg-card p-5 space-y-4">
+          <div>
+            <h2 className="font-semibold">Importar extracto de Revolut</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              La IA propone conceptos y tú revisas cada fila antes de aplicarla al libro.
+            </p>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <label className="min-w-64 space-y-1 text-sm">
               <span className="font-medium">Cuenta</span>

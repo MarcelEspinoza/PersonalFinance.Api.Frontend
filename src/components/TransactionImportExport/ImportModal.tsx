@@ -3,13 +3,12 @@ import { useDropzone } from "react-dropzone";
 import { excelService } from "../../services/excelService";
 
 interface Props {
-  mode: "income" | "expense";
   show: boolean;
   onClose: () => void;
   userId: string;
 }
 
-export function ImportModal({ mode, show, onClose, userId }: Props) {
+export function ImportModal({ show, onClose, userId }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [pending, setPending] = useState<any[]>([]);
   const [imported, setImported] = useState<any[]>([]);
@@ -117,7 +116,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
           <>
             <div className="flex items-start justify-between">
               <h2 className="text-xl font-bold">
-                Importar {mode === "income" ? "Ingresos" : "Gastos"}
+                Importar movimientos
               </h2>
               <button
                 aria-label="Cerrar"

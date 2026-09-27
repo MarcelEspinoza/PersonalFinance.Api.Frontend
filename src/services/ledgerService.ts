@@ -89,8 +89,10 @@ export const LedgerService = {
     return data;
   },
 
-  getAccounts: async (): Promise<Account[]> => {
-    const { data } = await apiClient.get<Account[]>("/accounts");
+  getAccounts: async (includeInactive = false): Promise<Account[]> => {
+    const { data } = await apiClient.get<Account[]>("/accounts", {
+      params: includeInactive ? { includeInactive: true } : undefined,
+    });
     return data;
   },
 
