@@ -1,18 +1,31 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Landmark,
   Loader2,
+  Save,
+  TriangleAlert,
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { PageHeader } from "../../components/PageHeader";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { reconciliationService } from "../../services/reconciliationService";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
-import { EntryStatus, type MonthlyConcept, type MonthlyEntry, type MonthlySummary } from "../../types/ledger";
+import type { Reconciliation } from "../../types/bank";
+import {
+  EntryStatus,
+  type Account,
+  type MonthlyConcept,
+  type MonthlyEntry,
+  type MonthlySummary,
+} from "../../types/ledger";
 import { money, monthLabel, nextMonth, previousMonth } from "../../utils/civilDate";
 
 type CategoryTotal = {
@@ -28,25 +41,54 @@ type Movement = MonthlyEntry & {
   amount: number;
 };
 
+type AccountReconciliation = {
+  account: Account;
+  calculatedBalance: number;
+  bankBalance: string;
+  savedBalance: number | null;
+};
+
 export function MonthlyView() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [accountReconciliations, setAccountReconciliations] = useState<AccountReconciliation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingAccountId, setSavingAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
-    void LedgerService.getMonth(year, month)
-      .then((result) => {
-        if (active) setSummary(result);
+    void Promise.all([
+      LedgerService.getMonth(year, month),
+      LedgerService.getAccounts(),
+      reconciliationService.getForMonth(year, month).then((response) => response.data),
+    ])
+      .then(async ([result, accounts, reconciliations]) => {
+        const balances = await Promise.all(
+          accounts.map((account) => LedgerService.getAccountBalance(account.id, year, month)),
+        );
+        if (!active) return;
+
+        setSummary(result);
+        setAccountReconciliations(accounts.map((account) => {
+          const saved = reconciliations.find((item) => item.bankId === account.id);
+          const calculated = balances.find((item) => item.accountId === account.id)?.balance ?? 0;
+          return {
+            account,
+            calculatedBalance: calculated,
+            bankBalance: saved ? String(saved.closingBalance) : "",
+            savedBalance: saved?.closingBalance ?? null,
+          };
+        }));
       })
       .catch((requestError) => {
         if (active) {
           setSummary(null);
+          setAccountReconciliations([]);
           setError(ledgerErrorMessage(requestError, "No se ha podido cargar el resumen mensual."));
         }
       })
@@ -73,6 +115,36 @@ export function MonthlyView() {
   const goTo = (target: { year: number; month: number }) => {
     setYear(target.year);
     setMonth(target.month);
+  };
+
+  const saveReconciliation = async (item: AccountReconciliation) => {
+    const bankBalance = Number(item.bankBalance.replace(",", "."));
+    if (!Number.isFinite(bankBalance)) {
+      setError("Introduce un saldo bancario válido.");
+      return;
+    }
+
+    setSavingAccountId(item.account.id);
+    setError(null);
+    try {
+      const response = await reconciliationService.create({
+        bankId: item.account.id,
+        year,
+        month,
+        closingBalance: bankBalance,
+        notes: "Conciliación desde Resumen mensual",
+      });
+      const saved = (response.data ?? response) as Reconciliation;
+      setAccountReconciliations((current) => current.map((entry) =>
+        entry.account.id === item.account.id
+          ? { ...entry, bankBalance: String(saved.closingBalance), savedBalance: saved.closingBalance }
+          : entry,
+      ));
+    } catch (requestError) {
+      setError(ledgerErrorMessage(requestError, "No se ha podido guardar el saldo bancario."));
+    } finally {
+      setSavingAccountId(null);
+    }
   };
 
   return (
@@ -126,6 +198,15 @@ export function MonthlyView() {
             <SummaryCard label="Saldo proyectado" value={summary.totals.projectedBalance} icon={<Wallet />} emphasis />
           </div>
 
+          <AccountReconciliationPanel
+            items={accountReconciliations}
+            savingAccountId={savingAccountId}
+            onChange={(accountId, value) => setAccountReconciliations((current) =>
+              current.map((item) => item.account.id === accountId ? { ...item, bankBalance: value } : item),
+            )}
+            onSave={(item) => void saveReconciliation(item)}
+          />
+
           {movementCount === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
@@ -173,6 +254,89 @@ export function MonthlyView() {
         </>
       )}
     </div>
+  );
+}
+
+function AccountReconciliationPanel({
+  items,
+  savingAccountId,
+  onChange,
+  onSave,
+}: {
+  items: AccountReconciliation[];
+  savingAccountId: string | null;
+  onChange: (accountId: string, value: string) => void;
+  onSave: (item: AccountReconciliation) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="border-b p-5">
+          <div className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Cuadre con el banco</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Escribe el saldo del banco en la misma fecha hasta la que has importado movimientos.
+            La diferencia debe ser como máximo de 0,01 €.
+          </p>
+        </div>
+        <div className="divide-y">
+          {items.map((item) => {
+            const enteredBalance = Number(item.bankBalance.replace(",", "."));
+            const hasBalance = item.bankBalance.trim() !== "" && Number.isFinite(enteredBalance);
+            const difference = hasBalance ? enteredBalance - item.calculatedBalance : null;
+            const reconciled = difference !== null && Math.abs(difference) <= 0.01;
+
+            return (
+              <div key={item.account.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
+                <div className="min-w-0">
+                  <p className="font-medium">{item.account.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {item.account.entity || "Cuenta bancaria"} · saldo calculado {money(item.calculatedBalance)}
+                  </p>
+                </div>
+                <div className="w-full lg:w-44">
+                  <Input
+                    inputMode="decimal"
+                    aria-label={`Saldo bancario de ${item.account.name}`}
+                    placeholder="Saldo en esa fecha"
+                    value={item.bankBalance}
+                    onChange={(event) => onChange(item.account.id, event.target.value)}
+                  />
+                </div>
+                <div className="min-w-40">
+                  {!hasBalance ? (
+                    <span className="text-sm text-muted-foreground">Pendiente de comprobar</span>
+                  ) : reconciled ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-positive">
+                      <CheckCircle2 className="h-4 w-4" /> Cuadrado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-negative">
+                      <TriangleAlert className="h-4 w-4" /> Diferencia {money(difference)}
+                    </span>
+                  )}
+                  {item.savedBalance !== null && (
+                    <p className="mt-1 text-xs text-muted-foreground">Último saldo guardado: {money(item.savedBalance)}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => onSave(item)}
+                  disabled={!hasBalance || savingAccountId === item.account.id}
+                >
+                  {savingAccountId === item.account.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Save className="h-4 w-4" />}
+                  Guardar saldo
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

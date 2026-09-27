@@ -145,6 +145,13 @@ export interface Account {
   color?: string | null;
 }
 
+export interface AccountBalance {
+  accountId: string;
+  year: number;
+  month: number;
+  balance: number;
+}
+
 export interface CreateAccountInput {
   name: string;
   type: "checking" | "savings" | "card" | "cash";

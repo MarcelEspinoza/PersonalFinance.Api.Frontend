@@ -5,6 +5,7 @@ import type {
   CreateAccountInput,
   CreateLedgerEntryPayload,
   Account,
+  AccountBalance,
   ImportBatchResult,
   ImportChatMessage,
   ImportChatResponse,
@@ -92,6 +93,13 @@ export const LedgerService = {
   getAccounts: async (includeInactive = false): Promise<Account[]> => {
     const { data } = await apiClient.get<Account[]>("/accounts", {
       params: includeInactive ? { includeInactive: true } : undefined,
+    });
+    return data;
+  },
+
+  getAccountBalance: async (id: string, year: number, month: number): Promise<AccountBalance> => {
+    const { data } = await apiClient.get<AccountBalance>(`/accounts/${id}/balance`, {
+      params: { year, month },
     });
     return data;
   },
