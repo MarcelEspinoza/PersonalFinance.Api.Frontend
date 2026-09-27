@@ -49,7 +49,8 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
     onDrop,
     accept: {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-      "application/vnd.ms-excel": [".xls"],
+      "text/csv": [".csv"],
+      "application/csv": [".csv"],
     },
     multiple: false,
     maxFiles: 1,
@@ -57,7 +58,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
 
   const handleImport = async () => {
     if (!file) {
-      setErrorMessage("Selecciona un archivo .xlsx o .xls antes de importar.");
+      setErrorMessage("Selecciona un archivo .xlsx o .csv antes de importar.");
       return;
     }
 
@@ -132,7 +133,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
                 ${isDragActive ? "border-primary bg-accent" : "border-border bg-background"}`}
             >
-              <input {...getInputProps()} aria-label="Seleccionar archivo Excel" />
+              <input {...getInputProps()} aria-label="Seleccionar archivo Excel o CSV" />
               {isDragActive ? (
                 <p className="text-foreground">Suelta el archivo aquí...</p>
               ) : file ? (
@@ -142,7 +143,7 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
                 </div>
               ) : (
                 <p className="text-muted-foreground">
-                  Arrastra un archivo .xlsx/.xls aquí o haz click para seleccionar
+                  Arrastra un archivo .xlsx o .csv aquí, o haz clic para seleccionarlo
                 </p>
               )}
             </div>
@@ -153,7 +154,8 @@ export function ImportModal({ mode, show, onClose, userId }: Props) {
 
             <div className="flex justify-between items-center mt-2">
               <div className="text-xs text-muted-foreground">
-                Formato esperado: hoja con columnas (description, amount, date, categoryId/ categoryName, type)
+                Columnas: description, amount, date, category, notes, type, movementType,
+                bank, isTransfer, counterpartyBank, transferReference y loan
               </div>
               <div className="flex items-center space-x-2">
                 <button
