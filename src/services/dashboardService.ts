@@ -3,22 +3,34 @@ import type { DashboardAlerts } from "../types/DashboardAlerts";
 
 export interface MonthlyData {
   month: string;
+  year: number;
+  monthNumber: number;
   income: number;
   expense: number;
   balance: number;
-  savings: number;
-  projectedSavings: number;
-  plannedBalance?: number;
+  closingBalance: number;
   isCurrent: boolean;
+  isEstimate: boolean;
+  projectionSource: string;
+  pendingIncome: number;
+  pendingExpense: number;
 }
 
 export interface Summary {
-  totalIncome: number;
-  totalExpense: number;
+  currentBalance: number;
+  monthOpeningBalance: number;
+  currentMonthIncome: number;
+  currentMonthExpense: number;
+  currentMonthResult: number;
+  projectedBalance: number;
+  projectionChange: number;
+}
+
+export interface DashboardAccount {
+  accountId: string;
+  name: string;
+  currency: string;
   balance: number;
-  savings: number;
-  projectedSavings: number;
-  plannedBalance: number;
 }
 
 export const getDashboardProjection = () =>
@@ -26,6 +38,6 @@ export const getDashboardProjection = () =>
     monthlyData: MonthlyData[];
     summary: Summary;
     alerts: DashboardAlerts;
+    accounts: DashboardAccount[];
   }>("/dashboard/projection");
-
 
