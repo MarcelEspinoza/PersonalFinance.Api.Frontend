@@ -1,6 +1,7 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  AlertTriangle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -8,7 +9,6 @@ import {
   Landmark,
   Loader2,
   Save,
-  TriangleAlert,
   Wallet,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -314,7 +314,7 @@ function AccountReconciliationPanel({
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-negative">
-                      <TriangleAlert className="h-4 w-4" /> Diferencia {money(difference)}
+                      <AlertTriangle className="h-4 w-4" /> Diferencia {money(difference)}
                     </span>
                   )}
                   {item.savedBalance !== null && (
