@@ -4,8 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/AuthPages/Login';
 import { Register } from './pages/AuthPages/Register';
 import { Dashboard } from './pages/DashboardPage/Dashboard';
-import ExpensesPage from './pages/ExpensesPage/ExpensesPage';
-import IncomePage from './pages/IncomesPage/IncomePage';
+import { MovementsPage } from './pages/Movements/MovementsPage';
 import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
@@ -59,21 +58,15 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/incomes"
+        path="/movements"
         element={
           <PrivateRoute>
-            <Layout><IncomePage /></Layout>
+            <Layout><MovementsPage /></Layout>
           </PrivateRoute>
         }
       />
-      <Route
-        path="/expenses"
-        element={
-          <PrivateRoute>
-            <Layout><ExpensesPage /></Layout>
-          </PrivateRoute>
-        }
-      />
+      <Route path="/incomes" element={<Navigate to="/movements?type=income" replace />} />
+      <Route path="/expenses" element={<Navigate to="/movements?type=expense" replace />} />
       <Route
         path="/loans"
         element={

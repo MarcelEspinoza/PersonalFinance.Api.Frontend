@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, CircleDollarSign, Users } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, CalendarDays, CircleDollarSign, RotateCcw, Users } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Participant,
@@ -146,8 +146,42 @@ export function PasanacoDetail({
     }
   };
 
+  const handleComplete = async () => {
+    if (!confirm("¿Finalizar este pasanaco? Se conservarán participantes, turnos y pagos como histórico.")) return;
+    try {
+      await pasanacoService.complete(pasanaco.id);
+      await onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data || "No se pudo finalizar el pasanaco");
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!confirm("¿Reabrir este pasanaco para volver a modificarlo?")) return;
+    try {
+      await pasanacoService.reopen(pasanaco.id);
+      await onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data || "No se pudo reabrir el pasanaco");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {pasanaco.isCompleted && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-4">
+          <div className="flex items-center gap-3">
+            <Archive className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium">Pasanaco finalizado</p>
+              <p className="text-sm text-muted-foreground">Se conserva como histórico y no admite cambios.</p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => void handleReopen()}>
+            <RotateCcw /> Reabrir
+          </Button>
+        </div>
+      )}
       {/* Resumen superior */}
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="border-b bg-gradient-to-r from-primary/[0.08] to-transparent p-5">
@@ -182,19 +216,24 @@ export function PasanacoDetail({
             <div className="rounded-lg bg-positive-soft p-3"><div className="text-xs text-positive">Pagados</div><div className="mt-1 text-xl font-semibold text-positive">{paidCount}</div></div>
             <div className="rounded-lg bg-warning-soft p-3"><div className="text-xs text-warning">Pendientes</div><div className="mt-1 text-xl font-semibold text-warning">{pendingCount}</div></div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button onClick={handleRetreat} variant="outline" size="sm"><ArrowLeft /> Anterior</Button>
-            <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
-              <input type="checkbox" checked={advanceWithLoans} onChange={(e) => setAdvanceWithLoans(e.target.checked)} />
-              Crear préstamos por impagos
-            </label>
-            <Button onClick={handleAdvance} size="sm">Avanzar <ArrowRight /></Button>
-          </div>
+          {!pasanaco.isCompleted && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button onClick={handleRetreat} variant="outline" size="sm"><ArrowLeft /> Anterior</Button>
+              <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                <input type="checkbox" checked={advanceWithLoans} onChange={(e) => setAdvanceWithLoans(e.target.checked)} />
+                Crear préstamos por impagos
+              </label>
+              <Button onClick={handleAdvance} size="sm">Avanzar <ArrowRight /></Button>
+              <Button onClick={() => void handleComplete()} variant="outline" size="sm">
+                <Archive /> Finalizar
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Añadir participante: solo si faltan participantes */}
-      {participants.length < totalAllowed ? (
+      {!pasanaco.isCompleted && participants.length < totalAllowed ? (
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <h3 className="mb-1 font-semibold text-card-foreground">Añadir participante</h3>
           <p className="mb-4 text-sm text-muted-foreground">Asigna su posición y verás automáticamente el mes en que recibirá.</p>
@@ -228,11 +267,11 @@ export function PasanacoDetail({
             </div>
           </div>
         </div>
-      ) : (
+      ) : !pasanaco.isCompleted ? (
         <div className="p-4 bg-warning-soft rounded-xl border">
           <div className="text-sm text-card-foreground">Todos los participantes están añadidos.</div>
         </div>
-      )}
+      ) : null}
 
       {/* Lista unificada: participantes + histórico (scrollable) */}
       <div className="p-4 rounded-xl border bg-card shadow-sm">
@@ -252,6 +291,7 @@ export function PasanacoDetail({
           totalRounds={pasanaco.totalParticipants}
           pasanacoId={pasanaco.id}
           monthlyAmount={pasanaco.monthlyAmount}
+          readOnly={pasanaco.isCompleted}
         />
       </div>
     </div>

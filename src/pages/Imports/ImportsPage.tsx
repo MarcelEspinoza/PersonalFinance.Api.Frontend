@@ -1,5 +1,5 @@
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Loader2, MessageCircle, Send, Upload } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Send, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
@@ -7,6 +7,12 @@ import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
+
+const conceptKindLabel = (kind: string) => {
+  if (kind.toLowerCase() === "income") return "Ingreso";
+  if (kind.toLowerCase() === "transfer") return "Traspaso";
+  return "Gasto";
+};
 
 export function ImportsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -22,6 +28,7 @@ export function ImportsPage() {
   const [newAccountEntity, setNewAccountEntity] = useState("");
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [activeFlow, setActiveFlow] = useState<"revolut" | "templates">("revolut");
+  const [reviewMode, setReviewMode] = useState<"groups" | "unassigned" | "rows">("groups");
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -93,6 +100,23 @@ export function ImportsPage() {
     }
   };
 
+  const prepareCategoriesAndRules = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const chart = await LedgerService.seedChartOfAccounts();
+      const mappings = await LedgerService.seedImportMappings();
+      setMessage(
+        `Categorías preparadas: ${chart.conceptsCreated} nuevas; ${mappings.created} reglas añadidas y ${mappings.updated} actualizadas.`,
+      );
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se han podido preparar las categorías y reglas."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const updateConcept = async (row: ImportRow, conceptId: string) => {
     if (!review) return;
     setBusy(true);
@@ -102,6 +126,24 @@ export function ImportsPage() {
       setReview(await LedgerService.getImportReview(review.id));
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido guardar el concepto."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateGroupConcept = async (normalizedDescription: string, conceptId: string) => {
+    if (!review) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.selectImportGroupConcept(
+        review.id,
+        normalizedDescription,
+        conceptId || null,
+      );
+      setReview(await LedgerService.getImportReview(review.id));
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido clasificar el grupo."));
     } finally {
       setBusy(false);
     }
@@ -124,11 +166,31 @@ export function ImportsPage() {
     }
   };
 
+  const suggestPending = async () => {
+    if (!review) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await LedgerService.suggestImport(review.id);
+      setReview(await LedgerService.getImportReview(review.id));
+      setReviewMode(result.remaining > 0 ? "unassigned" : "groups");
+      setMessage(
+        `Clasificación automática: ${result.mapped} por reglas, ${result.suggested} por IA y ${result.remaining} pendientes.`,
+      );
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido completar la clasificación automática."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resetImport = () => {
     setReview(null);
     setFile(null);
     setChatMessages([]);
     setChatInput("");
+    setReviewMode("groups");
     setMessage(null);
     setError(null);
   };
@@ -191,6 +253,38 @@ export function ImportsPage() {
     setFile(event.target.files?.[0] ?? null);
   };
 
+  const importGroups = useMemo(() => {
+    if (!review) return [];
+    const grouped = new Map<string, ImportRow[]>();
+    review.rows.forEach((row) => {
+      const key = row.normalizedDescription?.trim() || row.rawDescription.trim();
+      const current = grouped.get(key) ?? [];
+      current.push(row);
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped, ([normalizedDescription, rows]) => {
+      const selectedIds = new Set(
+        rows
+          .map((row) => row.confirmedConceptId ?? row.suggestedConceptId ?? "")
+          .filter(Boolean),
+      );
+      return {
+        normalizedDescription,
+        rows,
+        count: rows.length,
+        total: rows.reduce((sum, row) => sum + row.amount, 0),
+        selectedConceptId: selectedIds.size === 1 ? Array.from(selectedIds)[0] : "",
+        suggestionSource: rows.find((row) => row.confirmedConceptId || row.suggestedConceptId)?.suggestionSource,
+      };
+    }).sort((a, b) => b.count - a.count || Math.abs(b.total) - Math.abs(a.total));
+  }, [review]);
+
+  const unassignedRows = useMemo(
+    () => review?.rows.filter((row) => !(row.confirmedConceptId ?? row.suggestedConceptId)) ?? [],
+    [review],
+  );
+
   if (loading) {
     return <div className="flex items-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando cuentas…</div>;
   }
@@ -233,7 +327,7 @@ export function ImportsPage() {
           <div>
             <h2 className="font-semibold">Importar extracto de Revolut</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              La IA propone conceptos y tú revisas cada fila antes de aplicarla al libro.
+              Las reglas y la IA clasifican en bloque; tú revisas solo los comercios dudosos.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -252,7 +346,7 @@ export function ImportsPage() {
             <input className="sr-only" type="file" accept=".csv,text/csv" onChange={onFileChange} />
           </label>
           <div className="flex justify-between items-center">
-            <Button type="button" variant="outline" onClick={() => void LedgerService.seedImportMappings()} disabled={busy}>Cargar mappings verificados</Button>
+            <Button type="button" variant="outline" onClick={() => void prepareCategoriesAndRules()} disabled={busy}>Preparar categorías y reglas</Button>
             <Button onClick={() => void upload()} disabled={busy || !accountId || !file}>{busy ? "Importando…" : "Importar para revisar"}</Button>
           </div>
         </div>
@@ -270,34 +364,94 @@ export function ImportsPage() {
               <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
                 {review.status === "Applied" ? "Nueva importación" : "Cancelar y elegir otro"}
               </Button>
+              {review.status !== "Applied" && (
+                <Button type="button" variant="outline" onClick={() => void suggestPending()} disabled={busy}>
+                  Clasificar automáticamente
+                </Button>
+              )}
               <Button onClick={() => void apply()} disabled={busy || review.status === "Applied"}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
             </div>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+            <div className="flex rounded-lg border bg-card p-1">
+              <button
+                type="button"
+                onClick={() => setReviewMode("groups")}
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium ${reviewMode === "groups" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              >
+                <Layers3 className="h-3.5 w-3.5" /> Comercios ({importGroups.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewMode("unassigned")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium ${reviewMode === "unassigned" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              >
+                Sin clasificar ({unassignedRows.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewMode("rows")}
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium ${reviewMode === "rows" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              >
+                <List className="h-3.5 w-3.5" /> Todas ({review.rows.length})
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Clasifica un comercio una vez para actualizar todas sus apariciones.
+            </p>
+          </div>
           <div className="max-h-[65vh] overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead className="sticky top-0 bg-muted">
-                <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th></tr>
-              </thead>
-              <tbody>
-                {review.rows.map((row) => {
-                  const selected = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
-                  return (
-                    <tr key={row.id} className="border-t">
-                      <td className="whitespace-nowrap px-3 py-2">{row.valueDate}</td>
-                      <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
-                      <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
+            {reviewMode === "groups" ? (
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr><th className="px-3 py-2 text-left">Comercio / descripción</th><th className="px-3 py-2 text-right">Mov.</th><th className="px-3 py-2 text-right">Neto</th><th className="px-3 py-2 text-left">Concepto para el grupo</th><th className="px-3 py-2 text-left">Origen</th></tr>
+                </thead>
+                <tbody>
+                  {importGroups.map((group) => (
+                    <tr key={group.normalizedDescription} className="border-t">
+                      <td className="max-w-[30rem] px-3 py-2">
+                        <div className="font-medium">{group.rows[0]?.rawDescription}</div>
+                        {group.count > 1 && <div className="mt-0.5 truncate text-xs text-muted-foreground">{group.normalizedDescription}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">{group.count}</td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right ${group.total < 0 ? "text-negative" : "text-positive"}`}>{group.total.toFixed(2)} EUR</td>
                       <td className="px-3 py-2">
-                        <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                        <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
                           <option value="">Sin concepto (revisar)</option>
-                          {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{concept.name}</option>)}
+                          {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                         </select>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{group.suggestionSource ?? "manual"}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th></tr>
+                </thead>
+                <tbody>
+                  {(reviewMode === "unassigned" ? unassignedRows : review.rows).map((row) => {
+                    const selected = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
+                    return (
+                      <tr key={row.id} className="border-t">
+                        <td className="whitespace-nowrap px-3 py-2">{row.valueDate}</td>
+                        <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
+                        <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
+                        <td className="px-3 py-2">
+                          <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                            <option value="">Sin concepto (revisar)</option>
+                            {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

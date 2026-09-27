@@ -13,6 +13,7 @@ import { money, monthLabel, monthName, nextMonth, previousMonth } from "../../ut
 
 interface Props {
   mode: "income" | "expense";
+  compact?: boolean;
   service: {
     getAll: (year?: number, month?: number) => Promise<any>;
     getById?: (id: number) => Promise<any>;
@@ -27,7 +28,7 @@ type SortDir = "asc" | "desc";
 
 interface Category { id: number; name: string; }
 
-export function TransactionPage({ mode, service }: Props) {
+export function TransactionPage({ mode, service, compact = false }: Props) {
   const { user } = useAuth();
   const now = new Date();
 
@@ -353,10 +354,10 @@ export function TransactionPage({ mode, service }: Props) {
   const allSelected = visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id));
 
   return (
-    <div className="py-8">
+    <div className={compact ? "pb-8" : "py-8"}>
       <div className="mx-auto max-w-[1800px] space-y-6 px-4 sm:px-6">
         <PageHeader
-          title={"Gestión de " + (mode === "income" ? "Ingresos" : "Gastos")}
+          title={compact ? (mode === "income" ? "Ingresos" : "Gastos") : "Gestión de " + (mode === "income" ? "Ingresos" : "Gastos")}
           actions={
             <div className="flex flex-wrap items-center justify-end gap-2">
               {selectedIds.length > 0 && (

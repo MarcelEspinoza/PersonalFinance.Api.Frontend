@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Trash2, Users } from "lucide-react";
+import { Archive, CalendarDays, ChevronRight, Trash2, Users } from "lucide-react";
 import { Pasanaco } from "../../services/pasanacoService";
 import { getCurrentGameMonth } from "./PasanacoPage";
 
@@ -8,6 +8,7 @@ interface Props {
   loading: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  historical?: boolean;
 }
 
 export function PasanacoList({
@@ -16,6 +17,7 @@ export function PasanacoList({
   loading,
   onSelect,
   onDelete,
+  historical = false,
 }: Props) {
   if (loading) return <p className="text-muted-foreground">Cargando pasanacos...</p>;
   if (pasanacos.length === 0)
@@ -45,7 +47,9 @@ export function PasanacoList({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate font-semibold text-card-foreground">{p.name}</p>
-                  <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${selectedPasanaco === p.id ? "translate-x-0.5 text-primary" : "text-muted-foreground group-hover:translate-x-0.5"}`} />
+                  {historical
+                    ? <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    : <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${selectedPasanaco === p.id ? "translate-x-0.5 text-primary" : "text-muted-foreground group-hover:translate-x-0.5"}`} />}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{p.totalParticipants}</span>
@@ -56,16 +60,18 @@ export function PasanacoList({
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">Ronda {p.currentRound} de {p.totalParticipants}</p>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(p.id);
-                }}
-                className="ml-2 rounded-lg p-2 opacity-0 transition-opacity hover:bg-negative-soft group-hover:opacity-100 focus:opacity-100"
-                title="Eliminar pasanaco"
-              >
-                <Trash2 className="w-4 h-4 text-negative" />
-              </button>
+              {!historical && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(p.id);
+                  }}
+                  className="ml-2 rounded-lg p-2 opacity-0 transition-opacity hover:bg-negative-soft group-hover:opacity-100 focus:opacity-100"
+                  title="Eliminar pasanaco"
+                >
+                  <Trash2 className="w-4 h-4 text-negative" />
+                </button>
+              )}
             </div>
           </div>
         );

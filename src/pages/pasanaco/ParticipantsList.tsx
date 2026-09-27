@@ -26,6 +26,7 @@ interface Props {
   totalRounds: number;
   pasanacoId: string;
   monthlyAmount: number;
+  readOnly?: boolean;
 }
 
 function formatMonthYear(month: number, year: number) {
@@ -38,7 +39,7 @@ function formatMonthYear(month: number, year: number) {
   }
 }
 
-export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount }: Props) {
+export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount, readOnly = false }: Props) {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [loanParticipant, setLoanParticipant] = useState<ParticipantWithPayment | null>(null);
   const [loanAmount, setLoanAmount] = useState(String(monthlyAmount ?? ""));
@@ -148,19 +149,21 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
-                  <Banknote /> Crear préstamo
-                </Button>
-                {payment && !payment.paid && (
-                  <Button type="button" size="sm" onClick={() => void handleMarkPaid(p)}>
-                    <Check /> Marcar pagado
+              {!readOnly && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
+                    <Banknote /> Crear préstamo
                   </Button>
-                )}
-                <Button type="button" variant="ghost" size="icon" className="ml-auto text-negative" onClick={() => void handleDelete(p.id)} aria-label={`Eliminar ${p.name}`}>
-                  <Trash2 />
-                </Button>
-              </div>
+                  {payment && !payment.paid && (
+                    <Button type="button" size="sm" onClick={() => void handleMarkPaid(p)}>
+                      <Check /> Marcar pagado
+                    </Button>
+                  )}
+                  <Button type="button" variant="ghost" size="icon" className="ml-auto text-negative" onClick={() => void handleDelete(p.id)} aria-label={`Eliminar ${p.name}`}>
+                    <Trash2 />
+                  </Button>
+                </div>
+              )}
             </li>
           );
         })}

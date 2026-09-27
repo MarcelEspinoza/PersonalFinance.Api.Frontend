@@ -122,6 +122,8 @@ export function PasanacoPage() {
   }, [selectedId]);
 
   const selected = pasanacos.find((p) => p.id === selectedId);
+  const activePasanacos = pasanacos.filter((p) => !p.isCompleted);
+  const completedPasanacos = pasanacos.filter((p) => p.isCompleted);
 
   return (
     <div className="space-y-6">
@@ -134,16 +136,32 @@ export function PasanacoPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <div className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">Tus grupos</h2>
-            <p className="text-sm text-muted-foreground">{pasanacos.length} pasanacos registrados</p>
+            <h2 className="text-lg font-semibold tracking-tight">En curso</h2>
+            <p className="text-sm text-muted-foreground">{activePasanacos.length} pasanacos activos</p>
           </div>
           <PasanacoList
-            pasanacos={pasanacos}
+            pasanacos={activePasanacos}
             selectedPasanaco={selectedId}
             loading={loading}
             onSelect={setSelectedId}
             onDelete={handleDelete}
           />
+          {completedPasanacos.length > 0 && (
+            <div className="space-y-3 pt-4">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">Histórico</h2>
+                <p className="text-xs text-muted-foreground">{completedPasanacos.length} finalizados</p>
+              </div>
+              <PasanacoList
+                pasanacos={completedPasanacos}
+                selectedPasanaco={selectedId}
+                loading={loading}
+                onSelect={setSelectedId}
+                onDelete={handleDelete}
+                historical
+              />
+            </div>
+          )}
         </div>
 
         <div>

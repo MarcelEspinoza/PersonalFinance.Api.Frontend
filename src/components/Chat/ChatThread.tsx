@@ -27,7 +27,7 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {emptyHint ??
-              "Pregúntame lo que quieras sobre tus finanzas: gastos, presupuestos, préstamos, ahorro, pasanaco… También puedo registrar un gasto o ingreso si me lo pides."}
+              "Pregúntame lo que quieras sobre tus finanzas. También puedo preparar movimientos, categorías, presupuestos, pagos de préstamos, cambios de Pasanaco y clasificaciones de importación; nada se aplica sin tu confirmación."}
           </p>
         )}
         {messages.map((entry, messageIndex) => (

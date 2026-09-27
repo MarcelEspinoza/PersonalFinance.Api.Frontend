@@ -221,8 +221,8 @@ export function LedgerMonthPage() {
           <Sparkles className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
           <h2 className="text-base font-semibold tracking-tight">Aún no hay plan de cuentas</h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-            Se puede partir de la estructura del Excel: grupos, conceptos y los presupuestos de los
-            gastos variables.
+            Crea una estructura personal clara para hogar, alimentación, salud, transporte,
+            ocio, compromisos, ingresos y ahorro.
           </p>
           <Button className="mt-5" onClick={() => void handleSeed()} disabled={busy}>
             {busy ? "Creando…" : "Crear plan de cuentas"}

@@ -8,6 +8,8 @@ export interface Pasanaco {
   currentRound: number;
   startMonth: number; // 1–12
   startYear: number;
+  isCompleted: boolean;
+  completedAt?: string | null;
   userId?: string;
 }
 
@@ -37,6 +39,8 @@ export const pasanacoService = {
   create: (data: Partial<Pasanaco>) => apiClient.post("/pasanacos", data),
   update: (id: string, data: Partial<Pasanaco>) =>
     apiClient.put(`/pasanacos/${id}`, data),
+  complete: (id: string) => apiClient.post(`/pasanacos/${id}/complete`),
+  reopen: (id: string) => apiClient.post(`/pasanacos/${id}/reopen`),
   // remove ahora acepta force flag (query param)
   remove: (id: string, force = false) =>
     apiClient.delete(`/pasanacos/${id}`, { params: { force } }),

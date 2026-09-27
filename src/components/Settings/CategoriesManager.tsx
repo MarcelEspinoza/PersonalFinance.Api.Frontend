@@ -31,7 +31,7 @@ export default function CategoriesManager() {
       setCategories(data || []);
     } catch (e) {
       console.error("Error loading categories", e);
-      setError("Error al cargar categorÃ­as");
+      setError("Error al cargar categorías");
     } finally {
       setLoading(false);
     }
@@ -78,19 +78,19 @@ export default function CategoriesManager() {
       await load();
       startCreate();
     } catch (e) {
-      console.error("Error guardando categorÃ­a", e);
-      setError("Error guardando categorÃ­a");
+      console.error("Error guardando categoría", e);
+      setError("Error guardando categoría");
     }
   };
 
   const remove = async (id: number) => {
-    if (!confirm("Â¿Seguro que quieres eliminar esta categorÃ­a?")) return;
+    if (!confirm("¿Seguro que quieres eliminar esta categoría?")) return;
     try {
       await CategoriesService.delete(id);
       await load();
     } catch (e) {
       console.error("Error borrando categorÃ­a", e);
-      alert("No se pudo eliminar la categorÃ­a");
+      alert("No se pudo eliminar la categoría");
     }
   };
 
@@ -98,7 +98,7 @@ export default function CategoriesManager() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Gestiona las categorÃ­as que usas en la aplicaciÃ³n.
+          Gestiona las categorías que usas en la aplicación.
         </p>
         <Button onClick={startCreate}>Nueva categorÃ­a</Button>
       </div>
@@ -118,7 +118,7 @@ export default function CategoriesManager() {
               <Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category-description">DescripciÃ³n</Label>
+              <Label htmlFor="category-description">Descripción</Label>
               <Input id="category-description" value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
             <label className="flex w-fit cursor-pointer items-center gap-3 text-sm">
@@ -140,7 +140,7 @@ export default function CategoriesManager() {
             {loading ? (
               <p className="text-sm text-muted-foreground">Cargando...</p>
             ) : categories.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay categorÃ­as</p>
+              <p className="text-sm text-muted-foreground">No hay categorías</p>
             ) : (
               <ul className="divide-y rounded-lg border">
                 {categories.map((c) => (

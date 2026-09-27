@@ -52,11 +52,7 @@ export function useGlobalChat() {
     const key = `${messageIndex}-${actionIndex}`;
     setActionBusy(key);
     try {
-      if (action.type === "create_income") {
-        await chatService.confirmIncome(action);
-      } else {
-        await chatService.confirmExpense(action);
-      }
+      await chatService.confirmAction(action);
       setMessages((current) =>
         current.map((m, i) => {
           if (i !== messageIndex) return m;

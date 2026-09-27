@@ -110,8 +110,8 @@ export const LedgerService = {
     await apiClient.delete(`/accounts/${id}`);
   },
 
-  seedImportMappings: async (): Promise<{ created: number }> => {
-    const { data } = await apiClient.post<{ created: number }>("/imports/mappings/seed");
+  seedImportMappings: async (): Promise<{ created: number; updated: number }> => {
+    const { data } = await apiClient.post<{ created: number; updated: number }>("/imports/mappings/seed");
     return data;
   },
 
@@ -142,6 +142,27 @@ export const LedgerService = {
     const { data } = await apiClient.put(`/imports/${batchId}/rows/${rowId}/concept`, {
       conceptId,
     });
+    return data;
+  },
+
+  selectImportGroupConcept: async (
+    batchId: string,
+    normalizedDescription: string,
+    conceptId: string | null,
+  ): Promise<{ updated: number }> => {
+    const { data } = await apiClient.put<{ updated: number }>(
+      `/imports/${batchId}/groups/concept`,
+      { normalizedDescription, conceptId },
+    );
+    return data;
+  },
+
+  suggestImport: async (
+    batchId: string,
+  ): Promise<{ mapped: number; suggested: number; remaining: number }> => {
+    const { data } = await apiClient.post<{ mapped: number; suggested: number; remaining: number }>(
+      `/imports/${batchId}/suggest`,
+    );
     return data;
   },
 

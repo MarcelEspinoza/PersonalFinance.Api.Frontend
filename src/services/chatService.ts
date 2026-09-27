@@ -33,6 +33,10 @@ export const chatService = {
     });
     return data;
   },
+
+  confirmAction: async (action: ProposedAction): Promise<void> => {
+    await apiClient.post("/chat/actions/confirm", action);
+  },
 };
 
 export function chatErrorMessage(error: unknown, fallback = "Ha ocurrido un error."): string {
