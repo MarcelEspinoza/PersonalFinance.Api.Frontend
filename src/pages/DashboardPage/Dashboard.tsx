@@ -4,11 +4,14 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Landmark,
   Wallet,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Bar,
   CartesianGrid,
@@ -20,21 +23,30 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "../../components/PageHeader";
+import { MonthOutlookPanel } from "../../components/Dashboard/MonthOutlookPanel";
+import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
+import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   type DashboardAccount,
+  type DashboardProjection,
   type MonthlyData,
   type Summary,
   getDashboardProjection,
 } from "../../services/dashboardService";
 import type { DashboardAlerts } from "../../types/DashboardAlerts";
-import { money } from "../../utils/civilDate";
+import { money, monthLabel, nextMonth, previousMonth } from "../../utils/civilDate";
 
 export function Dashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedYear = Number(searchParams.get("year")) || undefined;
+  const requestedMonthParam = Number(searchParams.get("month"));
+  const requestedMonth = requestedMonthParam >= 1 && requestedMonthParam <= 12 ? requestedMonthParam : undefined;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [projection, setProjection] = useState<DashboardProjection | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [summary, setSummary] = useState<Summary>({
     currentBalance: 0,
@@ -47,14 +59,15 @@ export function Dashboard() {
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
 
   useEffect(() => {
-    if (user) loadFinancialData();
-  }, [user]);
+    if (user) loadFinancialData(requestedYear, requestedMonth);
+  }, [user, requestedYear, requestedMonth]);
 
-  const loadFinancialData = async () => {
+  const loadFinancialData = async (year?: number, month?: number) => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await getDashboardProjection();
+      const { data } = await getDashboardProjection(year, month);
+      setProjection(data);
       setMonthlyData(data.monthlyData);
       setSummary(data.summary);
       setAlerts(data.alerts);
@@ -67,7 +80,10 @@ export function Dashboard() {
     }
   };
 
-  if (loading) {
+  const goTo = (target: { year: number; month: number }) =>
+    setSearchParams({ year: String(target.year), month: String(target.month) });
+
+  if (loading && !projection) {
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" /> Cargando…
@@ -78,12 +94,59 @@ export function Dashboard() {
   const currentMonth = monthlyData.find((m) => m.isCurrent);
   const futureMonths = monthlyData.filter((m) => !m.isCurrent);
   const resultTone = summary.currentMonthResult >= 0 ? "positive" : "negative";
+  const selectedYear = projection?.outlook.year ?? requestedYear ?? new Date().getFullYear();
+  const selectedMonth = projection?.outlook.month ?? requestedMonth ?? new Date().getMonth() + 1;
+  const selectedLabel = monthLabel(selectedYear, selectedMonth);
+  const isDefaultMonth = projection
+    ? projection.defaultYear === selectedYear && projection.defaultMonth === selectedMonth
+    : true;
+  const atMinMonth = projection
+    ? selectedYear * 12 + selectedMonth <= projection.minYear * 12 + projection.minMonth
+    : false;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Tu situación financiera"
-        description="Lo que tienes hoy, cómo va el mes y qué puede pasar en los próximos 6 meses."
+        description="Lo que tienes hoy, cómo irá el mes seleccionado y qué puede pasar en los 6 meses siguientes."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {projection && (
+              <PeriodStatusBadge status={projection.period.status} closedAt={projection.period.closedAt} />
+            )}
+            <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => goTo(previousMonth(selectedYear, selectedMonth))}
+                disabled={loading || atMinMonth}
+                title={atMinMonth ? "Antes de este mes no hay contabilidad válida" : "Mes anterior"}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-36 text-center text-sm font-semibold capitalize">
+                {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : selectedLabel}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => goTo(nextMonth(selectedYear, selectedMonth))}
+                disabled={loading}
+                title="Mes siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => projection && goTo({ year: projection.defaultYear, month: projection.defaultMonth })}
+                disabled={loading || isDefaultMonth}
+              >
+                Mes actual
+              </Button>
+            </div>
+          </div>
+        }
       />
 
       {error && (
@@ -122,7 +185,7 @@ export function Dashboard() {
                 </p>
               </div>
               <a
-                href="/monthly"
+                href={`/monthly?year=${selectedYear}&month=${selectedMonth}`}
                 className="rounded-lg border bg-background/70 px-3 py-2 text-sm font-medium hover:bg-background"
               >
                 Comprobar cuadre
@@ -160,7 +223,12 @@ export function Dashboard() {
       <div>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
           <CalendarDays className="h-5 w-5 text-primary" />
-          Este mes
+          <span className="capitalize">{selectedLabel}</span>
+          {!isDefaultMonth && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              consultando otro mes
+            </span>
+          )}
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard title="Ingresos cobrados" value={summary.currentMonthIncome} icon={<ArrowUpCircle />} tone="positive" />
@@ -175,14 +243,16 @@ export function Dashboard() {
         </div>
         {currentMonth && (currentMonth.pendingIncome > 0 || currentMonth.pendingExpense > 0) && (
           <p className="mt-3 text-sm text-muted-foreground">
-            Pendiente este mes: {money(currentMonth.pendingIncome)} por cobrar y{" "}
+            Pendiente en el mes: {money(currentMonth.pendingIncome)} por cobrar y{" "}
             {money(currentMonth.pendingExpense)} por pagar.
           </p>
         )}
       </div>
 
+      {projection && <MonthOutlookPanel outlook={projection.outlook} monthName={selectedLabel} />}
+
       <div>
-        <h2 className="mb-3 text-lg font-semibold">Próximos 6 meses</h2>
+        <h2 className="mb-3 text-lg font-semibold">Los 6 meses siguientes</h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {futureMonths.map((month) => (
             <div key={`${month.year}-${month.monthNumber}`} className="rounded-xl border bg-card p-4">
@@ -233,7 +303,7 @@ export function Dashboard() {
       </Card>
 
       <div className="flex flex-wrap gap-3">
-        <a href="/monthly" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <a href={`/monthly?year=${selectedYear}&month=${selectedMonth}`} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           Ver detalle del mes
         </a>
         <a href="/movements" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-muted">

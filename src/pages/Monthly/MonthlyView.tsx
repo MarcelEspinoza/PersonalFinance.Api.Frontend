@@ -8,6 +8,8 @@ import {
   Clock3,
   Landmark,
   Loader2,
+  Lock,
+  LockOpen,
   Save,
   Wallet,
 } from "lucide-react";
@@ -18,11 +20,13 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
+import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
 import { reconciliationService } from "../../services/reconciliationService";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import type { Reconciliation } from "../../types/bank";
 import {
   EntryStatus,
+  PeriodStatus,
   type Account,
   type MonthlyConcept,
   type MonthlyEntry,
@@ -62,6 +66,7 @@ export function MonthlyView() {
   const [accountReconciliations, setAccountReconciliations] = useState<AccountReconciliation[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingAccountId, setSavingAccountId] = useState<string | null>(null);
+  const [changingPeriod, setChangingPeriod] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,6 +129,47 @@ export function MonthlyView() {
     setSearchParams({ year: String(target.year), month: String(target.month) });
   };
 
+  const isClosed = summary?.status === PeriodStatus.Closed;
+  const unreconciledAccounts = accountReconciliations.filter((item) =>
+    item.savedBalance === null || Math.abs(item.savedBalance - item.calculatedBalance) > 0.01,
+  );
+
+  const closeMonth = async () => {
+    const label = monthLabel(year, month);
+    const warning = unreconciledAccounts.length === 0
+      ? `Todas las cuentas están cuadradas.\n\n¿Cerrar ${label}? No se podrán modificar sus movimientos hasta que lo reabras.`
+      : `Atención: estas cuentas no están cuadradas con el banco:\n\n${unreconciledAccounts
+          .map((item) => `• ${item.account.name} (${item.savedBalance === null
+            ? "sin cuadre guardado"
+            : `diferencia ${money(item.savedBalance - item.calculatedBalance)}`})`)
+          .join("\n")}\n\n¿Cerrar ${label} igualmente? Podrás reabrirlo después.`;
+    if (!window.confirm(warning)) return;
+
+    setChangingPeriod(true);
+    setError(null);
+    try {
+      setSummary(await LedgerService.closeMonth(year, month, null));
+    } catch (requestError) {
+      setError(ledgerErrorMessage(requestError, "No se ha podido cerrar el mes."));
+    } finally {
+      setChangingPeriod(false);
+    }
+  };
+
+  const reopenMonth = async () => {
+    if (!window.confirm(`¿Reabrir ${monthLabel(year, month)} para poder modificar sus movimientos?`)) return;
+
+    setChangingPeriod(true);
+    setError(null);
+    try {
+      setSummary(await LedgerService.reopenMonth(year, month));
+    } catch (requestError) {
+      setError(ledgerErrorMessage(requestError, "No se ha podido reabrir el mes."));
+    } finally {
+      setChangingPeriod(false);
+    }
+  };
+
   const saveReconciliation = async (item: AccountReconciliation) => {
     const bankBalance = Number(item.bankBalance.replace(",", "."));
     if (!Number.isFinite(bankBalance)) {
@@ -162,6 +208,10 @@ export function MonthlyView() {
         title="Resumen y cuadre"
         description="Comprueba qué ocurrió realmente y cuadra cada cuenta con su banco."
         actions={
+          <div className="flex flex-wrap items-center gap-2">
+          {summary && (
+            <PeriodStatusBadge status={isClosed ? "closed" : "open"} />
+          )}
           <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
             <Button variant="ghost" size="icon" onClick={() => goTo(previousMonth(year, month))} disabled={loading}>
               <ChevronLeft className="h-4 w-4" />
@@ -178,6 +228,7 @@ export function MonthlyView() {
             >
               Hoy
             </Button>
+          </div>
           </div>
         }
       />
@@ -215,6 +266,35 @@ export function MonthlyView() {
             )}
             onSave={(item) => void saveReconciliation(item)}
           />
+
+          <Card className={isClosed ? "border-positive/40 bg-positive-soft/30" : undefined}>
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-semibold">
+                  {isClosed ? <Lock className="h-4 w-4 text-positive" /> : <LockOpen className="h-4 w-4 text-warning" />}
+                  {isClosed ? "Mes cerrado y saldado" : "Cierre del mes"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isClosed
+                    ? "Sus movimientos están bloqueados y su saldo final pasa al mes siguiente. Reábrelo si necesitas corregir algo."
+                    : unreconciledAccounts.length === 0
+                      ? "Todas las cuentas están cuadradas: ya puedes cerrar el mes."
+                      : `Faltan por cuadrar: ${unreconciledAccounts.map((item) => item.account.name).join(", ")}. Puedes cerrar igualmente.`}
+                </p>
+              </div>
+              {isClosed ? (
+                <Button variant="outline" onClick={() => void reopenMonth()} disabled={changingPeriod}>
+                  {changingPeriod ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+                  Reabrir mes
+                </Button>
+              ) : (
+                <Button onClick={() => void closeMonth()} disabled={changingPeriod}>
+                  {changingPeriod ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                  Cerrar mes
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
           {movementCount === 0 ? (
             <Card>

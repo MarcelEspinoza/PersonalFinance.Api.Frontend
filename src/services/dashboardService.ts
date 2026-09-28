@@ -1,5 +1,6 @@
 import apiClient from "../lib/apiClient";
 import type { DashboardAlerts } from "../types/DashboardAlerts";
+import type { CivilDate, ConceptKind, ConceptNature, EntryDirection } from "../types/ledger";
 
 export interface MonthlyData {
   month: string;
@@ -29,10 +30,93 @@ export interface DashboardAccount {
   balance: number;
 }
 
-export const getDashboardProjection = () =>
-  apiClient.get<{
-    monthlyData: MonthlyData[];
-    summary: Summary;
-    alerts: DashboardAlerts;
-    accounts: DashboardAccount[];
-  }>("/dashboard/projection");
+export interface AccountOutlook {
+  accountId: string;
+  name: string;
+  baseBalance: number;
+  pendingIncome: number;
+  pendingExpense: number;
+  projectedEndBalance: number;
+  lowestBalance: number;
+  lowestBalanceDate?: CivilDate | null;
+  shortfall: number;
+  actualBalance: number;
+  reconciledBalance?: number | null;
+  isReconciled: boolean;
+}
+
+export interface OutlookItem {
+  dueDate: CivilDate;
+  description: string;
+  conceptName: string;
+  accountId?: string | null;
+  accountName?: string | null;
+  direction: EntryDirection;
+  amount: number;
+  isOverdue: boolean;
+  isTransfer: boolean;
+}
+
+export interface TransferSuggestion {
+  fromAccountId: string;
+  fromAccountName: string;
+  toAccountId: string;
+  toAccountName: string;
+  amount: number;
+  before?: CivilDate | null;
+}
+
+export interface ConceptDeviation {
+  conceptId: string;
+  name: string;
+  kind: ConceptKind;
+  nature: ConceptNature;
+  planned: number;
+  actual: number;
+  pending: number;
+  deviation: number;
+}
+
+export interface MonthOutlook {
+  year: number;
+  month: number;
+  isPast: boolean;
+  isCurrent: boolean;
+  accounts: AccountOutlook[];
+  unassigned: {
+    pendingIncome: number;
+    pendingExpense: number;
+    variableExpenseReserve: number;
+    variableIncomeExpected: number;
+  };
+  pendingItems: OutlookItem[];
+  overdueItems: OutlookItem[];
+  suggestedTransfers: TransferSuggestion[];
+  uncoveredShortfall: number;
+  freeMoney: number;
+  deviations: ConceptDeviation[];
+}
+
+export interface PeriodState {
+  status: "notOpened" | "open" | "closed";
+  closedAt?: string | null;
+  closingBalance?: number | null;
+}
+
+export interface DashboardProjection {
+  monthlyData: MonthlyData[];
+  summary: Summary;
+  alerts: DashboardAlerts;
+  accounts: DashboardAccount[];
+  outlook: MonthOutlook;
+  period: PeriodState;
+  defaultYear: number;
+  defaultMonth: number;
+  minYear: number;
+  minMonth: number;
+}
+
+export const getDashboardProjection = (year?: number, month?: number) =>
+  apiClient.get<DashboardProjection>("/dashboard/projection", {
+    params: year && month ? { year, month } : undefined,
+  });
