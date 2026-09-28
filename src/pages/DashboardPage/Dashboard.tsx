@@ -181,6 +181,31 @@ export function Dashboard() {
         )}
       </div>
 
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">Próximos 6 meses</h2>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {futureMonths.map((month) => (
+            <div key={`${month.year}-${month.monthNumber}`} className="rounded-xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold capitalize">{month.month}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{month.projectionSource}</div>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+                <ProjectionValue label="Entrará" value={month.income} tone="positive" />
+                <ProjectionValue label="Saldrá" value={month.expense} tone="negative" />
+                <ProjectionValue
+                  label="Diferencia"
+                  value={month.balance}
+                  tone={month.balance >= 0 ? "positive" : "negative"}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <Card>
         <CardContent className="p-6">
           <div className="mb-5">
@@ -206,31 +231,6 @@ export function Dashboard() {
           </div>
         </CardContent>
       </Card>
-
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Próximos 6 meses</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {futureMonths.map((month) => (
-            <div key={`${month.year}-${month.monthNumber}`} className="rounded-xl border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-semibold capitalize">{month.month}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{month.projectionSource}</div>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-                <ProjectionValue label="Entrará" value={month.income} tone="positive" />
-                <ProjectionValue label="Saldrá" value={month.expense} tone="negative" />
-                <ProjectionValue
-                  label="Diferencia"
-                  value={month.balance}
-                  tone={month.balance >= 0 ? "positive" : "negative"}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="flex flex-wrap gap-3">
         <a href="/monthly" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
