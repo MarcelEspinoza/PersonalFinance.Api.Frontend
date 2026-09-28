@@ -182,8 +182,8 @@ export const LedgerService = {
     return data;
   },
 
-  applyImport: async (batchId: string): Promise<{ applied: number; batchId: string }> => {
-    const { data } = await apiClient.post<{ applied: number; batchId: string }>(
+  applyImport: async (batchId: string): Promise<{ applied: number; matchedForecasts: number; batchId: string }> => {
+    const { data } = await apiClient.post<{ applied: number; matchedForecasts: number; batchId: string }>(
       `/imports/${batchId}/apply`,
     );
     return data;

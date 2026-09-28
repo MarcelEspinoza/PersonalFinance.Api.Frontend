@@ -179,7 +179,9 @@ export function ImportsPage() {
     setError(null);
     try {
       const result = await LedgerService.applyImport(review.id);
-      setMessage(`Importación aplicada: ${result.applied} asientos.`);
+      setMessage(
+        `Importación aplicada: ${result.applied} movimientos; ${result.matchedForecasts} previsiones actualizadas.`,
+      );
       setReview(await LedgerService.getImportReview(review.id));
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido aplicar el lote."));

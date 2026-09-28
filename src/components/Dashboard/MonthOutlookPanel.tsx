@@ -129,62 +129,75 @@ export function MonthOutlookPanel({
         </Card>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
+        <QuickDetailCard
+          title="Pagos pendientes"
+          count={pendingExpenses.length}
+          total={pendingExpenses.reduce((sum, item) => sum + item.amount, 0)}
+          detailLabel="Ver pagos"
+          emptyText="No queda nada por pagar este mes."
+          isEmpty={pendingExpenses.length === 0}
+        >
+          <ItemList items={pendingExpenses} />
+        </QuickDetailCard>
+        <QuickDetailCard
+          title="Cobros pendientes"
+          count={pendingIncomes.length}
+          total={pendingIncomes.reduce((sum, item) => sum + item.amount, 0)}
+          detailLabel="Ver cobros"
+          emptyText="No queda nada por cobrar este mes."
+          isEmpty={pendingIncomes.length === 0}
+        >
+          <ItemList items={pendingIncomes} />
+        </QuickDetailCard>
         <Card>
-          <CardContent className="p-0">
-            <SectionHeader
-              title={`Pagos pendientes (${pendingExpenses.length})`}
-              subtitle={`Total ${money(pendingExpenses.reduce((sum, item) => sum + item.amount, 0))}`}
-            />
-            {pendingExpenses.length === 0
-              ? <Empty text="No queda nada por pagar este mes." />
-              : <ItemList items={pendingExpenses} />}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-0">
-            <SectionHeader
-              title={`Cobros pendientes (${pendingIncomes.length})`}
-              subtitle={`Total ${money(pendingIncomes.reduce((sum, item) => sum + item.amount, 0))}`}
-            />
-            {pendingIncomes.length === 0
-              ? <Empty text="No queda nada por cobrar este mes." />
-              : <ItemList items={pendingIncomes} />}
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex min-w-0 items-center gap-2 truncate text-sm font-medium">
+                <Scale className="h-4 w-4 shrink-0 text-primary" />
+                Desvío frente al plan
+              </p>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {relevantDeviations.length} conceptos
+              </span>
+            </div>
+            {relevantDeviations.length > 0 ? (
+              <details className="group mt-2 border-t pt-2">
+                <summary className="cursor-pointer list-none text-xs font-medium text-primary group-open:mb-2">
+                  Ver detalle
+                </summary>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Real más pendiente comparado con lo planificado.
+                </p>
+                <div className="divide-y">
+                  {relevantDeviations.map((item) => {
+                    const isExpense = item.kind === ConceptKind.Expense;
+                    const bad = isExpense ? item.deviation > 0 : item.deviation < 0;
+                    return (
+                      <div key={item.conceptId} className="flex items-center justify-between gap-3 py-2 text-xs">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.name}</p>
+                          <p className="text-muted-foreground">
+                            Plan {money(item.planned)} · real {money(item.actual)}
+                            {item.pending > 0 ? ` · pendiente ${money(item.pending)}` : ""}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 font-semibold tabular-nums ${bad ? "text-negative" : "text-positive"}`}>
+                          {item.deviation > 0 ? "+" : ""}{money(item.deviation)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            ) : (
+              <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+                Sin desvíos relevantes.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {relevantDeviations.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <SectionHeader
-              icon={<Scale className="h-4 w-4 text-primary" />}
-              title="Desvío frente a lo planificado"
-              subtitle="Lo real más lo pendiente comparado con lo que planificaste."
-            />
-            <div className="divide-y">
-              {relevantDeviations.map((item) => {
-                const isExpense = item.kind === ConceptKind.Expense;
-                const bad = isExpense ? item.deviation > 0 : item.deviation < 0;
-                return (
-                  <div key={item.conceptId} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Planificado {money(item.planned)} · real {money(item.actual)}
-                        {item.pending > 0 ? ` · pendiente ${money(item.pending)}` : ""}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 font-semibold tabular-nums ${bad ? "text-negative" : "text-positive"}`}>
-                      {item.deviation > 0 ? "+" : ""}{money(item.deviation)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
@@ -253,6 +266,46 @@ function ActionBlock({
             Aunque muevas dinero entre cuentas, faltan <strong>{money(outlook.uncoveredShortfall)}</strong> en
             algún momento del mes. Necesitas aportar ese dinero, retrasar algún pago o esperar al próximo cobro.
           </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickDetailCard({
+  title,
+  count,
+  total,
+  detailLabel,
+  emptyText,
+  isEmpty,
+  children,
+}: {
+  title: string;
+  count: number;
+  total: number;
+  detailLabel: string;
+  emptyText: string;
+  isEmpty: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-sm font-medium">{title}</p>
+          <span className="shrink-0 text-xs text-muted-foreground">{count} movimientos</span>
+        </div>
+        <p className="mt-1 text-lg font-semibold tabular-nums">{money(total)}</p>
+        {isEmpty ? (
+          <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">{emptyText}</p>
+        ) : (
+          <details className="group mt-2 border-t pt-2">
+            <summary className="cursor-pointer list-none text-xs font-medium text-primary group-open:mb-2">
+              {detailLabel}
+            </summary>
+            {children}
+          </details>
         )}
       </CardContent>
     </Card>
