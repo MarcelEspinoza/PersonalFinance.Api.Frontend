@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Plus, Send, Upload } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Plus, Send, Upload, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
@@ -40,6 +40,9 @@ export function ImportsPage() {
   const [newConceptNature, setNewConceptNature] = useState<ConceptNature>(ConceptNature.Variable);
   const [saveConceptRule, setSaveConceptRule] = useState(true);
   const [creatingConcept, setCreatingConcept] = useState(false);
+  const [splitRow, setSplitRow] = useState<ImportRow | null>(null);
+  const [splitParts, setSplitParts] = useState<Array<{ conceptId: string; amount: string }>>([]);
+  const [savingSplit, setSavingSplit] = useState(false);
   const importWorking =
     importProgress.status === "preparing" ||
     importProgress.status === "uploading" ||
@@ -214,6 +217,50 @@ export function ImportsPage() {
     }
   };
 
+  const openSplitRow = (row: ImportRow) => {
+    const existing = row.allocations ?? [];
+    const firstConcept = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
+    const firstAmount = existing[0]?.amount ?? Math.floor(Math.abs(row.amount) * 50) / 100;
+    const secondAmount = existing[1]?.amount ?? Math.abs(row.amount) - firstAmount;
+    setSplitParts(existing.length > 0
+      ? existing.map((part) => ({ conceptId: part.conceptId, amount: String(part.amount) }))
+      : [
+          { conceptId: firstConcept, amount: firstAmount.toFixed(2) },
+          { conceptId: "", amount: secondAmount.toFixed(2) },
+        ]);
+    setSplitRow(row);
+  };
+
+  const saveRowSplit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!review || !splitRow) return;
+    const allocations = splitParts.map((part) => ({
+      conceptId: part.conceptId,
+      amount: Number(part.amount.replace(",", ".")),
+    }));
+    const totalCents = allocations.reduce((sum, part) => sum + Math.round(part.amount * 100), 0);
+    if (allocations.length < 2 || allocations.length > 3 ||
+        allocations.some((part) => !part.conceptId || !Number.isFinite(part.amount) || part.amount <= 0) ||
+        new Set(allocations.map((part) => part.conceptId)).size !== allocations.length ||
+        totalCents !== Math.round(Math.abs(splitRow.amount) * 100)) {
+      setError("Indica 2 o 3 conceptos distintos y reparte el importe completo del movimiento.");
+      return;
+    }
+
+    setSavingSplit(true);
+    setError(null);
+    try {
+      await LedgerService.splitImportRow(review.id, splitRow.id, { allocations });
+      setReview(await LedgerService.getImportReview(review.id));
+      setSplitRow(null);
+      setMessage("Movimiento dividido en partes y conceptos separados.");
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido dividir el movimiento."));
+    } finally {
+      setSavingSplit(false);
+    }
+  };
+
   const updateGroupConcept = async (normalizedDescription: string, conceptId: string) => {
     if (!review) return;
     setBusy(true);
@@ -369,7 +416,7 @@ export function ImportsPage() {
   }, [review]);
 
   const unassignedRows = useMemo(
-    () => review?.rows.filter((row) => !(row.confirmedConceptId ?? row.suggestedConceptId)) ?? [],
+    () => review?.rows.filter((row) => !(row.allocations?.length || row.confirmedConceptId || row.suggestedConceptId)) ?? [],
     [review],
   );
 
@@ -538,21 +585,29 @@ export function ImportsPage() {
             ) : (
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-muted">
-                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th><th className="px-3 py-2 text-left">Acción</th></tr>
+                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th><th className="px-3 py-2 text-left">Dividir</th><th className="px-3 py-2 text-left">Acción</th></tr>
                 </thead>
                 <tbody>
                   {(reviewMode === "unassigned" ? unassignedRows : review.rows).map((row) => {
                     const selected = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
+                    const splitSummary = row.allocations?.map((part) => {
+                      const conceptName = review.concepts.find((concept) => concept.id === part.conceptId)?.name ?? "Concepto";
+                      return `${conceptName}: ${part.amount.toFixed(2)}`;
+                    }).join(" · ");
                     return (
                       <tr key={row.id} className="border-t">
                         <td className="whitespace-nowrap px-3 py-2">{row.valueDate}</td>
                         <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
                         <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
                         <td className="px-3 py-2">
-                          <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
-                            <option value="">Sin concepto (revisar)</option>
-                            {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
-                          </select>
+                          {splitSummary ? (
+                            <span className="text-xs font-medium text-primary">{splitSummary}</span>
+                          ) : (
+                            <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                              <option value="">Sin concepto (revisar)</option>
+                              {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
+                            </select>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
                         <td className="px-3 py-2">
@@ -560,7 +615,18 @@ export function ImportsPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={busy || review.status === "Applied"}
+                            disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
+                            onClick={() => openSplitRow(row)}
+                          >
+                            <Layers3 className="h-3.5 w-3.5" /> {splitSummary ? "Editar partes" : "Dividir"}
+                          </Button>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
                             onClick={() => void openCreateConcept(row)}
                           >
                             <Plus className="h-3.5 w-3.5" /> Crear categoría
@@ -620,6 +686,87 @@ export function ImportsPage() {
               <Send className="h-4 w-4" />
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={splitRow !== null} onOpenChange={(open) => !open && setSplitRow(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Dividir movimiento</DialogTitle>
+          </DialogHeader>
+          {splitRow && (
+            <form onSubmit={(event) => void saveRowSplit(event)} className="space-y-4">
+              <p className="rounded-md bg-muted p-3 text-sm">
+                {splitRow.rawDescription} · {splitRow.amount.toFixed(2)} {splitRow.currency ?? ""}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Reparte el importe entre 2 o 3 conceptos. Las partes deben sumar exactamente el total del banco.
+              </p>
+              <div className="space-y-3">
+                {splitParts.map((part, index) => (
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_130px_auto] items-end gap-2">
+                    <Field label={`Parte ${index + 1} · concepto`}>
+                      <select
+                        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                        value={part.conceptId}
+                        onChange={(event) => setSplitParts((current) => current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, conceptId: event.target.value } : item))}
+                        required
+                      >
+                        <option value="">Selecciona un concepto</option>
+                        {review?.concepts
+                          .filter((concept) => concept.kind.toLowerCase() ===
+                            (splitRow.amount >= 0 ? ConceptKind.Income : ConceptKind.Expense))
+                          .map((concept) => (
+                            <option key={concept.id} value={concept.id}>{concept.name}</option>
+                          ))}
+                      </select>
+                    </Field>
+                    <Field label="Importe">
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={part.amount}
+                        onChange={(event) => setSplitParts((current) => current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, amount: event.target.value } : item))}
+                        required
+                      />
+                    </Field>
+                    {splitParts.length > 2 && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        aria-label={`Quitar parte ${index + 1}`}
+                        onClick={() => setSplitParts((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {splitParts.length < 3 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSplitParts((current) => [...current, { conceptId: "", amount: "" }])}
+                >
+                  <Plus className="h-4 w-4" /> Añadir parte
+                </Button>
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setSplitRow(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingSplit}>
+                  {savingSplit ? "Guardando…" : <><Check className="h-4 w-4" /> Guardar división</>}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

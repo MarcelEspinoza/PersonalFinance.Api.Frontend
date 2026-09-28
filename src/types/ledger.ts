@@ -198,6 +198,16 @@ export interface ImportRow {
   suggestedConceptId?: string | null;
   confirmedConceptId?: string | null;
   suggestionSource?: string | null;
+  allocations: ImportRowAllocation[];
+}
+
+export interface ImportRowAllocation {
+  conceptId: string;
+  amount: number;
+}
+
+export interface SplitImportRowInput {
+  allocations: ImportRowAllocation[];
 }
 
 export interface ImportReview {

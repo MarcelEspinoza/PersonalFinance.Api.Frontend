@@ -10,6 +10,7 @@ import type {
   ImportBatchResult,
   ImportChatMessage,
   ImportChatResponse,
+  SplitImportRowInput,
   ImportReview,
   MonthlyEntry,
   MonthlySummary,
@@ -171,6 +172,18 @@ export const LedgerService = {
   ): Promise<ImportRow> => {
     const { data } = await apiClient.post<ImportRow>(
       `/imports/${batchId}/rows/${rowId}/concept`,
+      payload,
+    );
+    return data;
+  },
+
+  splitImportRow: async (
+    batchId: string,
+    rowId: string,
+    payload: SplitImportRowInput,
+  ): Promise<ImportRow> => {
+    const { data } = await apiClient.put<ImportRow>(
+      `/imports/${batchId}/rows/${rowId}/split`,
       payload,
     );
     return data;
