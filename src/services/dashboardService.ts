@@ -120,3 +120,23 @@ export const getDashboardProjection = (year?: number, month?: number) =>
   apiClient.get<DashboardProjection>("/dashboard/projection", {
     params: year && month ? { year, month } : undefined,
   });
+
+export type AdviceSeverity = "danger" | "warning" | "info" | "good";
+
+export interface MonthAdviceInsight {
+  severity: AdviceSeverity;
+  title: string;
+  detail: string;
+}
+
+export interface MonthAdvice {
+  available: boolean;
+  year: number;
+  month: number;
+  summary: string;
+  insights: MonthAdviceInsight[];
+  generatedAt: string;
+}
+
+export const getMonthAdvice = (year: number, month: number) =>
+  apiClient.post<MonthAdvice>("/dashboard/advice", null, { params: { year, month } });

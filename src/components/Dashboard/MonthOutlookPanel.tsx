@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Card, CardContent } from "../ui/card";
-import type { MonthOutlook, OutlookItem } from "../../services/dashboardService";
+import type { AccountOutlook, MonthOutlook, OutlookItem } from "../../services/dashboardService";
 import { ConceptKind, EntryDirection } from "../../types/ledger";
 import { money, shortDate } from "../../utils/civilDate";
 
@@ -77,6 +77,11 @@ export function MonthOutlookPanel({ outlook, monthName }: Props) {
                     </span>
                   </p>
                 )}
+                <AccountExplanation
+                  account={account}
+                  items={outlook.pendingItems.filter((item) => item.accountId === account.accountId)}
+                  isPast={outlook.isPast}
+                />
                 <p className="mt-3 text-xs text-muted-foreground">
                   {account.reconciledBalance == null
                     ? "Cuadre del mes pendiente."
@@ -230,6 +235,56 @@ function ActionBlock({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function AccountExplanation({
+  account,
+  items,
+  isPast,
+}: {
+  account: AccountOutlook;
+  items: OutlookItem[];
+  isPast: boolean;
+}) {
+  if (isPast) return null;
+
+  if (items.length === 0) {
+    return (
+      <p className="mt-4 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+        No tiene cobros ni pagos previstos este mes. Si pagas o cobras algo desde esta cuenta,
+        asígnala a ese concepto en Configuración.
+      </p>
+    );
+  }
+
+  const isTimingProblem = account.shortfall > 0.01 && account.projectedEndBalance >= 0 && account.lowestBalanceDate;
+  if (!isTimingProblem) return null;
+
+  const lowestDate = account.lowestBalanceDate!;
+  const paidBefore = items
+    .filter((item) => item.direction === EntryDirection.Out && item.dueDate <= lowestDate)
+    .reduce((sum, item) => sum + item.amount, 0);
+  const incomeBefore = items
+    .filter((item) => item.direction === EntryDirection.In && item.dueDate <= lowestDate)
+    .reduce((sum, item) => sum + item.amount, 0);
+  const rescue = items
+    .filter((item) => item.direction === EntryDirection.In && item.dueDate > lowestDate)
+    .sort((a, b) => b.amount - a.amount)[0];
+
+  return (
+    <div className="mt-3 rounded-lg border border-warning/30 bg-warning-soft/40 p-3 text-sm">
+      <p className="font-semibold">¿Por qué falta dinero si cobras más de lo que pagas?</p>
+      <p className="mt-1 leading-relaxed">
+        Es un problema de <strong>fechas</strong>. Hasta el {shortDate(lowestDate)} salen{" "}
+        <strong>{money(paidBefore)}</strong> en pagos y solo entran <strong>{money(incomeBefore)}</strong>
+        {rescue
+          ? <>. El dinero que lo arregla llega después: <strong>{rescue.description}</strong> ({money(rescue.amount)}) el {shortDate(rescue.dueDate)}.</>
+          : "."}
+        {" "}Terminarás el mes con {money(account.projectedEndBalance)}, pero entre medias necesitas{" "}
+        {money(account.shortfall)} o retrasar pagos hasta ese cobro.
+      </p>
+    </div>
   );
 }
 

@@ -23,6 +23,7 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "../../components/PageHeader";
+import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
 import { MonthOutlookPanel } from "../../components/Dashboard/MonthOutlookPanel";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
 import { Button } from "../../components/ui/button";
@@ -248,6 +249,10 @@ export function Dashboard() {
           </p>
         )}
       </div>
+
+      {projection && (
+        <MonthAdvicePanel year={selectedYear} month={selectedMonth} monthName={selectedLabel} />
+      )}
 
       {projection && <MonthOutlookPanel outlook={projection.outlook} monthName={selectedLabel} />}
 
