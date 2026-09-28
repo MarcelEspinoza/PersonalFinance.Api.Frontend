@@ -48,6 +48,9 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [projection, setProjection] = useState<DashboardProjection | null>(null);
+  const [includeVariableReserve, setIncludeVariableReserve] = useState(
+    () => window.localStorage.getItem("dashboard-include-variable-reserve") !== "false",
+  );
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [summary, setSummary] = useState<Summary>({
     currentBalance: 0,
@@ -60,14 +63,14 @@ export function Dashboard() {
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
 
   useEffect(() => {
-    if (user) loadFinancialData(requestedYear, requestedMonth);
-  }, [user, requestedYear, requestedMonth]);
+    if (user) loadFinancialData(requestedYear, requestedMonth, includeVariableReserve);
+  }, [user, requestedYear, requestedMonth, includeVariableReserve]);
 
-  const loadFinancialData = async (year?: number, month?: number) => {
+  const loadFinancialData = async (year?: number, month?: number, withVariableReserve = true) => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await getDashboardProjection(year, month);
+      const { data } = await getDashboardProjection(year, month, withVariableReserve);
       setProjection(data);
       setMonthlyData(data.monthlyData);
       setSummary(data.summary);
@@ -254,7 +257,17 @@ export function Dashboard() {
         <MonthAdvicePanel year={selectedYear} month={selectedMonth} monthName={selectedLabel} />
       )}
 
-      {projection && <MonthOutlookPanel outlook={projection.outlook} monthName={selectedLabel} />}
+      {projection && (
+        <MonthOutlookPanel
+          outlook={projection.outlook}
+          monthName={selectedLabel}
+          includeVariableReserve={includeVariableReserve}
+          onIncludeVariableReserveChange={(value) => {
+            window.localStorage.setItem("dashboard-include-variable-reserve", String(value));
+            setIncludeVariableReserve(value);
+          }}
+        />
+      )}
 
       <div>
         <h2 className="mb-3 text-lg font-semibold">Los 6 meses siguientes</h2>

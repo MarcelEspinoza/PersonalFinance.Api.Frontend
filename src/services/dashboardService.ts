@@ -55,6 +55,7 @@ export interface OutlookItem {
   amount: number;
   isOverdue: boolean;
   isTransfer: boolean;
+  isVariableReserve: boolean;
 }
 
 export interface TransferSuggestion {
@@ -94,6 +95,7 @@ export interface MonthOutlook {
   suggestedTransfers: TransferSuggestion[];
   uncoveredShortfall: number;
   freeMoney: number;
+  variableExpenseReserve: number;
   deviations: ConceptDeviation[];
 }
 
@@ -116,9 +118,16 @@ export interface DashboardProjection {
   minMonth: number;
 }
 
-export const getDashboardProjection = (year?: number, month?: number) =>
+export const getDashboardProjection = (
+  year?: number,
+  month?: number,
+  includeVariableReserve = true,
+) =>
   apiClient.get<DashboardProjection>("/dashboard/projection", {
-    params: year && month ? { year, month } : undefined,
+    params: {
+      ...(year && month ? { year, month } : {}),
+      includeVariableReserve,
+    },
   });
 
 export type AdviceSeverity = "danger" | "warning" | "info" | "good";

@@ -15,9 +15,16 @@ import { money, shortDate } from "../../utils/civilDate";
 type Props = {
   outlook: MonthOutlook;
   monthName: string;
+  includeVariableReserve: boolean;
+  onIncludeVariableReserveChange: (value: boolean) => void;
 };
 
-export function MonthOutlookPanel({ outlook, monthName }: Props) {
+export function MonthOutlookPanel({
+  outlook,
+  monthName,
+  includeVariableReserve,
+  onIncludeVariableReserveChange,
+}: Props) {
   const accountsAtRisk = outlook.accounts.filter((account) => account.shortfall > 0.01);
   const pendingExpenses = outlook.pendingItems.filter((item) => item.direction === EntryDirection.Out);
   const pendingIncomes = outlook.pendingItems.filter((item) => item.direction === EntryDirection.In);
@@ -38,6 +45,20 @@ export function MonthOutlookPanel({ outlook, monthName }: Props) {
             : "Qué falta por cobrar y pagar, cómo terminará cada cuenta y qué deberías mover para no quedarte en negativo."}
         </p>
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={includeVariableReserve}
+          onChange={(event) => onIncludeVariableReserveChange(event.target.checked)}
+          disabled={outlook.isPast}
+          className="h-4 w-4 accent-primary"
+        />
+        <span>Incluir gastos variables en la previsión</span>
+        <span className="text-muted-foreground">
+          ({money(outlook.variableExpenseReserve)} reservados)
+        </span>
+      </label>
 
       {!outlook.isPast && (
         <ActionBlock accountsAtRiskCount={accountsAtRisk.length} outlook={outlook} />
@@ -299,6 +320,7 @@ function ItemList({ items }: { items: OutlookItem[] }) {
               {shortDate(item.dueDate)} · {item.accountName ?? "Sin cuenta asignada"}
               {item.isOverdue ? " · vencido" : ""}
               {item.isTransfer ? " · traspaso" : ""}
+              {item.isVariableReserve ? " · reserva estimada" : ""}
             </p>
           </div>
           <span className={`shrink-0 text-sm font-semibold tabular-nums ${

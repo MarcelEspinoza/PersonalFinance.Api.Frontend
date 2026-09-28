@@ -96,7 +96,7 @@ export default function ExpensePlanningManager() {
         monthlyAmount: item.nature === ConceptNature.Fixed ? monthlyAmount : null,
         monthlyBudget: item.nature === ConceptNature.Variable ? monthlyBudget : null,
         dayOfMonth: item.nature === ConceptNature.Fixed ? dayOfMonth : null,
-        accountId: item.nature === ConceptNature.Fixed ? item.accountId : null,
+        accountId: item.accountId,
       });
       setItems((current) => ({
         ...current,
@@ -148,7 +148,9 @@ export default function ExpensePlanningManager() {
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               Los fijos se repiten cada mes con una cuenta y fecha.
-              En los variables, indica {activeKind === ConceptKind.Income ? "una estimación prudente" : "el máximo que quieres gastar"}.
+              En los variables, indica {activeKind === ConceptKind.Income
+                ? "una estimación prudente"
+                : "el máximo que quieres gastar y la cuenta desde la que saldrá"}.
             </p>
           </div>
         </div>
@@ -221,12 +223,11 @@ export default function ExpensePlanningManager() {
                   </Field>
                   <Field label="Cuenta">
                     <select
-                      disabled={!fixed}
                       value={item.accountId ?? ""}
                       onChange={(event) => updateItem(item.conceptId, { accountId: event.target.value || null })}
-                      className="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50"
+                      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                     >
-                      <option value="">{fixed ? "Selecciona una cuenta" : "Todas las cuentas"}</option>
+                      <option value="">{fixed ? "Selecciona una cuenta" : "Sin cuenta (ajuste global)"}</option>
                       {planning.accounts.map((account) => (
                         <option key={account.id} value={account.id}>{account.name}</option>
                       ))}
