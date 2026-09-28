@@ -45,6 +45,22 @@ export interface AccountOutlook {
   isReconciled: boolean;
 }
 
+export interface MonthOutlookBaseline {
+  accounts: AccountOutlook[];
+  unassigned: {
+    pendingIncome: number;
+    pendingExpense: number;
+    variableExpenseReserve: number;
+    variableIncomeExpected: number;
+  };
+  pendingItems: OutlookItem[];
+  overdueItems: OutlookItem[];
+  suggestedTransfers: TransferSuggestion[];
+  uncoveredShortfall: number;
+  freeMoney: number;
+  variableExpenseReserve: number;
+}
+
 export interface OutlookItem {
   dueDate: CivilDate;
   description: string;
@@ -96,6 +112,7 @@ export interface MonthOutlook {
   uncoveredShortfall: number;
   freeMoney: number;
   variableExpenseReserve: number;
+  withoutVariableReserve?: MonthOutlookBaseline | null;
   deviations: ConceptDeviation[];
 }
 

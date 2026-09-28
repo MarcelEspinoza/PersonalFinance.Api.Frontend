@@ -3,6 +3,7 @@ import type {
   ChartOfAccounts,
   ConfirmLedgerEntryPayload,
   CreateAccountInput,
+  CreateImportConceptInput,
   CreateLedgerEntryPayload,
   Account,
   AccountBalance,
@@ -154,10 +155,24 @@ export const LedgerService = {
     batchId: string,
     rowId: string,
     conceptId: string | null,
+    saveForFuture = false,
   ) => {
     const { data } = await apiClient.put(`/imports/${batchId}/rows/${rowId}/concept`, {
       conceptId,
+      saveForFuture,
     });
+    return data;
+  },
+
+  createImportConcept: async (
+    batchId: string,
+    rowId: string,
+    payload: CreateImportConceptInput,
+  ): Promise<ImportRow> => {
+    const { data } = await apiClient.post<ImportRow>(
+      `/imports/${batchId}/rows/${rowId}/concept`,
+      payload,
+    );
     return data;
   },
 

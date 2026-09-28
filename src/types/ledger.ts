@@ -124,6 +124,13 @@ export interface ChartOfAccounts {
   groups: ChartGroup[];
 }
 
+export interface CreateImportConceptInput {
+  groupId: string;
+  name: string;
+  nature: ConceptNature;
+  saveForFuture: boolean;
+}
+
 export interface SeedChartOfAccountsResult {
   groupsCreated: number;
   conceptsCreated: number;

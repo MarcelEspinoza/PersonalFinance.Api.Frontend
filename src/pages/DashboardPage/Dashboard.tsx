@@ -32,6 +32,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   type DashboardAccount,
   type DashboardProjection,
+  type MonthOutlook,
   type MonthlyData,
   type Summary,
   getDashboardProjection,
@@ -63,14 +64,14 @@ export function Dashboard() {
   const [alerts, setAlerts] = useState<DashboardAlerts | null>(null);
 
   useEffect(() => {
-    if (user) loadFinancialData(requestedYear, requestedMonth, includeVariableReserve);
-  }, [user, requestedYear, requestedMonth, includeVariableReserve]);
+    if (user) loadFinancialData(requestedYear, requestedMonth);
+  }, [user, requestedYear, requestedMonth]);
 
-  const loadFinancialData = async (year?: number, month?: number, withVariableReserve = true) => {
+  const loadFinancialData = async (year?: number, month?: number) => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await getDashboardProjection(year, month, withVariableReserve);
+      const { data } = await getDashboardProjection(year, month);
       setProjection(data);
       setMonthlyData(data.monthlyData);
       setSummary(data.summary);
@@ -97,6 +98,9 @@ export function Dashboard() {
 
   const currentMonth = monthlyData.find((m) => m.isCurrent);
   const futureMonths = monthlyData.filter((m) => !m.isCurrent);
+  const selectedOutlook = projection
+    ? selectOutlookVersion(projection.outlook, includeVariableReserve)
+    : null;
   const resultTone = summary.currentMonthResult >= 0 ? "positive" : "negative";
   const selectedYear = projection?.outlook.year ?? requestedYear ?? new Date().getFullYear();
   const selectedMonth = projection?.outlook.month ?? requestedMonth ?? new Date().getMonth() + 1;
@@ -257,9 +261,9 @@ export function Dashboard() {
         <MonthAdvicePanel year={selectedYear} month={selectedMonth} monthName={selectedLabel} />
       )}
 
-      {projection && (
+      {projection && selectedOutlook && (
         <MonthOutlookPanel
-          outlook={projection.outlook}
+          outlook={selectedOutlook}
           monthName={selectedLabel}
           includeVariableReserve={includeVariableReserve}
           onIncludeVariableReserveChange={(value) => {
@@ -330,6 +334,13 @@ export function Dashboard() {
       </div>
     </div>
   );
+}
+
+function selectOutlookVersion(outlook: MonthOutlook, includeVariableReserve: boolean): MonthOutlook {
+  const baseline = outlook.withoutVariableReserve;
+  return !includeVariableReserve && baseline
+    ? { ...outlook, ...baseline }
+    : outlook;
 }
 
 function ProjectionValue({

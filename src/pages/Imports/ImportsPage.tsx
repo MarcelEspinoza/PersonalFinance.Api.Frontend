@@ -1,11 +1,12 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Send, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Plus, Send, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
-import type { Account, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
+import { ConceptKind, ConceptNature } from "../../types/ledger";
+import type { Account, ChartGroup, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
 
@@ -32,6 +33,13 @@ export function ImportsPage() {
   const [activeFlow, setActiveFlow] = useState<"revolut" | "templates">("revolut");
   const [reviewMode, setReviewMode] = useState<"groups" | "unassigned" | "rows">("groups");
   const [showImportAssistant, setShowImportAssistant] = useState(false);
+  const [conceptRow, setConceptRow] = useState<ImportRow | null>(null);
+  const [conceptGroups, setConceptGroups] = useState<ChartGroup[]>([]);
+  const [newConceptName, setNewConceptName] = useState("");
+  const [newConceptGroupId, setNewConceptGroupId] = useState("");
+  const [newConceptNature, setNewConceptNature] = useState<ConceptNature>(ConceptNature.Variable);
+  const [saveConceptRule, setSaveConceptRule] = useState(true);
+  const [creatingConcept, setCreatingConcept] = useState(false);
   const importWorking =
     importProgress.status === "preparing" ||
     importProgress.status === "uploading" ||
@@ -150,6 +158,59 @@ export function ImportsPage() {
       setError(ledgerErrorMessage(err, "No se ha podido guardar el concepto."));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openCreateConcept = async (row: ImportRow) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const chart = await LedgerService.getChartOfAccounts();
+      const kind: ConceptKind = row.amount >= 0 ? ConceptKind.Income : ConceptKind.Expense;
+      const groups = chart.groups.filter(
+        (group) => (group.kind === kind || group.kind === ConceptKind.Transfer) && group.isActive,
+      );
+      if (groups.length === 0) {
+        setError("No hay grupos activos para ese tipo de movimiento.");
+        return;
+      }
+      setConceptGroups(groups);
+      setNewConceptGroupId(groups.find((group) => group.kind === kind)?.id ?? groups[0].id);
+      setNewConceptName("");
+      setNewConceptNature(ConceptNature.Variable);
+      setSaveConceptRule(row.amount < 0 && !row.rawDescription.toUpperCase().includes("TRANSFER"));
+      setConceptRow(row);
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se han podido cargar las categorías."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createConceptForRow = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!review || !conceptRow) return;
+
+    setCreatingConcept(true);
+    setError(null);
+    try {
+      await LedgerService.createImportConcept(review.id, conceptRow.id, {
+        groupId: newConceptGroupId,
+        name: newConceptName.trim(),
+        nature: newConceptNature,
+        saveForFuture: saveConceptRule,
+      });
+      setReview(await LedgerService.getImportReview(review.id));
+      setConceptRow(null);
+      setMessage(
+        saveConceptRule
+          ? `Categoría «${newConceptName.trim()}» creada y guardada para futuras filas de este comercio.`
+          : `Categoría «${newConceptName.trim()}» creada y asignada a esta fila.`,
+      );
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido crear la categoría."));
+    } finally {
+      setCreatingConcept(false);
     }
   };
 
@@ -477,7 +538,7 @@ export function ImportsPage() {
             ) : (
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-muted">
-                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th></tr>
+                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th><th className="px-3 py-2 text-left">Acción</th></tr>
                 </thead>
                 <tbody>
                   {(reviewMode === "unassigned" ? unassignedRows : review.rows).map((row) => {
@@ -494,6 +555,17 @@ export function ImportsPage() {
                           </select>
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
+                        <td className="px-3 py-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy || review.status === "Applied"}
+                            onClick={() => void openCreateConcept(row)}
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Crear categoría
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -548,6 +620,76 @@ export function ImportsPage() {
               <Send className="h-4 w-4" />
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={conceptRow !== null} onOpenChange={(open) => !open && setConceptRow(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear categoría para esta fila</DialogTitle>
+          </DialogHeader>
+          {conceptRow && (
+            <form onSubmit={(event) => void createConceptForRow(event)} className="space-y-4">
+              <p className="rounded-md bg-muted p-3 text-sm">
+                {conceptRow.rawDescription} · {conceptRow.amount.toFixed(2)} {conceptRow.currency ?? ""}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="new-concept-name">Nombre</Label>
+                <Input
+                  id="new-concept-name"
+                  value={newConceptName}
+                  onChange={(event) => setNewConceptName(event.target.value)}
+                  maxLength={120}
+                  required
+                  autoFocus
+                  placeholder="p. ej., Crunchyroll"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-concept-group">Grupo</Label>
+                <select
+                  id="new-concept-group"
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  value={newConceptGroupId}
+                  onChange={(event) => setNewConceptGroupId(event.target.value)}
+                  required
+                >
+                  {conceptGroups.map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-concept-nature">Tipo de planificación</Label>
+                <select
+                  id="new-concept-nature"
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  value={newConceptNature}
+                  onChange={(event) => setNewConceptNature(event.target.value as ConceptNature)}
+                >
+                  <option value={ConceptNature.Variable}>Variable</option>
+                  <option value={ConceptNature.Fixed}>Fijo</option>
+                </select>
+              </div>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={saveConceptRule}
+                  onChange={(event) => setSaveConceptRule(event.target.checked)}
+                />
+                <span>Recordar esta categoría para futuras filas del mismo comercio en esta cuenta.</span>
+              </label>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setConceptRow(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={creatingConcept || !newConceptName.trim() || !newConceptGroupId}>
+                  {creatingConcept ? "Creando…" : "Crear y asignar"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
