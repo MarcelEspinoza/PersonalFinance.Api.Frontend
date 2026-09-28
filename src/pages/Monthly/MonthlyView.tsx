@@ -9,7 +9,7 @@ import {
   Landmark,
   Loader2,
   Lock,
-  LockOpen,
+  Unlock,
   Save,
   Wallet,
 } from "lucide-react";
@@ -271,7 +271,7 @@ export function MonthlyView() {
             <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-semibold">
-                  {isClosed ? <Lock className="h-4 w-4 text-positive" /> : <LockOpen className="h-4 w-4 text-warning" />}
+                  {isClosed ? <Lock className="h-4 w-4 text-positive" /> : <Unlock className="h-4 w-4 text-warning" />}
                   {isClosed ? "Mes cerrado y saldado" : "Cierre del mes"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -284,7 +284,7 @@ export function MonthlyView() {
               </div>
               {isClosed ? (
                 <Button variant="outline" onClick={() => void reopenMonth()} disabled={changingPeriod}>
-                  {changingPeriod ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />}
+                  {changingPeriod ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
                   Reabrir mes
                 </Button>
               ) : (

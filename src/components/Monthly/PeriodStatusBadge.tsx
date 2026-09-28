@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, LockOpen } from "lucide-react";
+import { CheckCircle2, CircleDashed, Unlock } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type Props = {
@@ -27,7 +27,7 @@ export function PeriodStatusBadge({ status, closedAt, className }: Props) {
         "inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning",
         className,
       )}>
-        <LockOpen className="h-3.5 w-3.5" />
+        <Unlock className="h-3.5 w-3.5" />
         Mes abierto
       </span>
     );
