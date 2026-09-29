@@ -164,5 +164,29 @@ export interface MonthAdvice {
   generatedAt: string;
 }
 
+export interface AdviceNote {
+  insightTitle: string;
+  message: string;
+  reply: string;
+  createdAt: string;
+}
+
+export interface AdviceReplyResult {
+  available: boolean;
+  reply: string;
+  thread: AdviceNote[];
+}
+
 export const getMonthAdvice = (year: number, month: number) =>
   apiClient.post<MonthAdvice>("/dashboard/advice", null, { params: { year, month } });
+
+export const getAdviceNotes = (year: number, month: number) =>
+  apiClient.get<AdviceNote[]>("/dashboard/advice/notes", { params: { year, month } });
+
+export const replyToAdvice = (payload: {
+  year: number;
+  month: number;
+  insightTitle: string;
+  insightDetail?: string;
+  message: string;
+}) => apiClient.post<AdviceReplyResult>("/dashboard/advice/reply", payload);
