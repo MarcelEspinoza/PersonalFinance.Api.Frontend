@@ -78,15 +78,17 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
         {advice && (
           <div className="space-y-3">
             {advice.summary && <p className="text-sm leading-relaxed">{advice.summary}</p>}
-            {advice.insights.map((insight, index) => {
-              const style = severityStyle[insight.severity] ?? severityStyle.info;
-              return (
-                <div key={index} className={`rounded-lg border p-3 ${style.box}`}>
-                  <p className="flex items-center gap-2 text-sm font-semibold">{style.icon}{insight.title}</p>
-                  {insight.detail && <p className="mt-1 text-sm leading-relaxed text-foreground/90">{insight.detail}</p>}
-                </div>
-              );
-            })}
+            <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
+              {advice.insights.map((insight, index) => {
+                const style = severityStyle[insight.severity] ?? severityStyle.info;
+                return (
+                  <div key={index} className={`rounded-lg border p-3 ${style.box}`}>
+                    <p className="flex items-center gap-2 text-sm font-semibold">{style.icon}{insight.title}</p>
+                    {insight.detail && <p className="mt-1 text-sm leading-relaxed text-foreground/90">{insight.detail}</p>}
+                  </div>
+                );
+              })}
+            </div>
             {advice.available && (
               <p className="text-xs text-muted-foreground">
                 Análisis del {new Date(advice.generatedAt).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}.
