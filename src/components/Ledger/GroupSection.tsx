@@ -16,6 +16,7 @@ interface Props {
   onUnskip: (entry: MonthlyEntry) => void;
   onEdit: (entry: MonthlyEntry) => void;
   onDelete: (entry: MonthlyEntry) => void;
+  onAssign?: (entry: MonthlyEntry) => void;
 }
 
 export function GroupSection({ group, locked, busy, onAddEntry, ...rowHandlers }: Props) {

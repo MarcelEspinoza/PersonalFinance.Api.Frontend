@@ -11,6 +11,7 @@ import {
   type ConfirmFormValues,
 } from "../../components/Ledger/ConfirmEntryDialog";
 import { CloseMonthDialog } from "../../components/Ledger/CloseMonthDialog";
+import { AssignEntryDialog } from "../../components/Ledger/AssignEntryDialog";
 import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import {
@@ -58,6 +59,7 @@ export function LedgerMonthPage() {
 
   const [entryDialog, setEntryDialog] = useState<EntryDialogState>(CLOSED_ENTRY_DIALOG);
   const [confirmTarget, setConfirmTarget] = useState<MonthlyEntry | null>(null);
+  const [assignTarget, setAssignTarget] = useState<MonthlyEntry | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
   const load = useCallback(async (targetYear: number, targetMonth: number) => {
@@ -191,6 +193,7 @@ export function LedgerMonthPage() {
     onUnskip: (entry: MonthlyEntry) => void mutate(() => LedgerService.unskipEntry(entry.id)),
     onEdit: handleEditEntry,
     onDelete: handleDelete,
+    onAssign: setAssignTarget,
   };
 
   return (
@@ -297,6 +300,15 @@ export function LedgerMonthPage() {
           )
         }
       />
+
+      {assignTarget && (
+        <AssignEntryDialog
+          entryId={assignTarget.id}
+          entryDescription={assignTarget.description ?? "Movimiento"}
+          entryAmount={assignTarget.actualAmount ?? assignTarget.forecastAmount}
+          onClose={() => setAssignTarget(null)}
+        />
+      )}
     </div>
   );
 }

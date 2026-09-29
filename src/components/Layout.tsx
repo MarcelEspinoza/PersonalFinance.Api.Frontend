@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   Coins,
+  HandCoins,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -30,6 +31,7 @@ const navItems = [
   { path: 'movements', activePaths: ['movements'], label: 'Movimientos', icon: ReceiptText, activeClass: 'bg-emerald-600 text-white' },
   { path: 'loans', activePaths: ['loans'], label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
   { path: 'pasanaco', activePaths: ['pasanaco'], label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
+  { path: 'settlements', activePaths: ['settlements'], label: 'Liquidaciones', icon: HandCoins, activeClass: 'bg-teal-600 text-white' },
   { path: 'assistant', activePaths: ['assistant'], label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
   { path: 'settings', activePaths: ['settings'], label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
 ];

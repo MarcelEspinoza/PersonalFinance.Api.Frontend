@@ -1,4 +1,4 @@
-import { Check, MinusCircle, Pencil, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Check, HandCoins, MinusCircle, Pencil, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { EntryStatus, type MonthlyEntry } from "../../types/ledger";
 import { money, shortDate } from "../../utils/civilDate";
@@ -32,6 +32,8 @@ interface Props {
   onUnskip: (entry: MonthlyEntry) => void;
   onEdit: (entry: MonthlyEntry) => void;
   onDelete: (entry: MonthlyEntry) => void;
+  /** Manda el movimiento a la liquidación abierta de mamá o Vane. */
+  onAssign?: (entry: MonthlyEntry) => void;
 }
 
 export function EntryRow({
@@ -44,6 +46,7 @@ export function EntryRow({
   onUnskip,
   onEdit,
   onDelete,
+  onAssign,
 }: Props) {
   const status = STATUS_STYLES[entry.status] ?? STATUS_STYLES[EntryStatus.Planned];
   const skipped = entry.status === EntryStatus.Skipped;
@@ -141,6 +144,18 @@ export function EntryRow({
                 <MinusCircle />
               </Button>
             ))}
+
+          {onAssign && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Es de mamá o de Vane"
+              disabled={busy}
+              onClick={() => onAssign(entry)}
+            >
+              <HandCoins />
+            </Button>
+          )}
 
           <Button
             variant="ghost"

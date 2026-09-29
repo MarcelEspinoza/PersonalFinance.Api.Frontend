@@ -10,6 +10,7 @@ import LoansPage from './pages/LoansPage/LoansPage';
 import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
+import { SettlementsPage } from './pages/Settlements/SettlementsPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
 import { ImportsPage } from './pages/Imports/ImportsPage';
 import { AssistantPage } from './pages/Assistant/AssistantPage';
@@ -81,6 +82,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><PasanacoPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/settlements"
+        element={
+          <PrivateRoute>
+            <Layout><SettlementsPage /></Layout>
           </PrivateRoute>
         }
       />
