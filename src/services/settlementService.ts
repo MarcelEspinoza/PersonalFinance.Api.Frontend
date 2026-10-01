@@ -15,7 +15,8 @@ export interface SettlementLine {
   kind: SettlementLineKind;
   description: string;
   amount: number;
-  fullAmount: number | null;
+  /** The API omits nullable fields when their value is null. */
+  fullAmount?: number | null;
   ledgerEntryId: string | null;
   sortOrder: number;
 }

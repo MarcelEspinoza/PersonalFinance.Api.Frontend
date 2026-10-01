@@ -167,7 +167,7 @@ export function SettlementDetailPanel({
                       <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2">
                         <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
                           {line.description}
-                          {line.fullAmount !== null && (
+                          {line.fullAmount != null && (
                             <span className="ml-1 text-xs text-slate-400">
                               ({euro(line.fullAmount)} total)
                             </span>
