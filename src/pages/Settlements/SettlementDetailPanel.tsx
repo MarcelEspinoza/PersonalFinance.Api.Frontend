@@ -30,6 +30,9 @@ export function SettlementDetailPanel({
   onChange: (next: SettlementDetail) => Promise<void> | void;
 }) {
   const [candidates, setCandidates] = useState<SettlementCandidate[]>([]);
+  const [loanOptions, setLoanOptions] = useState<
+    Awaited<ReturnType<typeof settlementService.getLoanOptions>>
+  >([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +51,21 @@ export function SettlementDetailPanel({
     }
   }, [detail.id]);
 
+  const loadLoanOptions = useCallback(async () => {
+    try {
+      setLoanOptions(await settlementService.getLoanOptions());
+    } catch {
+      setError('No he podido cargar los préstamos recibidos.');
+    }
+  }, []);
+
   useEffect(() => {
     void loadCandidates();
   }, [loadCandidates]);
+
+  useEffect(() => {
+    void loadLoanOptions();
+  }, [loadLoanOptions]);
 
   const run = async (action: () => Promise<SettlementDetail>) => {
     setBusy(true);
@@ -58,6 +73,7 @@ export function SettlementDetailPanel({
     try {
       await onChange(await action());
       await loadCandidates();
+      await loadLoanOptions();
     } catch (e) {
       const message =
         (e as { response?: { data?: { message?: string; detail?: string } } })?.response?.data
@@ -104,7 +120,9 @@ export function SettlementDetailPanel({
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Pendiente anterior</span>
+            <span className="mb-1 block text-slate-600">
+              Pendiente anterior (sin contar préstamo asociado)
+            </span>
             <input
               type="number"
               step="0.01"
@@ -118,7 +136,7 @@ export function SettlementDetailPanel({
                   );
                 }
               }}
-              className="w-36 rounded-lg border border-slate-300 px-3 py-2"
+              className="w-48 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
           <label className="min-w-[16rem] flex-1 text-sm">
@@ -137,6 +155,101 @@ export function SettlementDetailPanel({
             />
           </label>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          El saldo del préstamo asociado se calcula solo; usa este campo únicamente para
+          otros importes pendientes que no estén registrados en Préstamos.
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-[16rem] flex-1 text-sm">
+            <span className="mb-1 block font-medium text-slate-700">
+              Préstamo recibido de {detail.counterpartyName}
+            </span>
+            <select
+              value={detail.linkedLoanId ?? ''}
+              disabled={!editable || busy}
+              onChange={(e) =>
+                void run(() =>
+                  settlementService.linkLoan(detail.id, e.target.value || null),
+                )
+              }
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            >
+              <option value="">Sin préstamo asociado</option>
+              {loanOptions.map((loan) => (
+                <option key={loan.id} value={loan.id}>
+                  {loan.name} · pendiente {euro(loan.outstandingAmount)}
+                  {loan.status.toLowerCase() === 'cancelled' ? ' · cancelado' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {detail.linkedLoan && (
+            <div className="flex-1 text-sm text-slate-600">
+              <p>
+                Saldo vivo:{' '}
+                <strong>{euro(detail.linkedLoan.outstandingAmount)}</strong>
+                {detail.linkedLoan.status.toLowerCase() === 'paid' && ' · saldado'}
+                {detail.linkedLoan.status.toLowerCase() === 'cancelled' && ' · cancelado'}
+              </p>
+              {!editable && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Saldo que quedó reflejado en este envío:{' '}
+                  {euro(detail.linkedLoan.amountInSettlement)}
+                </p>
+              )}
+              {detail.linkedLoan.outstandingAmount > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          '¿Confirmas que el préstamo ya está completamente pagado? Esto pondrá su saldo pendiente a 0.',
+                        )
+                      ) {
+                        void run(() =>
+                          settlementService.closeLinkedLoan(detail.id, 'settled'),
+                        );
+                      }
+                    }}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Marcar como saldado
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          '¿Confirmas que esta deuda se cancela/perdona? El saldo pendiente del préstamo se pondrá a 0.',
+                        )
+                      ) {
+                        void run(() =>
+                          settlementService.closeLinkedLoan(detail.id, 'cancelled'),
+                        );
+                      }
+                    }}
+                    className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Cancelar deuda
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {detail.linkedLoan && detail.linkedLoan.outstandingAmount > 0 && (
+          <p className="mt-2 text-xs text-slate-500">
+            {editable
+              ? 'El saldo vivo se resta automáticamente del total. Al registrar un pago en Préstamos, la próxima liquidación recogerá el saldo restante; no vuelvas a añadir ese pago manualmente.'
+              : 'El mensaje enviado conserva el saldo capturado entonces. Los cambios actuales del préstamo no modifican ese histórico.'}
+          </p>
+        )}
       </section>
 
       {error && (

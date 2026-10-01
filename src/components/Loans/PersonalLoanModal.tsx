@@ -158,12 +158,18 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
             <select
               id="personal-loan-status"
               value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as "active" | "paid" | "overdue" })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  status: e.target.value as "active" | "paid" | "overdue" | "cancelled",
+                })
+              }
               className={selectClassName}
             >
               <option value="active">Activo</option>
               <option value="paid">Pagado</option>
               <option value="overdue">Vencido</option>
+              <option value="cancelled">Cancelado</option>
             </select>
           </div>
 

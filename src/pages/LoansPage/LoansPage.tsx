@@ -18,7 +18,7 @@ export interface BaseLoan {
   outstandingAmount: number;
   startDate: string;
   dueDate?: string;
-  status: "active" | "paid" | "overdue";
+  status: "active" | "paid" | "overdue" | "cancelled";
   categoryId: number;
 }
 
@@ -104,7 +104,7 @@ export default function LoansPage() {
     [loans, selectedLoanId]
   );
   const filteredLoans = useMemo(() => loans.filter((loan) => {
-    if (filter === "active") return loan.status !== "paid";
+    if (filter === "active") return loan.status !== "paid" && loan.status !== "cancelled";
     if (filter === "personal") return loan.type !== "bank";
     if (filter === "bank") return loan.type === "bank";
     return true;
@@ -119,7 +119,9 @@ export default function LoansPage() {
   const receivable = loans
     .filter((loan) => loan.type === "given")
     .reduce((sum, loan) => sum + loan.outstandingAmount, 0);
-  const activeLoans = loans.filter((loan) => loan.status !== "paid").length;
+  const activeLoans = loans.filter(
+    (loan) => loan.status !== "paid" && loan.status !== "cancelled",
+  ).length;
 
   const openCreatePersonal = () => {
     setEditingLoan(null);
@@ -264,8 +266,8 @@ export default function LoansPage() {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="truncate font-semibold">{loan.name}</span>
-                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${loan.status === "paid" ? "bg-positive-soft text-positive" : loan.status === "overdue" ? "bg-negative-soft text-negative" : "bg-warning-soft text-warning"}`}>
-                                {loan.status === "paid" ? "Pagado" : loan.status === "overdue" ? "Vencido" : "Activo"}
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${loan.status === "paid" ? "bg-positive-soft text-positive" : loan.status === "cancelled" ? "bg-muted text-muted-foreground" : loan.status === "overdue" ? "bg-negative-soft text-negative" : "bg-warning-soft text-warning"}`}>
+                                {loan.status === "paid" ? "Saldado" : loan.status === "cancelled" ? "Cancelado" : loan.status === "overdue" ? "Vencido" : "Activo"}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -296,7 +298,7 @@ export default function LoansPage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold tracking-tight">Detalle y pagos</h2>
-            {selectedLoan && (
+            {selectedLoan && selectedLoan.status !== "paid" && selectedLoan.status !== "cancelled" && (
               <Button size="sm" onClick={() => setShowPaymentModal(true)}>
                 <Plus /> Registrar pago
               </Button>
@@ -374,7 +376,7 @@ export default function LoansPage() {
         />
       )}
 
-      {showPaymentModal && selectedLoan && (
+      {showPaymentModal && selectedLoan && selectedLoan.status !== "paid" && selectedLoan.status !== "cancelled" && (
         <PaymentModal
           loan={selectedLoan}
           onClose={() => setShowPaymentModal(false)}

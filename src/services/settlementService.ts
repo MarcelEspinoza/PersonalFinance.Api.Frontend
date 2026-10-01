@@ -29,6 +29,14 @@ export interface SettlementTotals {
   pending: number;
 }
 
+export interface SettlementLoan {
+  id: string;
+  name: string;
+  outstandingAmount: number;
+  status: string;
+  amountInSettlement: number;
+}
+
 export interface SettlementSummary {
   id: string;
   counterpartyId: string;
@@ -54,6 +62,8 @@ export interface SettlementDetail {
   closingNote: string | null;
   carriedOverAmount: number;
   sentAt: string | null;
+  linkedLoanId?: string | null;
+  linkedLoan?: SettlementLoan | null;
   totals: SettlementTotals;
   lines: SettlementLine[];
   message: string;
@@ -95,6 +105,26 @@ export const settlementService = {
 
   async get(id: string): Promise<SettlementDetail> {
     const { data } = await apiClient.get<SettlementDetail>(`${base}/${id}`);
+    return data;
+  },
+
+  async getLoanOptions(): Promise<SettlementLoan[]> {
+    const { data } = await apiClient.get<SettlementLoan[]>(`${base}/loans`);
+    return data;
+  },
+
+  async linkLoan(id: string, loanId: string | null): Promise<SettlementDetail> {
+    const { data } = await apiClient.put<SettlementDetail>(`${base}/${id}/loan`, { loanId });
+    return data;
+  },
+
+  async closeLinkedLoan(
+    id: string,
+    resolution: "settled" | "cancelled",
+  ): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/loan/close`, {
+      resolution,
+    });
     return data;
   },
 
