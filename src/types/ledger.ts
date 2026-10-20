@@ -150,6 +150,8 @@ export interface Account {
   entity?: string | null;
   accountNumber?: string | null;
   color?: string | null;
+  /** Concepto de traspaso que esta cuenta refleja (por ejemplo, la hucha de Revolut). */
+  transferConceptId?: string | null;
 }
 
 export interface AccountBalance {
@@ -168,6 +170,7 @@ export interface CreateAccountInput {
   entity?: string | null;
   accountNumber?: string | null;
   color?: string | null;
+  transferConceptId?: string | null;
 }
 
 export interface UpdateAccountInput {
@@ -178,6 +181,11 @@ export interface UpdateAccountInput {
   accountNumber?: string | null;
   color?: string | null;
   isActive: boolean;
+  /** Si no se envía, no cambia. */
+  openingBalance?: number;
+  openingDate?: CivilDate;
+  /** Si no se envía, no cambia; "00000000-0000-0000-0000-000000000000" quita el enlace. */
+  transferConceptId?: string;
 }
 
 export interface ImportConceptOption {

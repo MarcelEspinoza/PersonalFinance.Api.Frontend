@@ -10,8 +10,14 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type BankRow = Account & { openingBalanceText: string };
+
+function toRow(account: Account): BankRow {
+  return { ...account, openingBalanceText: String(account.openingBalance ?? 0) };
+}
+
 export default function BanksManager() {
-  const [banks, setBanks] = useState<Account[]>([]);
+  const [banks, setBanks] = useState<BankRow[]>([]);
   const [name, setName] = useState("");
   const [entity, setEntity] = useState("");
   const [color, setColor] = useState("#00A86B");
@@ -28,7 +34,7 @@ export default function BanksManager() {
     setLoading(true);
     try {
       const data = await LedgerService.getAccounts(true);
-      setBanks(Array.isArray(data) ? data : []);
+      setBanks(Array.isArray(data) ? data.map(toRow) : []);
     } catch (err) {
       console.error("Error loading accounts", err);
       setBanks([]);
@@ -68,6 +74,15 @@ export default function BanksManager() {
   async function handleSave(id: string) {
     const current = banks.find((x) => x.id === id);
     if (!current) return;
+    const openingBalance = Number(current.openingBalanceText.replace(",", "."));
+    if (current.openingBalanceText.trim() === "" || !Number.isFinite(openingBalance)) {
+      alert("El saldo inicial no es válido");
+      return;
+    }
+    if (!current.openingDate) {
+      alert("Indica la fecha del saldo inicial");
+      return;
+    }
     setSavingId(id);
     try {
       await LedgerService.updateAccount(id, {
@@ -78,6 +93,8 @@ export default function BanksManager() {
         accountNumber: current.accountNumber ?? undefined,
         color: current.color ?? undefined,
         isActive: current.isActive,
+        openingBalance,
+        openingDate: current.openingDate,
       });
       await load();
     } catch (err) {
@@ -181,6 +198,31 @@ export default function BanksManager() {
                     value={b.entity ?? ""}
                     onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, entity: e.target.value } : x)))}
                   />
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Label htmlFor={`opening-balance-${b.id}`} className="text-xs font-normal text-muted-foreground">
+                      Saldo inicial
+                    </Label>
+                    <Input
+                      id={`opening-balance-${b.id}`}
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      title="Dinero que tenía la cuenta al empezar ese día"
+                      className="h-8 w-28"
+                      value={b.openingBalanceText}
+                      onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, openingBalanceText: e.target.value } : x)))}
+                    />
+                    <Label htmlFor={`opening-date-${b.id}`} className="text-xs font-normal text-muted-foreground">
+                      desde
+                    </Label>
+                    <Input
+                      id={`opening-date-${b.id}`}
+                      type="date"
+                      className="h-8 w-36"
+                      value={b.openingDate}
+                      onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, openingDate: e.target.value } : x)))}
+                    />
+                  </div>
                 </div>
               </div>
 
