@@ -1,5 +1,6 @@
 import apiClient from "../lib/apiClient";
 import type {
+  ChartConcept,
   ChartOfAccounts,
   ConfirmLedgerEntryPayload,
   CreateAccountInput,
@@ -77,6 +78,13 @@ export const LedgerService = {
 
   getChartOfAccounts: async (): Promise<ChartOfAccounts> => {
     const { data } = await apiClient.get<ChartOfAccounts>("/chart-of-accounts");
+    return data;
+  },
+
+  renameConcept: async (conceptId: string, name: string): Promise<ChartConcept> => {
+    const { data } = await apiClient.put<ChartConcept>(`/chart-of-accounts/concepts/${conceptId}`, {
+      name,
+    });
     return data;
   },
 

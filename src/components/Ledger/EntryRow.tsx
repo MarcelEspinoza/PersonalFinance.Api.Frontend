@@ -72,6 +72,11 @@ export function EntryRow({
         {entry.accountName && (
           <p className="text-xs text-muted-foreground">{entry.accountName}</p>
         )}
+        {entry.notes && (
+          <p className="line-clamp-2 max-w-md text-xs italic text-muted-foreground" title={entry.notes}>
+            Nota: {entry.notes}
+          </p>
+        )}
       </td>
 
       <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">

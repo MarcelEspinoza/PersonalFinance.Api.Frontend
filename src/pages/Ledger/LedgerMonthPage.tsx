@@ -12,6 +12,7 @@ import {
 } from "../../components/Ledger/ConfirmEntryDialog";
 import { CloseMonthDialog } from "../../components/Ledger/CloseMonthDialog";
 import { AssignEntryDialog } from "../../components/Ledger/AssignEntryDialog";
+import { RenameConceptDialog } from "../../components/Ledger/RenameConceptDialog";
 import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import {
@@ -60,6 +61,7 @@ export function LedgerMonthPage() {
   const [entryDialog, setEntryDialog] = useState<EntryDialogState>(CLOSED_ENTRY_DIALOG);
   const [confirmTarget, setConfirmTarget] = useState<MonthlyEntry | null>(null);
   const [assignTarget, setAssignTarget] = useState<MonthlyEntry | null>(null);
+  const [renameTarget, setRenameTarget] = useState<MonthlyConcept | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
 
   const load = useCallback(async (targetYear: number, targetMonth: number) => {
@@ -142,6 +144,7 @@ export function LedgerMonthPage() {
             dueDate: values.dueDate,
             forecastAmount: values.forecastAmount,
             description,
+            notes: values.notes ? values.notes : null,
           }),
         () => setEntryDialog(CLOSED_ENTRY_DIALOG),
       );
@@ -156,6 +159,7 @@ export function LedgerMonthPage() {
           dueDate: values.dueDate,
           forecastAmount: values.forecastAmount,
           description,
+          ...(values.notes !== undefined ? { notes: values.notes } : {}),
         }),
       () => setEntryDialog(CLOSED_ENTRY_DIALOG),
     );
@@ -253,11 +257,32 @@ export function LedgerMonthPage() {
               locked={locked ?? false}
               busy={busy}
               onAddEntry={handleAddEntry}
+              onRenameConcept={(concept) => {
+                setDialogError(null);
+                setRenameTarget(concept);
+              }}
               {...rowHandlers}
             />
           ))}
         </>
       )}
+
+      <RenameConceptDialog
+        open={renameTarget !== null}
+        currentName={renameTarget?.name ?? ""}
+        busy={busy}
+        error={dialogError}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+        onSubmit={(name) => {
+          if (!renameTarget) return;
+          void mutate(
+            () => LedgerService.renameConcept(renameTarget.conceptId, name),
+            () => setRenameTarget(null),
+          );
+        }}
+      />
 
       <EntryDialog
         open={entryDialog.open}

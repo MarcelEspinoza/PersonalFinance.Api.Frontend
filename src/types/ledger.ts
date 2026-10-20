@@ -52,6 +52,8 @@ export interface MonthlyEntry {
   actualAmount?: number | null;
   remaining: number;
   description?: string | null;
+  /** Nota libre: por qué se pagó así, a quién se le debe, etc. */
+  notes?: string | null;
   accountId?: string | null;
   accountName?: string | null;
   fromRecurringRule: boolean;

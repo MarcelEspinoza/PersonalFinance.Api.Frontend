@@ -17,6 +17,8 @@ export interface EntryFormValues {
   dueDate: string;
   forecastAmount: number;
   description: string;
+  /** Sólo viene si el usuario cambió la nota (así no se borra una nota por error). */
+  notes?: string;
 }
 
 interface Props {
@@ -47,6 +49,8 @@ export function EntryDialog({
   const [dueDate, setDueDate] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
+  const initialNotes = mode === "edit" ? entry?.notes ?? "" : "";
 
   useEffect(() => {
     if (!open) return;
@@ -55,12 +59,14 @@ export function EntryDialog({
       setDueDate(entry.dueDate);
       setAmount(String(entry.forecastAmount));
       setDescription(entry.description ?? "");
+      setNotes(entry.notes ?? "");
       return;
     }
 
     setDueDate(firstDayOf(year, month));
     setAmount("");
     setDescription("");
+    setNotes("");
   }, [open, mode, entry, year, month]);
 
   const parsedAmount = Number(amount.replace(",", "."));
@@ -75,6 +81,7 @@ export function EntryDialog({
       dueDate,
       forecastAmount: parsedAmount,
       description: description.trim(),
+      notes: notes.trim() !== initialNotes.trim() ? notes.trim() : undefined,
     });
   };
 
@@ -119,6 +126,17 @@ export function EntryDialog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Opcional"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="entry-notes">Nota</Label>
+              <textarea
+                id="entry-notes"
+                className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Opcional. Ej.: adelanto de la paga extra, se lo debo a Katherine…"
               />
             </div>
 

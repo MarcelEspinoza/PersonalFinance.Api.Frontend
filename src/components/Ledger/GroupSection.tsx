@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { EntryRow } from "./EntryRow";
 import type { MonthlyConcept, MonthlyEntry, MonthlyGroup } from "../../types/ledger";
@@ -10,6 +10,7 @@ interface Props {
   locked: boolean;
   busy: boolean;
   onAddEntry: (concept: MonthlyConcept, group: MonthlyGroup) => void;
+  onRenameConcept?: (concept: MonthlyConcept) => void;
   onConfirm: (entry: MonthlyEntry) => void;
   onUnconfirm: (entry: MonthlyEntry) => void;
   onSkip: (entry: MonthlyEntry) => void;
@@ -19,7 +20,14 @@ interface Props {
   onAssign?: (entry: MonthlyEntry) => void;
 }
 
-export function GroupSection({ group, locked, busy, onAddEntry, ...rowHandlers }: Props) {
+export function GroupSection({
+  group,
+  locked,
+  busy,
+  onAddEntry,
+  onRenameConcept,
+  ...rowHandlers
+}: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const toggle = (conceptId: string) =>
@@ -72,6 +80,7 @@ export function GroupSection({ group, locked, busy, onAddEntry, ...rowHandlers }
                 busy={busy}
                 onToggle={() => toggle(concept.conceptId)}
                 onAddEntry={() => onAddEntry(concept, group)}
+                onRename={onRenameConcept ? () => onRenameConcept(concept) : undefined}
                 rowHandlers={rowHandlers}
               />
             );
@@ -98,6 +107,7 @@ function ConceptRows({
   busy,
   onToggle,
   onAddEntry,
+  onRename,
   rowHandlers,
 }: {
   concept: MonthlyConcept;
@@ -107,7 +117,8 @@ function ConceptRows({
   busy: boolean;
   onToggle: () => void;
   onAddEntry: () => void;
-  rowHandlers: Omit<Props, "group" | "locked" | "busy" | "onAddEntry">;
+  onRename?: () => void;
+  rowHandlers: Omit<Props, "group" | "locked" | "busy" | "onAddEntry" | "onRenameConcept">;
 }) {
   return (
     <>
@@ -159,15 +170,28 @@ function ConceptRows({
         </td>
 
         <td className="px-3 py-3 text-right">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Añadir apunte"
-            disabled={locked || busy}
-            onClick={onAddEntry}
-          >
-            <Plus />
-          </Button>
+          <div className="flex justify-end gap-1">
+            {onRename && (
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Renombrar concepto"
+                disabled={busy}
+                onClick={onRename}
+              >
+                <Pencil />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Añadir apunte"
+              disabled={locked || busy}
+              onClick={onAddEntry}
+            >
+              <Plus />
+            </Button>
+          </div>
         </td>
       </tr>
 
