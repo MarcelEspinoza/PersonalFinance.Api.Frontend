@@ -86,6 +86,7 @@ export default function SettingsPage() {
               role="tab"
               aria-selected={selected}
               aria-controls={`settings-panel-${tab.id}`}
+              data-tour={`settings-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex min-w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",

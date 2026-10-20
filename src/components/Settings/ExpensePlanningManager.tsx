@@ -156,7 +156,7 @@ export default function ExpensePlanningManager() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-2 rounded-xl border bg-muted/35 p-1.5">
+      <div data-tour="planning-kind" className="grid grid-cols-2 gap-2 rounded-xl border bg-muted/35 p-1.5">
         <button
           type="button"
           onClick={() => setActiveKind(ConceptKind.Income)}
@@ -177,7 +177,7 @@ export default function ExpensePlanningManager() {
         </button>
       </div>
 
-      <div className="rounded-xl border bg-muted/35 p-4">
+      <div data-tour="planning-totals" className="rounded-xl border bg-muted/35 p-4">
         <div className="flex items-start gap-3">
           <SlidersHorizontal className="mt-0.5 h-5 w-5 text-primary" />
           <div>
@@ -230,6 +230,7 @@ export default function ExpensePlanningManager() {
                   </div>
                   <Field label="Tipo">
                     <select
+                      data-tour="planning-type"
                       value={planOption(item)}
                       onChange={(event) => {
                         const option = event.target.value as PlanOption;
@@ -252,6 +253,7 @@ export default function ExpensePlanningManager() {
                     ? bimonthly ? "Importe de cada recibo" : "Importe mensual"
                     : activeKind === ConceptKind.Income ? "Estimación mensual" : "Límite mensual"}>
                     <Input
+                      data-tour="planning-amount"
                       type="number"
                       min="0"
                       step="0.01"
@@ -264,6 +266,7 @@ export default function ExpensePlanningManager() {
                   </Field>
                   <Field label="Día">
                     <Input
+                      data-tour="planning-day"
                       type="number"
                       min="1"
                       max="31"
@@ -274,6 +277,7 @@ export default function ExpensePlanningManager() {
                   </Field>
                   <Field label="Próximo recibo">
                     <select
+                      data-tour={bimonthly ? "planning-next" : undefined}
                       value={bimonthly ? item.nextDueMonthText : ""}
                       disabled={!bimonthly}
                       onChange={(event) => updateItem(item.conceptId, { nextDueMonthText: event.target.value })}
@@ -288,6 +292,7 @@ export default function ExpensePlanningManager() {
                   </Field>
                   <Field label="Cuenta">
                     <select
+                      data-tour="planning-account"
                       value={item.accountId ?? ""}
                       onChange={(event) => updateItem(item.conceptId, { accountId: event.target.value || null })}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -299,6 +304,7 @@ export default function ExpensePlanningManager() {
                     </select>
                   </Field>
                   <Button
+                    data-tour="planning-save"
                     size="sm"
                     onClick={() => void save(item.conceptId)}
                     disabled={item.saving}

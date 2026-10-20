@@ -212,7 +212,7 @@ export function MonthlyView() {
           {summary && (
             <PeriodStatusBadge status={isClosed ? "closed" : "open"} />
           )}
-          <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+          <div data-tour="summary-month" className="flex items-center gap-1 rounded-lg border bg-card p-1">
             <Button variant="ghost" size="icon" onClick={() => goTo(previousMonth(year, month))} disabled={loading}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -245,7 +245,7 @@ export function MonthlyView() {
 
       {!loading && summary && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div data-tour="summary-cards" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <SummaryCard label="Ingresos reales" value={summary.totals.incomeActual} icon={<ArrowUpCircle />} tone="positive" />
             <SummaryCard label="Gastos reales" value={summary.totals.expenseActual} icon={<ArrowDownCircle />} tone="negative" />
             <SummaryCard label="Saldo real" value={summary.totals.actualBalance} icon={<Wallet />} />
@@ -267,7 +267,7 @@ export function MonthlyView() {
             onSave={(item) => void saveReconciliation(item)}
           />
 
-          <Card className={isClosed ? "border-positive/40 bg-positive-soft/30" : undefined}>
+          <Card data-tour="summary-close" className={isClosed ? "border-positive/40 bg-positive-soft/30" : undefined}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-semibold">
@@ -396,6 +396,7 @@ function AccountReconciliationPanel({
             return (
               <div
                 key={item.account.id}
+                data-tour="reconcile-account"
                 className={`grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center ${
                   reconciled ? "bg-positive-soft/40" : ""
                 }`}
@@ -414,6 +415,7 @@ function AccountReconciliationPanel({
                     Saldo que muestra el banco
                   </label>
                   <Input
+                    data-tour="reconcile-bank-balance"
                     inputMode="decimal"
                     aria-label={`Saldo bancario de ${item.account.name}`}
                     placeholder="Saldo en esa fecha"
@@ -421,7 +423,7 @@ function AccountReconciliationPanel({
                     onChange={(event) => onChange(item.account.id, event.target.value)}
                   />
                 </div>
-                <div className="min-w-40">
+                <div data-tour="reconcile-status" className="min-w-40">
                   {!hasBalance ? (
                     <span className="text-sm text-muted-foreground">Pendiente de comprobar</span>
                   ) : reconciled ? (
@@ -438,6 +440,7 @@ function AccountReconciliationPanel({
                   )}
                 </div>
                 <Button
+                  data-tour="reconcile-save"
                   size="sm"
                   onClick={() => onSave(item)}
                   disabled={!hasBalance || !reconciled || savingAccountId === item.account.id}

@@ -132,7 +132,7 @@ export default function BanksManager() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-none">
+      <Card data-tour="accounts-new" className="shadow-none">
         <CardContent>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_auto] md:items-end">
             <div className="space-y-2">
@@ -178,7 +178,7 @@ export default function BanksManager() {
         {!loading && banks.length === 0 && <p className="py-4 text-sm text-muted-foreground">No hay bancos registrados.</p>}
 
         {banks.map((b) => (
-          <Card key={b.id} className={`shadow-none ${b.isActive ? "" : "bg-muted/40 opacity-75"}`}>
+          <Card key={b.id} data-tour="accounts-card" className={`shadow-none ${b.isActive ? "" : "bg-muted/40 opacity-75"}`}>
             <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div style={{ backgroundColor: b.color ?? "#CBD5E1" }} className="h-10 w-10 shrink-0 rounded-lg border" />
@@ -198,7 +198,7 @@ export default function BanksManager() {
                     value={b.entity ?? ""}
                     onChange={(e) => setBanks((prev) => prev.map((x) => (x.id === b.id ? { ...x, entity: e.target.value } : x)))}
                   />
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div data-tour="accounts-opening" className="flex flex-wrap items-center gap-2 pt-1">
                     <Label htmlFor={`opening-balance-${b.id}`} className="text-xs font-normal text-muted-foreground">
                       Saldo inicial
                     </Label>
@@ -226,7 +226,7 @@ export default function BanksManager() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div data-tour="accounts-actions" className="flex items-center gap-2 self-end sm:self-auto">
                 <input
                   aria-label={`Color para ${b.name}`}
                   type="color"

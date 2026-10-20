@@ -14,6 +14,8 @@ import { SettlementsPage } from './pages/Settlements/SettlementsPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
 import { ImportsPage } from './pages/Imports/ImportsPage';
 import { AssistantPage } from './pages/Assistant/AssistantPage';
+import { HelpPage } from './pages/Help/HelpPage';
+import { TourProvider } from './components/Tour/TourProvider';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -109,6 +111,14 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route
+        path="/ayuda"
+        element={
+          <PrivateRoute>
+            <Layout><HelpPage /></Layout>
+          </PrivateRoute>
+        }
+      />
 
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<Navigate to="/dashboard" />} />
@@ -122,7 +132,9 @@ function App() {
     <Router>
       <AuthProvider>
         <ImportProgressProvider>
-          <AppRoutes />
+          <TourProvider>
+            <AppRoutes />
+          </TourProvider>
         </ImportProgressProvider>
       </AuthProvider>
     </Router>

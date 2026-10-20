@@ -2,6 +2,7 @@ import {
   ClipboardList,
   Coins,
   HandCoins,
+  Info,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { ChatBubble } from './Chat/ChatBubble';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
+import { HelpMenu } from './Tour/HelpMenu';
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,6 +36,7 @@ const navItems = [
   { path: 'settlements', activePaths: ['settlements'], label: 'Liquidaciones', icon: HandCoins, activeClass: 'bg-teal-600 text-white' },
   { path: 'assistant', activePaths: ['assistant'], label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
   { path: 'settings', activePaths: ['settings'], label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
+  { path: 'ayuda', activePaths: ['ayuda'], label: 'Cómo usar la app', icon: Info, activeClass: 'bg-violet-600 text-white' },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -55,13 +58,14 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const NavLinks = () => (
-    <nav className="flex-1 space-y-0.5 px-3">
+    <nav className="flex-1 space-y-0.5 px-3" data-tour="nav">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = item.activePaths.includes(currentPath);
         return (
           <button
             key={item.path}
+            data-tour={`nav-${item.path}`}
             onClick={() => onNavigate(item.path)}
             aria-current={active ? 'page' : undefined}
             className={cn(
@@ -88,6 +92,9 @@ export function Layout({ children }: LayoutProps) {
             <Wallet className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-base font-semibold tracking-tight">Mi Finanzas</span>
+          <div className="ml-auto">
+            <HelpMenu align="left" />
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <NavLinks />
@@ -111,13 +118,17 @@ export function Layout({ children }: LayoutProps) {
           </div>
           <span className="font-semibold tracking-tight">Mi Finanzas</span>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="rounded-md p-2 hover:bg-accent"
-          aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <HelpMenu compact align="right" />
+          <button
+            data-tour="mobile-menu-button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="rounded-md p-2 hover:bg-accent"
+            aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

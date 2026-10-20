@@ -35,7 +35,7 @@ export function GroupSection({
 
   return (
     <section className="mb-6 overflow-hidden rounded-xl border bg-card shadow-sm">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-secondary/70 px-5 py-4">
+      <header data-tour="month-group" className="flex flex-wrap items-center justify-between gap-3 border-b bg-secondary/70 px-5 py-4">
         <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
           {group.name}
         </h2>
@@ -176,6 +176,7 @@ function ConceptRows({
                 variant="ghost"
                 size="icon"
                 title="Renombrar concepto"
+                data-tour="concept-rename"
                 disabled={busy}
                 onClick={onRename}
               >
@@ -186,6 +187,7 @@ function ConceptRows({
               variant="ghost"
               size="icon"
               title="Añadir apunte"
+              data-tour="concept-add"
               disabled={locked || busy}
               onClick={onAddEntry}
             >

@@ -27,7 +27,7 @@ export function MonthWorkspaceTabs({ year, month }: Props) {
   const navigate = useNavigate();
 
   return (
-    <div className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
+    <div data-tour="month-tabs" className="grid gap-2 rounded-xl border bg-muted/30 p-1.5 sm:grid-cols-2">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const active = location.pathname === tab.path;

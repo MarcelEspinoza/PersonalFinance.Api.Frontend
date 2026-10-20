@@ -502,7 +502,7 @@ export function ImportsPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="min-w-64 space-y-1 text-sm">
+            <label data-tour="import-account" className="min-w-64 space-y-1 text-sm">
               <span className="font-medium">Cuenta</span>
               <select className="h-9 w-full rounded-md border bg-background px-3" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
                 <option value="">Selecciona una cuenta</option>
@@ -511,7 +511,7 @@ export function ImportsPage() {
             </label>
             <Button type="button" variant="outline" onClick={openNewAccount} disabled={busy || importWorking}>Nueva cuenta</Button>
           </div>
-          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-4 text-sm">
+          <label data-tour="import-file" className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-4 text-sm">
             <Upload className="h-5 w-5 text-muted-foreground" />
             <span>{file?.name ?? "Seleccionar CSV de Revolut"}</span>
             <input className="sr-only" type="file" accept=".csv,text/csv" onChange={onFileChange} />
@@ -539,7 +539,7 @@ export function ImportsPage() {
               <p className="text-sm text-muted-foreground">{review.rows.length} filas · estado: {review.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowImportAssistant(true)} disabled={review.rows.length === 0}>
+              <Button type="button" variant="outline" data-tour="import-assistant" onClick={() => setShowImportAssistant(true)} disabled={review.rows.length === 0}>
                 <MessageCircle className="h-4 w-4" /> Asistente
               </Button>
               <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
@@ -550,7 +550,7 @@ export function ImportsPage() {
                   Clasificar automáticamente
                 </Button>
               )}
-              <Button onClick={() => void apply()} disabled={busy || review.status === "Applied" || review.rows.length === 0}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
+              <Button data-tour="import-apply" onClick={() => void apply()} disabled={busy || review.status === "Applied" || review.rows.length === 0}>{busy ? "Aplicando…" : "Aplicar lote"}</Button>
             </div>
           </div>
           {review.rows.length === 0 && (
@@ -559,7 +559,7 @@ export function ImportsPage() {
             </div>
           )}
           {review.analysis && review.analysis.findings.length > 0 && (
-            <div className="space-y-3 border-b p-4">
+            <div data-tour="import-review" className="space-y-3 border-b p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-primary" />
@@ -573,7 +573,7 @@ export function ImportsPage() {
                   )}
                 </div>
                 {review.status !== "Applied" && (
-                  <Button type="button" variant="outline" size="sm" onClick={explainReview} disabled={chatBusy}>
+                  <Button type="button" variant="outline" size="sm" data-tour="import-explain" onClick={explainReview} disabled={chatBusy}>
                     <MessageCircle className="h-4 w-4" /> Explícame la revisión
                   </Button>
                 )}
@@ -657,7 +657,7 @@ export function ImportsPage() {
                       <td className="px-3 py-2 text-right font-medium">{group.count}</td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right ${group.total < 0 ? "text-negative" : "text-positive"}`}>{group.total.toFixed(2)} EUR</td>
                       <td className="px-3 py-2">
-                        <select className="h-9 w-full rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
+                        <select data-tour="import-concept" className="h-9 w-full rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
                           <option value="">Sin concepto (revisar)</option>
                           {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                         </select>
@@ -695,7 +695,7 @@ export function ImportsPage() {
                           {splitSummary ? (
                             <span className="text-xs font-medium text-primary">{splitSummary}</span>
                           ) : (
-                            <select className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                            <select data-tour="import-concept" className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
                               <option value="">Sin concepto (revisar)</option>
                               {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                             </select>

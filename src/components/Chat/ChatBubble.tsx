@@ -39,6 +39,7 @@ export function ChatBubble() {
       )}
       <button
         type="button"
+        data-tour="chat-bubble"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Cerrar asistente" : "Abrir asistente"}
         className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"

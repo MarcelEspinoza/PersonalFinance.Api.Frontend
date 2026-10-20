@@ -177,7 +177,7 @@ export function Dashboard() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card">
+        <Card data-tour="dashboard-balance" className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div>

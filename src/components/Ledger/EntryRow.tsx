@@ -84,7 +84,7 @@ export function EntryRow({
       </td>
 
       <td className="px-3 py-3">
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
+        <span data-tour="entry-status" className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
           {status.label}
         </span>
       </td>
@@ -108,6 +108,7 @@ export function EntryRow({
               variant="ghost"
               size="icon"
               title="Confirmar pago"
+              data-tour="entry-confirm"
               disabled={disabled}
               onClick={() => onConfirm(entry)}
             >
@@ -120,6 +121,7 @@ export function EntryRow({
               variant="ghost"
               size="icon"
               title="Deshacer confirmación"
+              data-tour="entry-unconfirm"
               disabled={disabled}
               onClick={() => onUnconfirm(entry)}
             >
@@ -133,6 +135,7 @@ export function EntryRow({
                 variant="ghost"
                 size="icon"
                 title="Recuperar"
+                data-tour="entry-unskip"
                 disabled={disabled}
                 onClick={() => onUnskip(entry)}
               >
@@ -143,6 +146,7 @@ export function EntryRow({
                 variant="ghost"
                 size="icon"
                 title="Descartar este mes"
+                data-tour="entry-skip"
                 disabled={disabled}
                 onClick={() => onSkip(entry)}
               >
@@ -166,6 +170,7 @@ export function EntryRow({
             variant="ghost"
             size="icon"
             title="Editar"
+            data-tour="entry-edit"
             disabled={disabled}
             onClick={() => onEdit(entry)}
           >

@@ -30,7 +30,7 @@ export function MonthNavigator({
 
   return (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-3 shadow-sm sm:p-4">
-      <div className="flex items-center gap-1.5">
+      <div data-tour="month-nav" className="flex items-center gap-1.5">
         <Button variant="outline" size="icon" onClick={onPrevious} disabled={busy} aria-label="Mes anterior">
           <ChevronLeft />
         </Button>
@@ -56,11 +56,11 @@ export function MonthNavigator({
         )}
 
         {closed ? (
-          <Button variant="outline" size="sm" onClick={onReopen} disabled={busy}>
+          <Button data-tour="month-close" variant="outline" size="sm" onClick={onReopen} disabled={busy}>
             <Unlock /> Reabrir
           </Button>
         ) : (
-          <Button variant="outline" size="sm" onClick={onClose} disabled={busy || status === null}>
+          <Button data-tour="month-close" variant="outline" size="sm" onClick={onClose} disabled={busy || status === null}>
             <Lock /> Cerrar mes
           </Button>
         )}
