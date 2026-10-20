@@ -229,6 +229,25 @@ export interface ImportReview {
   status: string;
   rows: ImportRow[];
   concepts: ImportConceptOption[];
+  analysis?: ImportAnalysis | null;
+}
+
+export type ImportFindingSeverity = "ok" | "info" | "warning";
+
+export interface ImportFinding {
+  severity: ImportFindingSeverity;
+  title: string;
+  detail: string;
+  rowNumbers: number[];
+}
+
+/** Revisión automática del extracto: saldo del banco frente a la app y avisos. */
+export interface ImportAnalysis {
+  bankBalance?: number | null;
+  bankBalanceDate?: CivilDate | null;
+  appBalance?: number | null;
+  difference?: number | null;
+  findings: ImportFinding[];
 }
 
 export interface ImportBatchResult {

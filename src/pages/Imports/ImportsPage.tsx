@@ -1,5 +1,5 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Check, CheckCircle2, FileSearch, FileSpreadsheet, Layers3, List, Loader2, MessageCircle, Plus, Send, Upload, X } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, FileSearch, FileSpreadsheet, Info, Layers3, List, Loader2, MessageCircle, Plus, Send, ShieldCheck, Upload, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
@@ -9,6 +9,16 @@ import { ConceptKind, ConceptNature } from "../../types/ledger";
 import type { Account, ChartGroup, ImportBatchResult, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
+import { money, shortDate } from "../../utils/civilDate";
+
+const findingStyle: Record<string, { box: string; icon: ReactNode }> = {
+  ok: { box: "border-positive/30 bg-positive-soft/40", icon: <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" /> },
+  warning: { box: "border-warning/30 bg-warning-soft/40", icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" /> },
+  info: { box: "bg-muted/30", icon: <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /> },
+};
+
+const explainReviewPrompt =
+  "Explícame la revisión automática de este extracto: qué significa cada aviso y qué tengo que hacer antes de aplicar.";
 
 const conceptKindLabel = (kind: string) => {
   if (kind.toLowerCase() === "income") return "Ingreso";
@@ -371,14 +381,11 @@ export function ImportsPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const sendChat = async (event: FormEvent) => {
-    event.preventDefault();
-    const text = chatInput.trim();
+  const askAssistant = async (text: string) => {
     if (!text || !review) return;
 
     const history = chatMessages;
     setChatMessages((current) => [...current, { role: "user", content: text }]);
-    setChatInput("");
     setChatBusy(true);
     try {
       const result = await LedgerService.chatImport(review.id, text, history);
@@ -394,6 +401,19 @@ export function ImportsPage() {
     } finally {
       setChatBusy(false);
     }
+  };
+
+  const sendChat = async (event: FormEvent) => {
+    event.preventDefault();
+    const text = chatInput.trim();
+    if (!text || !review) return;
+    setChatInput("");
+    await askAssistant(text);
+  };
+
+  const explainReview = () => {
+    setShowImportAssistant(true);
+    void askAssistant(explainReviewPrompt);
   };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -429,6 +449,10 @@ export function ImportsPage() {
 
   const unassignedRows = useMemo(
     () => review?.rows.filter((row) => !(row.allocations?.length || row.confirmedConceptId || row.suggestedConceptId)) ?? [],
+    [review],
+  );
+  const rowsByNumber = useMemo(
+    () => new Map((review?.rows ?? []).map((row) => [row.rowNumber, row] as const)),
     [review],
   );
 
@@ -532,6 +556,55 @@ export function ImportsPage() {
           {review.rows.length === 0 && (
             <div className="border-b bg-warning-soft px-4 py-3 text-sm text-warning">
               Este lote está vacío. Pulsa <strong>Cancelar y elegir otro</strong> y vuelve a importar el CSV.
+            </div>
+          )}
+          {review.analysis && review.analysis.findings.length > 0 && (
+            <div className="space-y-3 border-b p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold">Revisión automática</h3>
+                  {review.analysis.bankBalance != null && (
+                    <span className="text-xs text-muted-foreground">
+                      Banco {money(review.analysis.bankBalance)}
+                      {review.analysis.appBalance != null && <> · App {money(review.analysis.appBalance)}</>}
+                      {review.analysis.bankBalanceDate && <> · {shortDate(review.analysis.bankBalanceDate)}</>}
+                    </span>
+                  )}
+                </div>
+                {review.status !== "Applied" && (
+                  <Button type="button" variant="outline" size="sm" onClick={explainReview} disabled={chatBusy}>
+                    <MessageCircle className="h-4 w-4" /> Explícame la revisión
+                  </Button>
+                )}
+              </div>
+              <ul className="space-y-2">
+                {review.analysis.findings.map((finding, index) => {
+                  const style = findingStyle[finding.severity] ?? findingStyle.info;
+                  // Los avisos de una sola fila ya la nombran en el texto ("fecha · descripción · importe").
+                  const listRows = finding.rowNumbers.length > 1 || !finding.detail.includes("·");
+                  return (
+                    <li key={index} className={`flex gap-2 rounded-md border p-3 text-sm ${style.box}`}>
+                      {style.icon}
+                      <div className="min-w-0">
+                        <p className="font-medium">{finding.title}</p>
+                        <p className="text-muted-foreground">{finding.detail}</p>
+                        {listRows && finding.rowNumbers.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {finding.rowNumbers.slice(0, 8).map((rowNumber) => {
+                              const row = rowsByNumber.get(rowNumber);
+                              return row ? (
+                                <li key={rowNumber}>{shortDate(row.valueDate)} · {row.rawDescription} · {money(row.amount)}</li>
+                              ) : null;
+                            })}
+                            {finding.rowNumbers.length > 8 && <li>y {finding.rowNumbers.length - 8} más</li>}
+                          </ul>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
@@ -671,7 +744,7 @@ export function ImportsPage() {
           <div className="flex-1 space-y-3 overflow-auto p-5">
             {chatMessages.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Pídeme cosas como «pon Mercadona en Alimentación» o «¿por qué está sin concepto la fila de Amazon?».
+                Pídeme cosas como «pon Mercadona en Alimentación», «¿por qué no cuadra el saldo?» o «¿qué significa el aviso del agua?».
               </p>
             )}
             {chatMessages.map((entry, index) => (
