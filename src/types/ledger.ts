@@ -227,6 +227,7 @@ export interface ImportBatchResult {
   acceptedRows: number;
   duplicateRows: number;
   excludedRows: number;
+  confirmedPendingRows?: number;
   problems: string[];
 }
 

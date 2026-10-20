@@ -6,7 +6,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
-import type { Account, ChartGroup, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
+import type { Account, ChartGroup, ImportBatchResult, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
 
@@ -14,6 +14,17 @@ const conceptKindLabel = (kind: string) => {
   if (kind.toLowerCase() === "income") return "Ingreso";
   if (kind.toLowerCase() === "transfer") return "Traspaso";
   return "Gasto";
+};
+
+const createdBatchMessage = (result: ImportBatchResult) => {
+  const confirmed = result.confirmedPendingRows ?? 0;
+  const confirmedText =
+    confirmed === 1
+      ? " Además, 1 movimiento que seguía pendiente se ha marcado como pagado."
+      : confirmed > 1
+        ? ` Además, ${confirmed} movimientos que seguían pendientes se han marcado como pagados.`
+        : "";
+  return `Lote creado: ${result.acceptedRows} filas para revisar.${confirmedText}`;
 };
 
 export function ImportsPage() {
@@ -66,14 +77,15 @@ export function ImportsPage() {
   }, []);
 
   useEffect(() => {
-    if (importProgress.status !== "completed" || !importProgress.result || review) return;
+    const result = importProgress.result;
+    if (importProgress.status !== "completed" || !result || review) return;
 
     let active = true;
-    void LedgerService.getImportReview(importProgress.result.id)
+    void LedgerService.getImportReview(result.id)
       .then((loadedReview) => {
         if (!active) return;
         setReview(loadedReview);
-        setMessage(`Lote creado: ${importProgress.result?.acceptedRows ?? 0} filas para revisar.`);
+        setMessage(createdBatchMessage(result));
       })
       .catch((err) => {
         if (active) setError(ledgerErrorMessage(err, "No se ha podido cargar el lote importado."));
@@ -127,7 +139,7 @@ export function ImportsPage() {
     try {
       const result = await importProgress.startImport(accountId, file);
       setReview(await LedgerService.getImportReview(result.id));
-      setMessage(`Lote creado: ${result.acceptedRows} filas para revisar.`);
+      setMessage(createdBatchMessage(result));
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido importar el CSV."));
     }
