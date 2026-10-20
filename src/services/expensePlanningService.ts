@@ -1,6 +1,8 @@
 import apiClient from "../lib/apiClient";
 import { ConceptKind, ConceptNature } from "../types/ledger";
 
+export type PlanningFrequency = "monthly" | "bimonthly";
+
 export interface ExpensePlanningItem {
   conceptId: string;
   name: string;
@@ -9,6 +11,9 @@ export interface ExpensePlanningItem {
   monthlyBudget?: number | null;
   dayOfMonth?: number | null;
   accountId?: string | null;
+  frequency?: PlanningFrequency | null;
+  /** Primer día del mes del próximo recibo, p. ej. "2026-11-01". */
+  nextDueMonth?: string | null;
 }
 
 export interface ExpensePlanningGroup {
@@ -34,6 +39,8 @@ export interface UpdateExpensePlanning {
   monthlyBudget?: number | null;
   dayOfMonth?: number | null;
   accountId?: string | null;
+  frequency?: PlanningFrequency | null;
+  firstDueMonth?: string | null;
 }
 
 export const expensePlanningService = {

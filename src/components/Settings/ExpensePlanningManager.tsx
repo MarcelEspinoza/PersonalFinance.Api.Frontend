@@ -4,24 +4,29 @@ import {
   expensePlanningService,
   type ExpensePlanning,
   type ExpensePlanningItem,
+  type PlanningFrequency,
 } from "../../services/expensePlanningService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
 type EditableItem = ExpensePlanningItem & {
+  frequency: PlanningFrequency;
   monthlyAmountText: string;
   monthlyBudgetText: string;
   dayOfMonthText: string;
+  nextDueMonthText: string;
   saving: boolean;
   saved: boolean;
 };
 
 const editable = (item: ExpensePlanningItem): EditableItem => ({
   ...item,
+  frequency: item.frequency ?? "monthly",
   monthlyAmountText: item.monthlyAmount == null ? "" : String(item.monthlyAmount),
   monthlyBudgetText: item.monthlyBudget == null ? "" : String(item.monthlyBudget),
   dayOfMonthText: item.dayOfMonth == null ? "1" : String(item.dayOfMonth),
+  nextDueMonthText: item.nextDueMonth ? item.nextDueMonth.slice(0, 7) : "",
   saving: false,
   saved: false,
 });
@@ -31,6 +36,30 @@ const numberOrNull = (value: string): number | null => {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+const monthValue = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+const upcomingMonths = (): string[] => {
+  const today = new Date();
+  return [0, 1].map((offset) => monthValue(new Date(today.getFullYear(), today.getMonth() + offset, 1)));
+};
+
+const monthChoices = (selected: string) => {
+  const values = upcomingMonths();
+  if (selected && !values.includes(selected)) values.push(selected);
+  return values.map((value) => {
+    const [year, month] = value.split("-").map(Number);
+    const label = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" })
+      .format(new Date(year, month - 1, 1));
+    return { value, label };
+  });
+};
+
+type PlanOption = "fixed-monthly" | "fixed-bimonthly" | "variable";
+
+const planOption = (item: EditableItem): PlanOption =>
+  item.nature === ConceptNature.Fixed ? `fixed-${item.frequency}` : "variable";
 
 export default function ExpensePlanningManager() {
   const [activeKind, setActiveKind] = useState<ConceptKind>(ConceptKind.Expense);
@@ -57,7 +86,9 @@ export default function ExpensePlanningManager() {
     .reduce(
     (result, item) => {
       if (item.nature === ConceptNature.Fixed) {
-        result.fixed += numberOrNull(item.monthlyAmountText) ?? 0;
+        const amount = numberOrNull(item.monthlyAmountText) ?? 0;
+        // Un recibo cada 2 meses pesa la mitad en el plan mensual.
+        result.fixed += item.frequency === "bimonthly" ? amount / 2 : amount;
       } else {
         result.variable += numberOrNull(item.monthlyBudgetText) ?? 0;
       }
@@ -83,6 +114,11 @@ export default function ExpensePlanningManager() {
       setError("Los movimientos fijos necesitan importe mensual, día y cuenta.");
       return;
     }
+    const bimonthly = item.nature === ConceptNature.Fixed && item.frequency === "bimonthly";
+    if (bimonthly && !item.nextDueMonthText) {
+      setError(`Elige en qué mes llega el próximo recibo de "${item.name}".`);
+      return;
+    }
     if (item.nature === ConceptNature.Variable && monthlyBudget != null && monthlyBudget < 0) {
       setError("El límite mensual no puede ser negativo.");
       return;
@@ -97,6 +133,8 @@ export default function ExpensePlanningManager() {
         monthlyBudget: item.nature === ConceptNature.Variable ? monthlyBudget : null,
         dayOfMonth: item.nature === ConceptNature.Fixed ? dayOfMonth : null,
         accountId: item.accountId,
+        frequency: item.nature === ConceptNature.Fixed ? item.frequency : null,
+        firstDueMonth: bimonthly ? `${item.nextDueMonthText}-01` : null,
       });
       setItems((current) => ({
         ...current,
@@ -147,7 +185,7 @@ export default function ExpensePlanningManager() {
               {activeKind === ConceptKind.Income ? "Planifica lo que esperas ingresar" : "Tú decides qué entra en la previsión"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Los fijos se repiten cada mes con una cuenta y fecha.
+              Los fijos se repiten cada mes (o cada 2 meses) con una cuenta y fecha.
               En los variables, indica {activeKind === ConceptKind.Income
                 ? "una estimación prudente"
                 : "el máximo que quieres gastar y la cuenta desde la que saldrá"}.
@@ -175,13 +213,16 @@ export default function ExpensePlanningManager() {
               const item = items[original.conceptId];
               if (!item) return null;
               const fixed = item.nature === ConceptNature.Fixed;
+              const bimonthly = fixed && item.frequency === "bimonthly";
               return (
-                <div key={item.conceptId} className="grid gap-3 p-4 lg:grid-cols-[minmax(180px,1fr)_140px_minmax(130px,0.7fr)_100px_minmax(150px,0.8fr)_auto] lg:items-end">
+                <div key={item.conceptId} className="grid gap-3 p-4 lg:grid-cols-[minmax(170px,1fr)_170px_minmax(120px,0.7fr)_90px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_auto] lg:items-end">
                   <div>
                     <div className="text-sm font-medium">{item.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       {fixed
-                        ? "Se repetirá automáticamente cada mes."
+                        ? bimonthly
+                          ? "Se repetirá automáticamente cada 2 meses."
+                          : "Se repetirá automáticamente cada mes."
                         : activeKind === ConceptKind.Income
                           ? "Estimación mensual opcional para la proyección."
                           : "La previsión reservará como máximo este límite."}
@@ -189,17 +230,27 @@ export default function ExpensePlanningManager() {
                   </div>
                   <Field label="Tipo">
                     <select
-                      value={item.nature}
-                      onChange={(event) => updateItem(item.conceptId, {
-                        nature: event.target.value as ConceptNature,
-                      })}
+                      value={planOption(item)}
+                      onChange={(event) => {
+                        const option = event.target.value as PlanOption;
+                        updateItem(item.conceptId, option === "variable"
+                          ? { nature: ConceptNature.Variable }
+                          : {
+                              nature: ConceptNature.Fixed,
+                              frequency: option === "fixed-bimonthly" ? "bimonthly" : "monthly",
+                              nextDueMonthText: item.nextDueMonthText || upcomingMonths()[0],
+                            });
+                      }}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                     >
-                      <option value={ConceptNature.Fixed}>Fijo</option>
-                      <option value={ConceptNature.Variable}>Variable</option>
+                      <option value="fixed-monthly">Fijo (cada mes)</option>
+                      <option value="fixed-bimonthly">Fijo (cada 2 meses)</option>
+                      <option value="variable">Variable</option>
                     </select>
                   </Field>
-                  <Field label={fixed ? "Importe mensual" : activeKind === ConceptKind.Income ? "Estimación mensual" : "Límite mensual"}>
+                  <Field label={fixed
+                    ? bimonthly ? "Importe de cada recibo" : "Importe mensual"
+                    : activeKind === ConceptKind.Income ? "Estimación mensual" : "Límite mensual"}>
                     <Input
                       type="number"
                       min="0"
@@ -220,6 +271,20 @@ export default function ExpensePlanningManager() {
                       value={item.dayOfMonthText}
                       onChange={(event) => updateItem(item.conceptId, { dayOfMonthText: event.target.value })}
                     />
+                  </Field>
+                  <Field label="Próximo recibo">
+                    <select
+                      value={bimonthly ? item.nextDueMonthText : ""}
+                      disabled={!bimonthly}
+                      onChange={(event) => updateItem(item.conceptId, { nextDueMonthText: event.target.value })}
+                      className="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50"
+                    >
+                      {bimonthly
+                        ? monthChoices(item.nextDueMonthText).map((month) => (
+                            <option key={month.value} value={month.value}>{month.label}</option>
+                          ))
+                        : <option value="">{fixed ? "Todos los meses" : "—"}</option>}
+                    </select>
                   </Field>
                   <Field label="Cuenta">
                     <select
