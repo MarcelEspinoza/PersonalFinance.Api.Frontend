@@ -608,7 +608,14 @@ export function ImportsPage() {
                     }).join(" · ");
                     return (
                       <tr key={row.id} className="border-t">
-                        <td className="whitespace-nowrap px-3 py-2">{row.valueDate}</td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          {row.valueDate}
+                          {row.settledDate && row.settledDate !== row.valueDate && (
+                            <div className="text-xs text-muted-foreground" title="El gasto cuenta en el mes de la compra; el saldo baja el día que el banco lo cobra.">
+                              cobrado {row.settledDate}
+                            </div>
+                          )}
+                        </td>
                         <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
                         <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
                         <td className="px-3 py-2">

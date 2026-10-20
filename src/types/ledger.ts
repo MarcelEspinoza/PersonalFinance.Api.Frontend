@@ -198,6 +198,8 @@ export interface ImportRow {
   id: string;
   rowNumber: number;
   valueDate: CivilDate;
+  /** Día en que el banco cobró/abonó el movimiento (mueve el saldo). */
+  settledDate?: CivilDate | null;
   amount: number;
   currency?: string | null;
   rawDescription: string;
