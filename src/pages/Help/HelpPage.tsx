@@ -177,8 +177,8 @@ const TRANSFERS: GlossaryItem[] = [
 const BALANCE_CHECKS: { title: string; body: string }[] = [
   { title: "¿El extracto empieza el día 1?", body: "Si empieza más tarde, faltan movimientos. Descárgalo otra vez desde el día 1." },
   {
-    title: "¿Hay movimientos pendientes en el banco?",
-    body: "Lo que el banco todavía no ha completado puede hacer que los números no coincidan. Compara con el «Saldo» del último movimiento completado.",
+    title: "¿Hay pagos pendientes en el banco?",
+    body: "La app los cuenta como pagados porque el banco ya apartó ese dinero, pero el «Saldo» del extracto todavía no los resta. Para comparar a mano, al «Saldo» del último movimiento completado réstale esos pagos. Si el banco anula alguno, bórralo también aquí.",
   },
   { title: "¿Hay un movimiento repetido?", body: "Por ejemplo, el mismo pago apuntado dos veces." },
   { title: "¿Sobra un apunte manual?", body: "Algo que apuntaste a mano y que ahora también vino en el extracto." },
