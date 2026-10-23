@@ -50,7 +50,10 @@ export function ScrollButtons() {
   // z-30: above page content and sticky headers, but below page overlays such as z-40 action
   // sheets, dialogs and the chat bubble (z-50), so the buttons never cover their content.
   return (
-    <div className="pointer-events-none fixed bottom-20 right-6 z-30 flex flex-col gap-2 print:hidden">
+    <div
+      className="pointer-events-none fixed bottom-20 z-30 flex flex-col gap-2 transition-[right] duration-300 ease-out print:hidden"
+      style={{ right: 'calc(1.5rem + var(--right-panel-offset))' }}
+    >
       {showUp && (
         <button
           type="button"

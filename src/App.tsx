@@ -11,6 +11,7 @@ import { MonthlyView } from './pages/Monthly/MonthlyView';
 import { LedgerMonthPage } from './pages/Ledger/LedgerMonthPage';
 import { PasanacoPage } from './pages/pasanaco/PasanacoPage';
 import { SettlementsPage } from './pages/Settlements/SettlementsPage';
+import { RemindersPage } from './pages/Reminders/RemindersPage';
 import SettingsPage from './pages/SettinggPage/SettingsPage';
 import { ImportsPage } from './pages/Imports/ImportsPage';
 import { AssistantPage } from './pages/Assistant/AssistantPage';
@@ -92,6 +93,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><SettlementsPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/reminders"
+        element={
+          <PrivateRoute>
+            <Layout><RemindersPage /></Layout>
           </PrivateRoute>
         }
       />

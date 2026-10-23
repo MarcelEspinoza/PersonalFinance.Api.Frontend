@@ -26,6 +26,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
 import { MonthOutlookPanel } from "../../components/Dashboard/MonthOutlookPanel";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
+import { UpcomingRemindersCard } from "../../components/Reminders/UpcomingRemindersCard";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
@@ -175,6 +176,8 @@ export function Dashboard() {
           ))}
         </div>
       )}
+
+      <UpcomingRemindersCard />
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
         <Card data-tour="dashboard-balance" className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card">

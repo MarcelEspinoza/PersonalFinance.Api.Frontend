@@ -15,7 +15,10 @@ export function ChatBubble() {
   const chat = useGlobalChat();
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div
+      className="fixed bottom-5 z-50 transition-[right] duration-300 ease-out"
+      style={{ right: "calc(1.25rem + var(--right-panel-offset))" }}
+    >
       {open && (
         <div className="mb-3 flex h-[28rem] w-[22rem] flex-col overflow-hidden rounded-lg border bg-card shadow-lg">
           <div className="flex items-center justify-between border-b p-3">

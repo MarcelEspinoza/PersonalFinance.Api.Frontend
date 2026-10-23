@@ -6,6 +6,8 @@
  * interpretaría en UTC y restaría un día según la zona horaria.
  */
 
+import type { ReminderRepeat } from "./reminder";
+
 export type CivilDate = string;
 
 /**
@@ -211,6 +213,29 @@ export interface ImportRow {
   confirmedConceptId?: string | null;
   suggestionSource?: string | null;
   allocations: ImportRowAllocation[];
+  /** Planned entry this row will be deducted from when the batch is applied. */
+  plannedEntryId?: string | null;
+}
+
+/**
+ * Open planned entry ("previsto") near the batch dates that rows can be deducted from.
+ * forecastAmount is always positive; the sign comes from `direction`.
+ */
+export interface PlannedCandidate {
+  id: string;
+  conceptId: string | null;
+  conceptName: string | null;
+  direction: EntryDirection;
+  dueDate: CivilDate;
+  forecastAmount: number;
+  accountId: string | null;
+  accountName: string | null;
+  description: string | null;
+  /** Sum of this batch's rows already linked to it. */
+  linkedAmount: number;
+  /** forecastAmount - linkedAmount; negative when the linked rows exceed the forecast. */
+  remainingAfterLinks: number;
+  linkedRowIds: string[];
 }
 
 export interface ImportRowAllocation {
@@ -267,7 +292,14 @@ export interface ImportChatMessage {
   content: string;
 }
 
-export type ImportChatActionType = "set_row_concept" | "create_concept";
+export type ImportChatActionType =
+  | "set_row_concept"
+  | "create_concept"
+  | "link_planned"
+  | "unlink_planned"
+  | "skip_planned"
+  | "update_planned"
+  | "create_reminder";
 
 /** Cambio que propone el asistente; no se aplica hasta que el usuario lo confirma. */
 export interface ImportChatProposedAction {
@@ -284,6 +316,18 @@ export interface ImportChatProposedAction {
   nature?: ConceptNature | null;
   /** Si es true, se recuerda para próximas importaciones de esta cuenta. */
   saveForFuture: boolean;
+  /** link_planned, skip_planned and update_planned: the planned entry involved. */
+  plannedEntryId?: string | null;
+  plannedEntryName?: string | null;
+  /** update_planned: new forecast amount. create_reminder: optional amount. */
+  amount?: number | null;
+  /** update_planned: new due date. create_reminder: reminder date. */
+  dueDate?: CivilDate | null;
+  /** create_reminder fields. */
+  title?: string | null;
+  repeat?: ReminderRepeat | null;
+  notifyDaysBefore?: number | null;
+  notes?: string | null;
 }
 
 export interface ImportChatResponse {

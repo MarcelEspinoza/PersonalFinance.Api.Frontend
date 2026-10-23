@@ -13,8 +13,10 @@ import type {
   ImportChatResponse,
   SplitImportRowInput,
   ImportReview,
+  ImportRow,
   MonthlyEntry,
   MonthlySummary,
+  PlannedCandidate,
   SeedChartOfAccountsResult,
   UpdateAccountInput,
   UpdateLedgerEntryPayload,
@@ -223,6 +225,17 @@ export const LedgerService = {
       `/imports/${batchId}/apply`,
     );
     return data;
+  },
+
+  /** Open planned entries near the batch dates that its rows can be deducted from. */
+  getPlannedCandidates: async (batchId: string): Promise<PlannedCandidate[]> => {
+    const { data } = await apiClient.get<PlannedCandidate[]>(`/imports/${batchId}/planned-candidates`);
+    return data;
+  },
+
+  /** Links a row to a planned entry (null unlinks it). The response body is ignored: reload the review. */
+  setRowPlannedEntry: async (batchId: string, rowId: string, plannedEntryId: string | null): Promise<void> => {
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-entry`, { plannedEntryId });
   },
 
   chatImport: async (

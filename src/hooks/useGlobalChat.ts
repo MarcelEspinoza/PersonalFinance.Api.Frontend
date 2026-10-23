@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { chatErrorMessage, chatService } from "../services/chatService";
+import { notifyRemindersChanged } from "../services/reminderService";
 import type { ChatMessage, ProposedAction } from "../types/chat";
 
 export interface DisplayMessage extends ChatMessage {
@@ -53,6 +54,8 @@ export function useGlobalChat() {
     setActionBusy(key);
     try {
       await chatService.confirmAction(action);
+      // The backend creates it; refresh the bell and any open reminders list.
+      if (action.type === "create_reminder") notifyRemindersChanged();
       setMessages((current) =>
         current.map((m, i) => {
           if (i !== messageIndex) return m;

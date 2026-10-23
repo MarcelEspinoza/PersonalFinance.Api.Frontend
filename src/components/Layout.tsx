@@ -1,4 +1,5 @@
 import {
+  Bell,
   ClipboardList,
   Coins,
   HandCoins,
@@ -20,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { ChatBubble } from './Chat/ChatBubble';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
+import { ReminderBell } from './Reminders/ReminderBell';
 import { ScrollButtons } from './ScrollButtons';
 import { HelpMenu } from './Tour/HelpMenu';
 
@@ -35,6 +37,7 @@ const navItems = [
   { path: 'loans', activePaths: ['loans'], label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
   { path: 'pasanaco', activePaths: ['pasanaco'], label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
   { path: 'settlements', activePaths: ['settlements'], label: 'Liquidaciones', icon: HandCoins, activeClass: 'bg-teal-600 text-white' },
+  { path: 'reminders', activePaths: ['reminders'], label: 'Recordatorios', icon: Bell, activeClass: 'bg-rose-600 text-white' },
   { path: 'assistant', activePaths: ['assistant'], label: 'Asistente', icon: MessageCircle, activeClass: 'bg-fuchsia-600 text-white' },
   { path: 'settings', activePaths: ['settings'], label: 'Configuración', icon: Settings, activeClass: 'bg-slate-700 text-white' },
   { path: 'ayuda', activePaths: ['ayuda'], label: 'Cómo usar la app', icon: Info, activeClass: 'bg-violet-600 text-white' },
@@ -104,6 +107,9 @@ export function Layout({ children }: LayoutProps) {
             <HelpMenu align="left" />
           </div>
         </div>
+        <div className="border-b px-3 py-2">
+          <ReminderBell variant="sidebar" />
+        </div>
         <div className="flex-1 overflow-y-auto py-4">
           <NavLinks />
         </div>
@@ -127,6 +133,7 @@ export function Layout({ children }: LayoutProps) {
           <span className="font-semibold tracking-tight">Mi Finanzas</span>
         </div>
         <div className="flex items-center gap-1">
+          <ReminderBell variant="topbar" />
           <HelpMenu compact align="right" />
           <button
             data-tour="mobile-menu-button"

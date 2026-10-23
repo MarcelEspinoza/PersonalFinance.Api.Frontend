@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ArrowUpDown,
+  Bell,
   CalendarClock,
   CalendarDays,
   ChevronDown,
@@ -194,6 +195,64 @@ const ASSISTANT_EXAMPLES = [
   "¿Qué me queda por pagar este mes?",
   "¿Cuánto tengo en la Hucha?",
   "¿Por qué no cuadra el saldo?",
+];
+
+const REMINDER_TOPICS: GlossaryItem[] = [
+  {
+    term: "La campanita",
+    meaning:
+      "Cuando se acerca la fecha, el recordatorio aparece en la campanita. En pantallas grandes está arriba del menú de la izquierda («Avisos»); en el teléfono, en la barra de arriba. El número rojo te dice cuántos tienes pendientes. Desde ahí lo marcas como «Hecho» o pides que te lo recuerde «Mañana».",
+  },
+  {
+    term: "Cuándo avisa",
+    meaning:
+      "Tú eliges cuántos días antes empieza a avisarte (de 0 a 30; 0 es el mismo día). En la lista verás «Pronto» cuando ya empezó el aviso, «Hoy» el mismo día y «Vencido» si la fecha pasó y todavía no está hecho.",
+  },
+  {
+    term: "El correo",
+    meaning:
+      "Si dejas marcado «Enviar también por correo», además del aviso en la app te llega un correo electrónico. En la lista lo reconoces por el icono del sobre.",
+  },
+  {
+    term: "Repetir",
+    meaning:
+      "Elige «Una vez», «Cada semana», «Cada mes» o «Cada año». Si se repite, al pulsar «Hecho» pasa solo a la siguiente fecha y la app te dice cuál es. Si es de una vez, pasa a «Hechos».",
+  },
+  {
+    term: "Posponer",
+    meaning:
+      "¿Todavía no puedes hacerlo? Pulsa «Posponer» y elige 1, 3 o 7 días (en la campanita, «Mañana»). La fecha no cambia: solo deja de avisarte esos días.",
+  },
+  {
+    term: "Con la IA",
+    meaning:
+      "El asistente también puede proponerte recordatorios. Escríbele, por ejemplo, «recuérdame pagar el seguro de la casa el 30 de septiembre». Te muestra la propuesta y solo se crea cuando tú pulsas «Confirmar». En la lista salen con la etiqueta «IA».",
+  },
+];
+
+const IMPORT_NEWS: GlossaryItem[] = [
+  {
+    term: "El asistente, al costado",
+    meaning:
+      "Al pulsar «Asistente», el chat se abre al costado de la pantalla y ya no tapa los movimientos. Puedes seguir revisando la lista mientras le escribes.",
+  },
+  {
+    term: "Botón «Preguntar al asistente»",
+    meaning:
+      "Durante la revisión, cada movimiento, cada aviso y cada comercio tienen un botón con el icono de un globo de chat. Lo pulsas y se abre el asistente con la pregunta ya escrita sobre ese movimiento, aviso o comercio; puedes cambiarla antes de enviarla.",
+  },
+  {
+    term: "Descontar de un previsto",
+    meaning:
+      "Sirve cuando varios pagos salen de un mismo previsto. En cada pago usa «Descontar de un previsto» y elige el previsto. Al aplicar el lote, los pagos se restan de él: si entre todos llegan a lo previsto o lo superan, el previsto se cierra; si no, queda pendiente lo que falta.",
+    example:
+      "Tienes el previsto «Viajes y alojamiento» de 600 € y en el extracto vienen el hotel (250 €) y el vuelo (200 €). Los descuentas de «Viajes y alojamiento» y quedan 150 € pendientes. Si después pagas un tren de 180 €, ya superas los 600 € y el previsto se cierra.",
+  },
+  {
+    term: "Con la IA",
+    meaning:
+      "El asistente de la importación también puede proponerte estos cambios. Por ejemplo: «descuenta estos pagos del previsto de Viajes». Te muestra la propuesta y no cambia nada hasta que tú la confirmas.",
+  },
 ];
 
 function SectionTitle({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle?: string }) {
@@ -429,14 +488,14 @@ function HelpPageContent() {
           />
         </Foldable>
 
-        <Foldable icon={Pencil} title="Notas y renombrar conceptos" subtitle="Apuntar un recordatorio o cambiar un nombre.">
+        <Foldable icon={Pencil} title="Notas y renombrar conceptos" subtitle="Dejar una nota en un apunte o cambiar un nombre.">
           <div className="space-y-2">
             <p className="font-semibold">Poner una nota a un apunte</p>
             <Steps
               items={[
                 "Ve a «Mes».",
                 "En el apunte, pulsa el lápiz («Editar»).",
-                "Escribe tu recordatorio en «Nota».",
+                "Escribe lo que quieras recordar en «Nota».",
                 "Pulsa «Guardar».",
               ]}
             />
@@ -464,8 +523,8 @@ function HelpPageContent() {
             menú.
           </p>
           <p>
-            Puede consultar toda tu información y preparar cambios en movimientos, categorías, presupuestos, préstamos, Pasanaco e
-            importaciones. <strong>No cambia nada hasta que tú lo confirmas.</strong>
+            Puede consultar toda tu información, preparar cambios en movimientos, categorías, presupuestos, préstamos, Pasanaco e
+            importaciones, y crear recordatorios. <strong>No cambia nada hasta que tú lo confirmas.</strong>
           </p>
           <div className="space-y-1.5">
             <p className="font-semibold">Puedes preguntarle, por ejemplo:</p>
@@ -481,6 +540,27 @@ function HelpPageContent() {
             En «Importar / Exportar» hay otro asistente, solo para la importación que estás revisando (botón «Asistente»). Por ejemplo: «pon
             Mercadona en Alimentación» o «¿qué significa el aviso del agua?».
           </p>
+        </Foldable>
+
+        <Foldable icon={Bell} title="Recordatorios" subtitle="Para que no se te pase ningún pago ni ninguna fecha importante.">
+          <p>
+            Un recordatorio es un aviso con fecha: «pagar el seguro de la casa», «renovar el pasaporte», «cobrarle a Ana». Puede llevar un
+            importe y notas. Los creas en «Recordatorios», en el menú, con el botón «Nuevo recordatorio». En el Dashboard también ves los
+            que tocan en los próximos 7 días.
+          </p>
+          <TermList items={REMINDER_TOPICS} />
+          <Example>
+            «Pagar el seguro de la casa», el 30/09, 350 €, cada año y con aviso 7 días antes: desde el 23/09 aparece en la campanita. Cuando
+            lo pagas y pulsas «Hecho», pasa al 30/09 del año siguiente.
+          </Example>
+        </Foldable>
+
+        <Foldable
+          icon={Upload}
+          title="Novedades en «Importar / Exportar»"
+          subtitle="El asistente ya no tapa tus movimientos y puedes descontar pagos de un previsto."
+        >
+          <TermList items={IMPORT_NEWS} />
         </Foldable>
       </div>
     </div>

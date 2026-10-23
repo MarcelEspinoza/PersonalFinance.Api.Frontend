@@ -1,3 +1,5 @@
+import type { ReminderRepeat } from "./reminder";
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -16,7 +18,8 @@ export interface ProposedAction {
     | "complete_pasanaco"
     | "reopen_pasanaco"
     | "classify_import_group"
-    | "apply_import";
+    | "apply_import"
+    | "create_reminder";
   summary: string;
   amount: number;
   description: string;
@@ -32,6 +35,9 @@ export interface ProposedAction {
   conceptId?: string | null;
   accountId?: string | null;
   normalizedDescription?: string | null;
+  /** create_reminder: `name` is the title, `date` the due date, `amount` (0 = none) and `notes`. */
+  repeat?: ReminderRepeat | null;
+  notifyDaysBefore?: number | null;
 }
 
 export interface ChatResponse {

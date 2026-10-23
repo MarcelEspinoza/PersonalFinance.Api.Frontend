@@ -1,19 +1,59 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, FileSearch, FileSpreadsheet, Info, Layers3, List, Loader2, MessageCircle, Plus, Send, ShieldCheck, Upload, X } from "lucide-react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bell,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  FileSearch,
+  FileSpreadsheet,
+  Info,
+  Layers3,
+  List,
+  Loader2,
+  MessageCircle,
+  MinusCircle,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Tags,
+  Undo2,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { ImportAssistantPanel } from "../../components/Imports/ImportAssistantPanel";
+import { PlannedEntryPickerDialog } from "../../components/Imports/PlannedEntryPickerDialog";
+import {
+  directionForAmount,
+  formatAmount,
+  formatCivilDate,
+  normalizeReminderRepeat,
+  plannedEntryLabel,
+  remainingIncludingRows,
+  remainingText,
+  truncateText,
+} from "../../components/Imports/importAssistantUtils";
+import { cn } from "../../lib/utils";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
+import { ReminderService } from "../../services/reminderService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
 import type {
   Account,
   ChartGroup,
   ImportBatchResult,
+  ImportChatActionType,
   ImportChatMessage,
   ImportChatProposedAction,
+  ImportFinding,
   ImportReview,
   ImportRow,
+  PlannedCandidate,
+  UpdateLedgerEntryPayload,
 } from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
@@ -26,16 +66,13 @@ const findingStyle: Record<string, { box: string; icon: ReactNode }> = {
 };
 
 const explainReviewPrompt =
-  "Explícame la revisión automática de este extracto: qué significa cada aviso y qué tengo que hacer antes de aplicar.";
+  "Explícame la revisión con este formato: En resumen (1–2 líneas), Qué hacer (máximo 5 pasos numerados) y Detalle (una línea por aviso). Sé breve.";
 
 const conceptKindLabel = (kind: string) => {
   if (kind.toLowerCase() === "income") return "Ingreso";
   if (kind.toLowerCase() === "transfer") return "Traspaso";
   return "Gasto";
 };
-
-const formatAmount = (amount: number, currency?: string | null) =>
-  !currency || currency.toUpperCase() === "EUR" ? money(amount) : `${amount.toFixed(2)} ${currency}`;
 
 const createdBatchMessage = (result: ImportBatchResult) => {
   const confirmed = result.confirmedPendingRows ?? 0;
@@ -71,6 +108,46 @@ const toChatHistory = (entries: ImportChatEntry[]): ImportChatMessage[] =>
     return { role, content: notes.length > 0 ? `${content}\n${notes.join("\n")}` : content };
   });
 
+const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
+  set_row_concept: Tags,
+  create_concept: Plus,
+  link_planned: CalendarClock,
+  unlink_planned: Undo2,
+  skip_planned: MinusCircle,
+  update_planned: Pencil,
+  create_reminder: Bell,
+};
+
+/** "open"/"minimized" only differ on small screens, where the panel is a bottom sheet. */
+type AssistantView = "closed" | "open" | "minimized";
+
+/** Loads the review together with the planned entries its rows can be deducted from. */
+const fetchReviewData = async (
+  batchId: string,
+  withCandidates = true,
+): Promise<{ review: ImportReview; candidates: PlannedCandidate[] }> => {
+  const [review, candidates] = await Promise.all([
+    LedgerService.getImportReview(batchId),
+    // Optional data: without candidates the page just hides the planned-entry options.
+    withCandidates ? LedgerService.getPlannedCandidates(batchId).catch((): PlannedCandidate[] => []) : [],
+  ]);
+  return { review, candidates: review.status === "Applied" ? [] : candidates };
+};
+
+const rowQuestion = (row: ImportRow) =>
+  `Sobre el movimiento del ${formatCivilDate(row.valueDate)} «${truncateText(row.rawDescription, 60)}» de ${formatAmount(row.amount, row.currency)}: `;
+
+const findingQuestion = (finding: ImportFinding) => {
+  const detail = truncateText(finding.detail ?? "", 160);
+  return `Sobre el aviso «${finding.title}»${detail ? ` (${detail})` : ""}: `;
+};
+
+const groupQuestion = (description: string, count: number, total: number) =>
+  `Sobre el comercio «${truncateText(description, 60)}» (${count === 1 ? "1 movimiento" : `${count} movimientos`}, total ${money(total)}): `;
+
+/** Days in advance a proposed reminder starts notifying (1 when the assistant doesn't say). */
+const reminderNoticeDays = (action: ImportChatProposedAction) => Math.max(0, Math.round(action.notifyDaysBefore ?? 1));
+
 export function ImportsPage() {
   const importProgress = useImportProgress();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -87,7 +164,11 @@ export function ImportsPage() {
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [activeFlow, setActiveFlow] = useState<"revolut" | "templates">("revolut");
   const [reviewMode, setReviewMode] = useState<"groups" | "unassigned" | "rows">("groups");
-  const [showImportAssistant, setShowImportAssistant] = useState(false);
+  const [assistantView, setAssistantView] = useState<AssistantView>("closed");
+  const [plannedCandidates, setPlannedCandidates] = useState<PlannedCandidate[]>([]);
+  const [plannedPickerRow, setPlannedPickerRow] = useState<ImportRow | null>(null);
+  const [plannedPickerSaving, setPlannedPickerSaving] = useState(false);
+  const [plannedPickerError, setPlannedPickerError] = useState<string | null>(null);
   const [conceptRow, setConceptRow] = useState<ImportRow | null>(null);
   const [conceptGroups, setConceptGroups] = useState<ChartGroup[]>([]);
   const [newConceptName, setNewConceptName] = useState("");
@@ -120,15 +201,22 @@ export function ImportsPage() {
     void loadAccounts();
   }, []);
 
+  const reloadReview = async (batchId: string, withCandidates = true) => {
+    const data = await fetchReviewData(batchId, withCandidates);
+    setReview(data.review);
+    setPlannedCandidates(data.candidates);
+  };
+
   useEffect(() => {
     const result = importProgress.result;
     if (importProgress.status !== "completed" || !result || review) return;
 
     let active = true;
-    void LedgerService.getImportReview(result.id)
-      .then((loadedReview) => {
+    void fetchReviewData(result.id)
+      .then((data) => {
         if (!active) return;
-        setReview(loadedReview);
+        setReview(data.review);
+        setPlannedCandidates(data.candidates);
         setMessage(createdBatchMessage(result));
       })
       .catch((err) => {
@@ -182,7 +270,7 @@ export function ImportsPage() {
     setMessage(null);
     try {
       const result = await importProgress.startImport(accountId, file);
-      setReview(await LedgerService.getImportReview(result.id));
+      await reloadReview(result.id);
       setMessage(createdBatchMessage(result));
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido importar el CSV."));
@@ -212,7 +300,7 @@ export function ImportsPage() {
     setError(null);
     try {
       await LedgerService.selectImportConcept(review.id, row.id, conceptId || null);
-      setReview(await LedgerService.getImportReview(review.id));
+      await reloadReview(review.id);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido guardar el concepto."));
     } finally {
@@ -259,7 +347,7 @@ export function ImportsPage() {
         nature: newConceptNature,
         saveForFuture: saveConceptRule,
       });
-      setReview(await LedgerService.getImportReview(review.id));
+      await reloadReview(review.id);
       setConceptRow(null);
       setMessage(
         saveConceptRule
@@ -307,7 +395,7 @@ export function ImportsPage() {
     setError(null);
     try {
       await LedgerService.splitImportRow(review.id, splitRow.id, { allocations });
-      setReview(await LedgerService.getImportReview(review.id));
+      await reloadReview(review.id);
       setSplitRow(null);
       setMessage("Movimiento dividido en partes y conceptos separados.");
     } catch (err) {
@@ -327,7 +415,7 @@ export function ImportsPage() {
         normalizedDescription,
         conceptId || null,
       );
-      setReview(await LedgerService.getImportReview(review.id));
+      await reloadReview(review.id);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido clasificar el grupo."));
     } finally {
@@ -337,7 +425,14 @@ export function ImportsPage() {
 
   const apply = async () => {
     if (!review) return;
-    if (!window.confirm("¿Aplicar las filas con concepto al libro contable?")) return;
+    const linkedRows = review.rows.filter((row) => row.plannedEntryId).length;
+    const linkedText =
+      linkedRows === 0
+        ? ""
+        : linkedRows === 1
+          ? " 1 movimiento se descontará de su previsto."
+          : ` ${linkedRows} movimientos se descontarán de sus previstos.`;
+    if (!window.confirm(`¿Aplicar las filas con concepto al libro contable?${linkedText}`)) return;
 
     setBusy(true);
     setError(null);
@@ -346,7 +441,8 @@ export function ImportsPage() {
       setMessage(
         `Importación aplicada: ${result.applied} movimientos; ${result.matchedForecasts} previsiones actualizadas.`,
       );
-      setReview(await LedgerService.getImportReview(review.id));
+      // Applied batches have no planned candidates (the endpoint rejects them).
+      await reloadReview(review.id, false);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido aplicar el lote."));
     } finally {
@@ -363,7 +459,7 @@ export function ImportsPage() {
       await LedgerService.seedChartOfAccounts();
       await LedgerService.seedImportMappings();
       const result = await LedgerService.suggestImport(review.id);
-      setReview(await LedgerService.getImportReview(review.id));
+      await reloadReview(review.id);
       setReviewMode(result.remaining > 0 ? "unassigned" : "groups");
       setMessage(
         `Clasificación automática: ${result.mapped} por reglas específicas, ${result.suggested} por IA, ${result.fallback} por reglas generales y ${result.remaining} pendientes.${result.aiWarning ? ` IA: ${result.aiWarning}` : ""}`,
@@ -377,9 +473,12 @@ export function ImportsPage() {
 
   const resetImport = () => {
     setReview(null);
+    setPlannedCandidates([]);
+    setPlannedPickerRow(null);
     setFile(null);
     setChatMessages([]);
     setChatInput("");
+    setAssistantView("closed");
     setReviewMode("groups");
     importProgress.clearImport();
     setMessage(null);
@@ -409,11 +508,12 @@ export function ImportsPage() {
   const [chatMessages, setChatMessages] = useState<ImportChatEntry[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  const expandAssistant = useCallback(() => setAssistantView("open"), []);
+  const minimizeAssistant = useCallback(() => setAssistantView("minimized"), []);
+  const closeAssistant = useCallback(() => setAssistantView("closed"), []);
+  const toggleAssistant = () => setAssistantView((view) => (view === "open" ? "closed" : "open"));
 
   const askAssistant = async (text: string) => {
     if (!text || !review) return;
@@ -429,7 +529,7 @@ export function ImportsPage() {
       }));
       setChatMessages((current) => [...current, { role: "assistant", content: result.reply, actions }]);
       if (result.appliedChanges > 0) {
-        setReview(await LedgerService.getImportReview(review.id));
+        await reloadReview(review.id);
       }
     } catch (err) {
       setChatMessages((current) => [
@@ -441,17 +541,89 @@ export function ImportsPage() {
     }
   };
 
-  const sendChat = async (event: FormEvent) => {
-    event.preventDefault();
+  const sendChat = () => {
     const text = chatInput.trim();
-    if (!text || !review) return;
+    if (!text || !review || chatBusy || review.status === "Applied") return;
     setChatInput("");
-    await askAssistant(text);
+    void askAssistant(text);
   };
 
   const explainReview = () => {
-    setShowImportAssistant(true);
+    setAssistantView("open");
     void askAssistant(explainReviewPrompt);
+  };
+
+  /** Opens the assistant with a question about something on screen, without sending it. */
+  const askAbout = (question: string) => {
+    setAssistantView("open");
+    setChatInput(question);
+    // Wait for the panel to mount before focusing its input.
+    window.setTimeout(() => {
+      const input = chatInputRef.current;
+      if (!input) return;
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 0);
+  };
+
+  const openPlannedPicker = (row: ImportRow) => {
+    setPlannedPickerError(null);
+    setPlannedPickerRow(row);
+  };
+
+  const closePlannedPicker = () => {
+    if (plannedPickerSaving) return;
+    setPlannedPickerRow(null);
+    setPlannedPickerError(null);
+  };
+
+  const savePlannedLink = async (plannedEntryId: string | null) => {
+    if (!review || !plannedPickerRow) return;
+    const batchId = review.id;
+    setPlannedPickerSaving(true);
+    setPlannedPickerError(null);
+    try {
+      await LedgerService.setRowPlannedEntry(batchId, plannedPickerRow.id, plannedEntryId);
+    } catch (err) {
+      setPlannedPickerError(
+        ledgerErrorMessage(
+          err,
+          plannedEntryId ? "No se ha podido vincular el movimiento al previsto." : "No se ha podido quitar el vínculo.",
+        ),
+      );
+      setPlannedPickerSaving(false);
+      return;
+    }
+    setPlannedPickerRow(null);
+    try {
+      await reloadReview(batchId);
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido recargar la revisión."));
+    } finally {
+      setPlannedPickerSaving(false);
+    }
+  };
+
+  const pickPlannedEntry = (candidate: PlannedCandidate) => {
+    if (candidate.id === plannedPickerRow?.plannedEntryId) {
+      closePlannedPicker();
+      return;
+    }
+    void savePlannedLink(candidate.id);
+  };
+
+  const unlinkPlanned = async (row: ImportRow) => {
+    if (!review) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.setRowPlannedEntry(review.id, row.id, null);
+      await reloadReview(review.id);
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido quitar el vínculo con el previsto."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const setChatActionState = (entryIndex: number, actionIndex: number, state: ChatActionState, error?: string) =>
@@ -469,30 +641,87 @@ export function ImportsPage() {
     );
 
   const executeChatAction = async (batchId: string, action: ImportChatProposedAction) => {
-    if (action.type === "create_concept") {
-      const [firstRowId, ...otherRowIds] = action.rowIds;
-      if (!firstRowId || !action.groupId || !action.name) {
-        throw new ChatActionError("La propuesta está incompleta.");
+    const rowIds = action.rowIds ?? [];
+    switch (action.type) {
+      case "create_concept": {
+        const [firstRowId, ...otherRowIds] = rowIds;
+        if (!firstRowId || !action.groupId || !action.name) {
+          throw new ChatActionError("La propuesta está incompleta.");
+        }
+        const created = await LedgerService.createImportConcept(batchId, firstRowId, {
+          groupId: action.groupId,
+          name: action.name,
+          nature: action.nature ?? ConceptNature.Variable,
+          saveForFuture: action.saveForFuture,
+        });
+        const newConceptId = created.confirmedConceptId;
+        if (otherRowIds.length > 0 && !newConceptId) {
+          throw new ChatActionError("Se creó la categoría, pero no se pudo asignar al resto de movimientos.");
+        }
+        for (const rowId of otherRowIds) {
+          await LedgerService.selectImportConcept(batchId, rowId, newConceptId ?? null, action.saveForFuture);
+        }
+        return;
       }
-      const created = await LedgerService.createImportConcept(batchId, firstRowId, {
-        groupId: action.groupId,
-        name: action.name,
-        nature: action.nature ?? ConceptNature.Variable,
-        saveForFuture: action.saveForFuture,
-      });
-      const newConceptId = created.confirmedConceptId;
-      if (otherRowIds.length > 0 && !newConceptId) {
-        throw new ChatActionError("Se creó la categoría, pero no se pudo asignar al resto de movimientos.");
+      case "set_row_concept": {
+        if (!action.conceptId) throw new ChatActionError("La propuesta no indica la categoría.");
+        for (const rowId of rowIds) {
+          await LedgerService.selectImportConcept(batchId, rowId, action.conceptId, action.saveForFuture);
+        }
+        return;
       }
-      for (const rowId of otherRowIds) {
-        await LedgerService.selectImportConcept(batchId, rowId, newConceptId ?? null, action.saveForFuture);
+      case "link_planned": {
+        if (!action.plannedEntryId || rowIds.length === 0) {
+          throw new ChatActionError("La propuesta no indica el previsto o los movimientos.");
+        }
+        for (const rowId of rowIds) {
+          await LedgerService.setRowPlannedEntry(batchId, rowId, action.plannedEntryId);
+        }
+        return;
       }
-      return;
-    }
-
-    if (!action.conceptId) throw new ChatActionError("La propuesta no indica la categoría.");
-    for (const rowId of action.rowIds) {
-      await LedgerService.selectImportConcept(batchId, rowId, action.conceptId, action.saveForFuture);
+      case "unlink_planned": {
+        if (rowIds.length === 0) throw new ChatActionError("La propuesta no indica los movimientos.");
+        for (const rowId of rowIds) {
+          await LedgerService.setRowPlannedEntry(batchId, rowId, null);
+        }
+        return;
+      }
+      case "skip_planned": {
+        if (!action.plannedEntryId) throw new ChatActionError("La propuesta no indica el previsto.");
+        await LedgerService.skipEntry(action.plannedEntryId);
+        return;
+      }
+      case "update_planned": {
+        if (!action.plannedEntryId) throw new ChatActionError("La propuesta no indica el previsto.");
+        // PUT /ledger-entries/{id} is a partial update: omitted fields keep their current value.
+        const payload: UpdateLedgerEntryPayload = {};
+        if (action.amount != null) payload.forecastAmount = Math.abs(action.amount);
+        if (action.dueDate) payload.dueDate = action.dueDate;
+        if (payload.forecastAmount == null && payload.dueDate == null) {
+          throw new ChatActionError("La propuesta no indica el nuevo importe ni la nueva fecha.");
+        }
+        await LedgerService.updateEntry(action.plannedEntryId, payload);
+        return;
+      }
+      case "create_reminder": {
+        const title = action.title?.trim();
+        if (!title || !action.dueDate) {
+          throw new ChatActionError("La propuesta no indica el título o la fecha del recordatorio.");
+        }
+        await ReminderService.create({
+          title,
+          dueDate: action.dueDate,
+          amount: action.amount ?? null,
+          repeat: normalizeReminderRepeat(action.repeat),
+          notifyDaysBefore: reminderNoticeDays(action),
+          emailEnabled: true,
+          notes: action.notes ?? null,
+          source: "ai",
+        });
+        return;
+      }
+      default:
+        throw new ChatActionError("Este tipo de cambio no está disponible.");
     }
   };
 
@@ -514,7 +743,7 @@ export function ImportsPage() {
       }
     }
     try {
-      setReview(await LedgerService.getImportReview(batchId));
+      await reloadReview(batchId);
     } catch (err) {
       setError(ledgerErrorMessage(err, "No se ha podido recargar la revisión."));
     }
@@ -567,6 +796,74 @@ export function ImportsPage() {
     () => new Map((review?.concepts ?? []).map((concept) => [concept.id, concept.name] as const)),
     [review],
   );
+  const plannedById = useMemo(
+    () => new Map(plannedCandidates.map((candidate) => [candidate.id, candidate] as const)),
+    [plannedCandidates],
+  );
+  const plannedDirections = useMemo(
+    () => new Set(plannedCandidates.map((candidate) => candidate.direction)),
+    [plannedCandidates],
+  );
+
+  const plannedNameFor = (plannedEntryId: string | null | undefined) => {
+    const candidate = plannedEntryId ? plannedById.get(plannedEntryId) : undefined;
+    return candidate ? plannedEntryLabel(candidate) : null;
+  };
+
+  /** Context the server summary doesn't include: remaining amounts, current links, email notice. */
+  const chatActionDetails = (action: ImportChatAction, rows: ImportRow[]): string[] => {
+    const planned = action.plannedEntryId ? plannedById.get(action.plannedEntryId) : undefined;
+    const futureNote = action.saveForFuture ? "Se recordará para próximas importaciones." : null;
+    const actionable = action.state === "pending" || action.state === "failed";
+    const lines: Array<string | null> = [];
+
+    switch (action.type) {
+      case "create_concept":
+        lines.push(`Nueva categoría «${action.name ?? ""}»${action.groupName ? ` en ${action.groupName}` : ""}`, futureNote);
+        break;
+      case "set_row_concept":
+        lines.push(`Categoría: ${action.conceptName ?? conceptNameById.get(action.conceptId ?? "") ?? "—"}`, futureNote);
+        break;
+      case "link_planned":
+        if (planned && actionable) {
+          lines.push(
+            `Vence el ${formatCivilDate(planned.dueDate)} · ahora ${remainingText(planned.remainingAfterLinks)}; después, ${remainingText(remainingIncludingRows(planned, rows))}`,
+          );
+        }
+        break;
+      case "unlink_planned": {
+        const names = Array.from(
+          new Set(rows.map((row) => plannedNameFor(row.plannedEntryId)).filter((name): name is string => Boolean(name))),
+        );
+        if (names.length > 0) {
+          lines.push(`Ahora se descuenta${rows.length === 1 ? "" : "n"} de ${names.map((name) => `«${name}»`).join(", ")}.`);
+        }
+        break;
+      }
+      case "skip_planned": {
+        const linked = planned?.linkedRowIds.length ?? 0;
+        if (linked > 0) {
+          lines.push(
+            `Ojo: ${linked === 1 ? "1 movimiento de este extracto se descuenta" : `${linked} movimientos de este extracto se descuentan`} de este previsto.`,
+          );
+        }
+        break;
+      }
+      case "update_planned":
+        if (planned && action.amount != null && planned.linkedAmount > 0) {
+          lines.push(
+            `Con el nuevo importe y lo ya descontado de este extracto, ${remainingText(Math.abs(action.amount) - planned.linkedAmount)}.`,
+          );
+        }
+        break;
+      case "create_reminder": {
+        const notes = action.notes?.trim();
+        lines.push("El aviso también llegará por correo.", notes ? `Notas: ${notes}` : null);
+        break;
+      }
+    }
+    return lines.filter((line): line is string => Boolean(line));
+  };
 
   const renderChatActions = (entry: ImportChatEntry, entryIndex: number) => {
     const actions = entry.actions ?? [];
@@ -580,22 +877,28 @@ export function ImportsPage() {
           Te propongo estos cambios. No se aplica nada hasta que pulses «Confirmar».
         </p>
         {actions.map((action, actionIndex) => {
-          const rows = action.rowIds
+          const rows = (action.rowIds ?? [])
             .map((rowId) => rowsById.get(rowId))
             .filter((row): row is ImportRow => Boolean(row));
-          const target =
-            action.type === "create_concept"
-              ? `Nueva categoría «${action.name ?? ""}»${action.groupName ? ` en ${action.groupName}` : ""}`
-              : `Categoría: ${action.conceptName ?? conceptNameById.get(action.conceptId ?? "") ?? "—"}`;
+          const ActionIcon = chatActionIcons[action.type] ?? Info;
+          const details = chatActionDetails(action, rows);
           return (
             <div key={actionIndex} className="rounded-md border bg-background p-3">
-              <p className="font-medium">{action.summary}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {target}
-                {action.saveForFuture ? " · se recordará para próximas importaciones" : ""}
-              </p>
+              <div className="flex items-start gap-2">
+                <ActionIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <p className="min-w-0 flex-1 whitespace-pre-wrap break-words font-medium">{action.summary}</p>
+              </div>
+              {details.length > 0 && (
+                <div className="mt-1 space-y-0.5 pl-6 text-xs text-muted-foreground">
+                  {details.map((line, lineIndex) => (
+                    <p key={lineIndex} className="break-words">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              )}
               {rows.length > 0 && (
-                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <ul className="mt-1 space-y-0.5 pl-6 text-xs text-muted-foreground">
                   {rows.slice(0, 3).map((row) => (
                     <li key={row.id} className="truncate">
                       {shortDate(row.valueDate)} · {row.rawDescription} · {money(row.amount)}
@@ -604,7 +907,7 @@ export function ImportsPage() {
                   {rows.length > 3 && <li>y {rows.length - 3} movimientos más</li>}
                 </ul>
               )}
-              <div className="mt-2 flex items-center gap-2 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-2 pl-6 text-xs">
                 {(action.state === "pending" || action.state === "failed") && (
                   <>
                     <Button
@@ -637,7 +940,7 @@ export function ImportsPage() {
                 {action.state === "dismissed" && <span className="text-muted-foreground">Descartado</span>}
               </div>
               {action.state === "failed" && action.error && (
-                <p className="mt-1 text-xs text-destructive">{action.error}</p>
+                <p className="mt-1 pl-6 text-xs text-destructive">{action.error}</p>
               )}
             </div>
           );
@@ -656,7 +959,14 @@ export function ImportsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className={cn(
+        "lg:flex lg:items-start lg:gap-4",
+        review && assistantView === "open" && "pb-[65vh] lg:pb-0",
+        review && assistantView === "minimized" && "pb-16 lg:pb-0",
+      )}
+    >
+    <div className="min-w-0 space-y-4 lg:flex-1">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Importar / Exportar</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -734,8 +1044,16 @@ export function ImportsPage() {
               <p className="text-sm text-muted-foreground">{review.rows.length} filas · estado: {review.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" data-tour="import-assistant" onClick={() => setShowImportAssistant(true)} disabled={review.rows.length === 0}>
-                <MessageCircle className="h-4 w-4" /> Asistente
+              <Button
+                type="button"
+                variant="outline"
+                data-tour="import-assistant"
+                aria-pressed={assistantView === "open"}
+                className={cn(assistantView === "open" && "bg-accent text-accent-foreground")}
+                onClick={toggleAssistant}
+                disabled={review.rows.length === 0}
+              >
+                <MessageCircle className="h-4 w-4" /> {assistantView === "open" ? "Ocultar asistente" : "Asistente"}
               </Button>
               <Button type="button" variant="outline" onClick={() => void discardImport()} disabled={busy}>
                 {review.status === "Applied" ? "Nueva importación" : "Cancelar y elegir otro"}
@@ -781,7 +1099,7 @@ export function ImportsPage() {
                   return (
                     <li key={index} className={`flex gap-2 rounded-md border p-3 text-sm ${style.box}`}>
                       {style.icon}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium">{finding.title}</p>
                         <p className="text-muted-foreground">{finding.detail}</p>
                         {listRows && finding.rowNumbers.length > 0 && (
@@ -796,6 +1114,19 @@ export function ImportsPage() {
                           </ul>
                         )}
                       </div>
+                      {finding.severity !== "ok" && review.status !== "Applied" && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="-my-1 h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                          title="Preguntar al asistente por este aviso"
+                          aria-label="Preguntar al asistente por este aviso"
+                          onClick={() => askAbout(findingQuestion(finding))}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                      )}
                     </li>
                   );
                 })}
@@ -846,8 +1177,29 @@ export function ImportsPage() {
                   {importGroups.map((group) => (
                     <tr key={group.normalizedDescription} className="border-t">
                       <td className="px-4 py-2">
-                        <div className="line-clamp-2 break-words font-medium leading-snug" title={group.rows[0]?.rawDescription}>{group.rows[0]?.rawDescription}</div>
-                        {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground" title={group.normalizedDescription}>{group.normalizedDescription}</div>}
+                        <div className="flex items-start gap-1">
+                          <div className="min-w-0 flex-1">
+                            <div className="line-clamp-2 break-words font-medium leading-snug" title={group.rows[0]?.rawDescription}>{group.rows[0]?.rawDescription}</div>
+                            {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground" title={group.normalizedDescription}>{group.normalizedDescription}</div>}
+                          </div>
+                          {review.status !== "Applied" && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                              title="Preguntar al asistente por este comercio"
+                              aria-label="Preguntar al asistente por este comercio"
+                              onClick={() =>
+                                askAbout(
+                                  groupQuestion(group.rows[0]?.rawDescription ?? group.normalizedDescription, group.count, group.total),
+                                )
+                              }
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right font-medium tabular-nums">{group.count}</td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${group.total < 0 ? "text-negative" : "text-positive"}`}>{money(group.total)}</td>
@@ -881,6 +1233,14 @@ export function ImportsPage() {
                       const conceptName = review.concepts.find((concept) => concept.id === part.conceptId)?.name ?? "Concepto";
                       return `${conceptName}: ${part.amount.toFixed(2)}`;
                     }).join(" · ");
+                    const reviewOpen = review.status !== "Applied";
+                    const linkedPlannedName = plannedNameFor(row.plannedEntryId);
+                    const linkedPlannedText = linkedPlannedName ? `«${linkedPlannedName}»` : "un previsto";
+                    const canLinkPlanned =
+                      reviewOpen &&
+                      row.status === "Pending" &&
+                      !row.plannedEntryId &&
+                      plannedDirections.has(directionForAmount(row.amount));
                     return (
                       <tr key={row.id} className="border-t">
                         <td className="whitespace-nowrap px-3 py-2">
@@ -896,18 +1256,80 @@ export function ImportsPage() {
                         </td>
                         <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{formatAmount(row.amount, row.currency)}</td>
                         <td className="px-3 py-2">
-                          {splitSummary ? (
-                            <span className="text-xs font-medium text-primary">{splitSummary}</span>
-                          ) : (
-                            <select data-tour="import-concept" className="h-8 min-w-52 max-w-xs rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
-                              <option value="">Sin concepto (revisar)</option>
-                              {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
-                            </select>
-                          )}
+                          <div className="flex flex-col items-start gap-1">
+                            {splitSummary ? (
+                              <span className="text-xs font-medium text-primary">{splitSummary}</span>
+                            ) : (
+                              <select data-tour="import-concept" className="h-8 min-w-52 max-w-xs rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                                <option value="">Sin concepto (revisar)</option>
+                                {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
+                              </select>
+                            )}
+                            {row.plannedEntryId ? (
+                              <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
+                                <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                {reviewOpen ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="min-w-0 truncate text-left hover:underline disabled:opacity-50"
+                                      title="Cambiar el previsto del que se descuenta"
+                                      disabled={busy}
+                                      onClick={() => openPlannedPicker(row)}
+                                    >
+                                      Descuenta de {linkedPlannedText}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="shrink-0 rounded-full p-0.5 hover:bg-primary/15 disabled:opacity-50"
+                                      title="Quitar el vínculo con el previsto"
+                                      aria-label="Quitar el vínculo con el previsto"
+                                      disabled={busy}
+                                      onClick={() => void unlinkPlanned(row)}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="min-w-0 truncate pr-1">Descontado de {linkedPlannedText}</span>
+                                )}
+                              </div>
+                            ) : canLinkPlanned && splitSummary ? (
+                              <span className="inline-flex cursor-not-allowed" title="Este movimiento está dividido">
+                                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled>
+                                  <CalendarClock className="h-3.5 w-3.5" /> Descontar de un previsto…
+                                </Button>
+                              </span>
+                            ) : canLinkPlanned ? (
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs"
+                                disabled={busy}
+                                onClick={() => openPlannedPicker(row)}
+                              >
+                                <CalendarClock className="h-3.5 w-3.5" /> Descontar de un previsto…
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1 whitespace-nowrap">
+                            {reviewOpen && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                                title="Preguntar al asistente por este movimiento"
+                                aria-label="Preguntar al asistente por este movimiento"
+                                onClick={() => askAbout(rowQuestion(row))}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               type="button"
                               variant="outline"
@@ -938,53 +1360,15 @@ export function ImportsPage() {
         </div>
       )}
 
-      <Dialog open={showImportAssistant} onOpenChange={setShowImportAssistant}>
-        <DialogContent className="flex h-[75vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b p-5">
-            <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-primary" /> Asistente de importación
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 space-y-3 overflow-auto p-5">
-            {chatMessages.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Pídeme cosas como «pon Mercadona en Alimentación», «crea una categoría Gimnasio para estos pagos» o «¿por qué no cuadra el saldo?». Yo te propongo los cambios y tú decides si los confirmas.
-              </p>
-            )}
-            {chatMessages.map((entry, index) => (
-              <div
-                key={index}
-                className={`rounded-lg px-3 py-2 text-sm ${
-                  entry.role === "user"
-                    ? "ml-12 bg-primary/10 text-foreground"
-                    : "mr-12 bg-muted text-foreground"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{entry.content}</p>
-                {renderChatActions(entry, index)}
-              </div>
-            ))}
-            {chatBusy && (
-              <div className="mr-12 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Pensando…
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-          <form onSubmit={(e) => void sendChat(e)} className="flex gap-2 border-t p-4">
-            <input
-              className="h-10 flex-1 rounded-md border bg-background px-3 text-sm"
-              placeholder="Escribe un mensaje…"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              disabled={chatBusy || review?.status === "Applied"}
-            />
-            <Button type="submit" size="icon" disabled={chatBusy || !chatInput.trim() || review?.status === "Applied"}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <PlannedEntryPickerDialog
+        row={plannedPickerRow}
+        candidates={plannedCandidates}
+        saving={plannedPickerSaving}
+        error={plannedPickerError}
+        onPick={pickPlannedEntry}
+        onUnlink={() => void savePlannedLink(null)}
+        onClose={closePlannedPicker}
+      />
 
       <Dialog open={splitRow !== null} onOpenChange={(open) => !open && setSplitRow(null)}>
         <DialogContent className="max-w-xl">
@@ -1171,6 +1555,27 @@ export function ImportsPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+
+      {review && assistantView !== "closed" && (
+        <ImportAssistantPanel
+          messages={chatMessages}
+          busy={chatBusy}
+          disabled={review.status === "Applied"}
+          input={chatInput}
+          onInputChange={setChatInput}
+          onSend={sendChat}
+          renderMessageExtras={(index: number) => {
+            const entry = chatMessages[index];
+            return entry ? renderChatActions(entry, index) : null;
+          }}
+          inputRef={chatInputRef}
+          minimized={assistantView === "minimized"}
+          onMinimize={minimizeAssistant}
+          onExpand={expandAssistant}
+          onClose={closeAssistant}
+        />
+      )}
     </div>
   );
 }

@@ -94,6 +94,7 @@ export const TOURS: TourDefinition[] = [
           "• «Préstamos»: lo que debes y lo que te deben.\n" +
           "• «Pasanaco»: los turnos y pagos de tu pasanaco.\n" +
           "• «Liquidaciones»: marcas qué gastos son de mamá o de Vane y les mandas el resumen por WhatsApp.\n" +
+          "• «Recordatorios»: avisos con fecha para que no se te pase ningún pago; te los muestra la campanita.\n" +
           "• «Asistente»: el asistente de la app, en pantalla grande.\n" +
           "• «Cómo usar la app»: la guía, con todo explicado con calma.",
       },
