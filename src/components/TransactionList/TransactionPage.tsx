@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { Button } from "../ui/button";
@@ -63,6 +63,7 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
 
   const pageSize = 25;
   const [page, setPage] = useState(1);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
 
   // debounce input
   useEffect(() => {
@@ -224,6 +225,11 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const visibleItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 });
+  }, [items, safePage]);
+
   const monthTotal = allRaw.reduce((sum, item) => sum + Number(item.amount ?? item.Amount ?? 0), 0);
   const monthAverage = allRaw.length > 0 ? monthTotal / allRaw.length : 0;
   const yearOptions = Array.from({ length: 15 }, (_, index) => now.getFullYear() + 2 - index);
@@ -355,7 +361,7 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
 
   return (
     <div className={compact ? "pb-8" : "py-8"}>
-      <div className="mx-auto max-w-[1800px] space-y-6 px-4 sm:px-6">
+      <div className={compact ? "space-y-4" : "mx-auto max-w-[1800px] space-y-6 px-4 sm:px-6"}>
         <PageHeader
           title={compact ? (mode === "income" ? "Ingresos" : "Gastos") : "Gestión de " + (mode === "income" ? "Ingresos" : "Gastos")}
           actions={
@@ -429,8 +435,8 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="space-y-2 rounded-xl border bg-card p-3 shadow-sm">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <Input
               type="text"
               placeholder="Buscar por descripción, categoría, banco, referencia, importe..."
@@ -447,18 +453,20 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
               <input type="date" value={endDateFilter ?? ""} onChange={(e) => setEndDateFilter(e.target.value || null)} className="h-9 rounded-md border bg-background px-3 text-sm" />
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {items.length} {mode === "income" ? "ingresos" : "gastos"} en {monthLabel(selectedYear, selectedMonth)}
             {items.length !== allRaw.length ? ` · ${allRaw.length} antes de aplicar filtros` : ""}
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
           {loading ? (
             <div className="p-10 text-center text-muted-foreground">Cargando {mode === "income" ? "ingresos" : "gastos"}...</div>
           ) : (
             <>
-              <TransactionList mode={mode} transactions={visibleItems} onEdit={handleEdit} onDelete={handleDelete} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} onSelectAll={handleSelectAll} allSelected={allSelected} sortBy={sortBy} sortDir={sortDir} onRequestSort={requestSort} highlight={debouncedSearch} />
+              <div ref={listScrollRef} className="max-h-[calc(100vh-16rem)] min-h-[16rem] overflow-auto">
+                <TransactionList mode={mode} transactions={visibleItems} onEdit={handleEdit} onDelete={handleDelete} selectedIds={selectedIds} onToggleSelect={handleToggleSelect} onSelectAll={handleSelectAll} allSelected={allSelected} sortBy={sortBy} sortDir={sortDir} onRequestSort={requestSort} highlight={debouncedSearch} />
+              </div>
               {items.length > pageSize && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
                   <div className="text-sm text-muted-foreground">

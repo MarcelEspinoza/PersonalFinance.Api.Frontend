@@ -2,6 +2,7 @@ import { Check, HandCoins, MinusCircle, Pencil, RotateCcw, Trash2, Undo2 } from 
 import { Button } from "../ui/button";
 import { EntryStatus, type MonthlyEntry } from "../../types/ledger";
 import { money, shortDate } from "../../utils/civilDate";
+import { LEDGER_LG_CELL, LEDGER_XL_CELL } from "./ledgerColumns";
 
 const STATUS_STYLES: Record<EntryStatus, { label: string; className: string }> = {
   [EntryStatus.Planned]: {
@@ -52,25 +53,40 @@ export function EntryRow({
   const skipped = entry.status === EntryStatus.Skipped;
   const confirmed = entry.status === EntryStatus.Paid;
   const disabled = locked || busy;
+  const description = entry.description || "(sin descripción)";
+  const date = shortDate(entry.valueDate ?? entry.dueDate);
 
   return (
     <tr className={`border-t border-border/60 text-sm transition-colors hover:bg-accent/40 ${skipped ? "opacity-55" : ""}`}>
-      <td className="py-3 pl-10 pr-3">
-        <div className="flex items-center gap-2">
-          <span className={skipped ? "line-through" : ""}>
-            {entry.description || "(sin descripción)"}
+      <td className="py-2 pl-8 pr-2 sm:pl-10 sm:pr-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`truncate ${skipped ? "line-through" : ""}`} title={description}>
+            {description}
           </span>
           {entry.fromRecurringRule && (
             <span
-              className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
               title="Generado por una regla recurrente"
             >
               auto
             </span>
           )}
         </div>
+        {/* Data from the columns hidden on narrower screens (see ledgerColumns). */}
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground xl:hidden">
+          {date && <span className="whitespace-nowrap lg:hidden">{date}</span>}
+          <span
+            data-tour="entry-status"
+            className={`whitespace-nowrap rounded-full px-1.5 py-px text-[11px] font-medium lg:hidden ${status.className}`}
+          >
+            {status.label}
+          </span>
+          <span className="tabular-nums">Previsto {money(entry.forecastAmount)}</span>
+        </div>
         {entry.accountName && (
-          <p className="text-xs text-muted-foreground">{entry.accountName}</p>
+          <p className="truncate text-xs text-muted-foreground" title={entry.accountName}>
+            {entry.accountName}
+          </p>
         )}
         {entry.notes && (
           <p className="line-clamp-2 max-w-md text-xs italic text-muted-foreground" title={entry.notes}>
@@ -79,30 +95,30 @@ export function EntryRow({
         )}
       </td>
 
-      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">
-        {shortDate(entry.valueDate ?? entry.dueDate)}
+      <td className={`${LEDGER_LG_CELL} whitespace-nowrap px-2 py-2 text-muted-foreground`}>
+        {date}
       </td>
 
-      <td className="px-3 py-3">
+      <td className={`${LEDGER_LG_CELL} whitespace-nowrap px-2 py-2`}>
         <span data-tour="entry-status" className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
           {status.label}
         </span>
       </td>
 
-      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
+      <td className={`${LEDGER_XL_CELL} whitespace-nowrap px-3 py-2 text-right tabular-nums text-muted-foreground`}>
         {money(entry.forecastAmount)}
       </td>
 
-      <td className="px-3 py-3 text-right font-medium tabular-nums">
+      <td className="whitespace-nowrap px-2 py-2 text-right font-medium tabular-nums sm:px-3">
         {confirmed ? money(entry.actualAmount) : <span className="text-muted-foreground">—</span>}
       </td>
 
-      <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
+      <td className={`${LEDGER_XL_CELL} whitespace-nowrap px-3 py-2 text-right tabular-nums text-muted-foreground`}>
         {skipped ? "—" : money(entry.remaining)}
       </td>
 
-      <td className="px-3 py-3">
-        <div className="flex items-center justify-end gap-0.5">
+      <td className="py-2 pl-1 pr-2">
+        <div className="flex flex-wrap items-center justify-end gap-0.5">
           {!skipped && !confirmed && (
             <Button
               variant="ghost"

@@ -258,14 +258,14 @@ export default function LoansPage() {
                       key={loan.id}
                       type="button"
                       onClick={() => setSelectedLoanId(loan.id)}
-                      className={`block w-full p-5 text-left transition-colors ${selectedLoanId === loan.id ? "bg-primary/[0.06]" : "hover:bg-muted/60"}`}
+                      className={`block w-full p-4 text-left transition-colors ${selectedLoanId === loan.id ? "bg-primary/[0.06]" : "hover:bg-muted/60"}`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 gap-3">
                           <div className="rounded-lg bg-secondary p-2 text-secondary-foreground"><TypeIcon className="h-4 w-4" /></div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate font-semibold">{loan.name}</span>
+                              <span className="truncate font-semibold" title={loan.name}>{loan.name}</span>
                               <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${loan.status === "paid" ? "bg-positive-soft text-positive" : loan.status === "cancelled" ? "bg-muted text-muted-foreground" : loan.status === "overdue" ? "bg-negative-soft text-negative" : "bg-warning-soft text-warning"}`}>
                                 {loan.status === "paid" ? "Saldado" : loan.status === "cancelled" ? "Cancelado" : loan.status === "overdue" ? "Vencido" : "Activo"}
                               </span>
@@ -275,12 +275,12 @@ export default function LoansPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold">{money(loan.outstandingAmount)}</div>
-                          <div className="text-xs text-muted-foreground">de {money(loan.principalAmount)}</div>
+                        <div className="shrink-0 text-right">
+                          <div className="whitespace-nowrap font-semibold tabular-nums">{money(loan.outstandingAmount)}</div>
+                          <div className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">de {money(loan.principalAmount)}</div>
                         </div>
                       </div>
-                      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${paidPercentage}%` }} />
                       </div>
                       <div className="mt-2 flex justify-between text-xs text-muted-foreground">
@@ -337,12 +337,12 @@ export default function LoansPage() {
                   {payments.length === 0 ? (
                     <div className="py-12 text-center text-sm text-muted-foreground">Todavía no hay pagos registrados.</div>
                   ) : payments.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between gap-4 p-4">
-                      <div>
+                    <div key={payment.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2 text-sm"><Calendar className="h-4 w-4 text-muted-foreground" />{new Date(payment.paymentDate).toLocaleDateString("es-ES")}</div>
-                        {payment.notes && <p className="mt-1 text-xs text-muted-foreground">{payment.notes}</p>}
+                        {payment.notes && <p className="mt-1 truncate text-xs text-muted-foreground" title={payment.notes}>{payment.notes}</p>}
                       </div>
-                      <div className="flex items-center gap-2 font-semibold text-positive"><HandCoins className="h-4 w-4" />{money(payment.amount)}</div>
+                      <div className="flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold tabular-nums text-positive"><HandCoins className="h-4 w-4" />{money(payment.amount)}</div>
                     </div>
                   ))}
                 </div>

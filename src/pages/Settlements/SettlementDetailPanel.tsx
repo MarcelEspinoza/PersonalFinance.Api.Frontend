@@ -278,7 +278,7 @@ export function SettlementDetailPanel({
                   <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
                     {lines.map((line) => (
                       <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700" title={line.description}>
                           {line.description}
                           {line.fullAmount != null && (
                             <span className="ml-1 text-xs text-slate-400">
@@ -286,7 +286,7 @@ export function SettlementDetailPanel({
                             </span>
                           )}
                         </span>
-                        <span className="text-sm font-medium text-slate-800">{euro(line.amount)}</span>
+                        <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-slate-800">{euro(line.amount)}</span>
                         {editable && (
                           <button
                             type="button"
@@ -515,13 +515,13 @@ function CandidateList({
           {pending.map((c) => (
             <li key={c.ledgerEntryId} className="flex flex-wrap items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-slate-700">{c.description}</p>
+                <p className="truncate text-sm text-slate-700" title={c.description}>{c.description}</p>
                 <p className="text-xs text-slate-400">
                   {day(c.date)} · {c.conceptName}
                 </p>
               </div>
               <span
-                className={`text-sm font-medium ${
+                className={`whitespace-nowrap text-sm font-medium tabular-nums ${
                   c.direction === 'In' ? 'text-emerald-600' : 'text-slate-800'
                 }`}
               >

@@ -77,19 +77,21 @@ export function CommitmentsPage() {
 
                 {items.map((c) => (
                   <tr key={c.commitmentId} className="border-t transition-colors hover:bg-muted/60">
-                    <td className="px-5 py-4 font-medium text-foreground">
-                      {c.name}
+                    <td className="px-5 py-3 font-medium text-foreground">
+                      <span className="block max-w-xs truncate" title={c.name}>
+                        {c.name}
+                      </span>
                     </td>
 
-                    <td className="px-5 py-4 text-right tabular-nums">
+                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums">
                       {c.expectedAmount.toFixed(2)} €
                     </td>
 
-                    <td className="px-5 py-4 text-right tabular-nums">
+                    <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums">
                       {c.actualAmount.toFixed(2)} €
                     </td>
 
-                    <td className="px-5 py-4 text-center">
+                    <td className="px-5 py-3 text-center">
                       {renderStatus(c)}
                     </td>
                   </tr>

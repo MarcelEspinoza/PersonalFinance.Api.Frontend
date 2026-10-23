@@ -229,8 +229,8 @@ export function ImportModal({ show, onClose, userId }: Props) {
                         {pending.map((p, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? "bg-card" : "bg-muted/60"}>
                             <td className="px-3 py-2 align-top break-words max-w-[220px]">{p.description ?? "-"}</td>
-                            <td className="px-3 py-2 align-top">{p.amount ?? "-"}</td>
-                            <td className="px-3 py-2 align-top">{p.date ?? "-"}</td>
+                            <td className="px-3 py-2 align-top whitespace-nowrap tabular-nums">{p.amount ?? "-"}</td>
+                            <td className="px-3 py-2 align-top whitespace-nowrap">{p.date ?? "-"}</td>
                             <td className="px-3 py-2 align-top">
                               {p.category ?? p.categoryId ?? "-"}
                             </td>

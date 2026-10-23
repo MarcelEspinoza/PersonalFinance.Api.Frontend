@@ -368,7 +368,7 @@ function ItemList({ items }: { items: OutlookItem[] }) {
       {items.map((item, index) => (
         <div key={`${item.dueDate}-${item.description}-${index}`} className="flex items-center justify-between gap-4 px-5 py-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{item.description}</p>
+            <p className="truncate text-sm font-medium" title={item.description}>{item.description}</p>
             <p className={`text-xs ${item.isOverdue ? "font-medium text-negative" : "text-muted-foreground"}`}>
               {shortDate(item.dueDate)} · {item.accountName ?? "Sin cuenta asignada"}
               {item.isOverdue ? " · vencido" : ""}
@@ -376,7 +376,7 @@ function ItemList({ items }: { items: OutlookItem[] }) {
               {item.isVariableReserve ? " · reserva estimada" : ""}
             </p>
           </div>
-          <span className={`shrink-0 text-sm font-semibold tabular-nums ${
+          <span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${
             item.direction === EntryDirection.In ? "text-positive" : "text-negative"
           }`}>
             {item.direction === EntryDirection.In ? "+" : "-"}{money(item.amount)}

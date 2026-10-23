@@ -10,6 +10,9 @@ export const adminService = {
   addRole: (id: string, role: string) => apiClient.post(`/admin/users/${id}/roles`, { role }),
   removeRole: (id: string, role: string) => apiClient.delete(`/admin/users/${id}/roles/${encodeURIComponent(role)}`),
 
+  // Aprobar una cuenta nueva (pasa de "Invited" a "User")
+  approveUser: (id: string) => apiClient.post(`/admin/users/${id}/approve`),
+
   // Lista de roles disponibles en el sistema
   getAllRoles: () => apiClient.get("/admin/roles"),
 

@@ -1,5 +1,6 @@
 import { ArrowUpDown, ChevronDown, ChevronUp, Edit2, MoreVertical, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { money } from "../../utils/civilDate";
 
 interface Transaction {
   id: number;
@@ -134,7 +135,7 @@ export function TransactionList({
         <thead className="bg-muted">
           <tr>
             {/* SELECT ALL in header; counter BELOW the checkbox to avoid layout shift */}
-            <th className="px-4 py-3 text-left w-12">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-12">
               <div className="flex flex-col items-start">
                 <input
                   type="checkbox"
@@ -148,51 +149,52 @@ export function TransactionList({
               </div>
             </th>
 
-            <th className="px-4 py-3 text-left min-w-[300px]">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left min-w-[300px]">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("description")}>
                 Descripción <SortIcon active={sortBy === "description"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-left w-36">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-36">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("bank")}>
                 Banco <SortIcon active={sortBy === "bank"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-left w-44">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-44">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("counterparty")}>
                 Banco destino <SortIcon active={sortBy === "counterparty"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-left w-36">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-36">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("date")}>
                 Fecha <SortIcon active={sortBy === "date"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-left w-40">Categoría</th>
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-40">Categoría</th>
 
-            <th className="px-4 py-3 text-left w-28">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-left w-28">
               <button className="flex items-center gap-2" onClick={() => onRequestSort("type")}>
                 Tipo <SortIcon active={sortBy === "type"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 text-right w-28 pr-12">
+            <th className="sticky top-0 z-20 bg-muted px-4 py-3 text-right w-28 pr-12">
               <button className="flex items-center gap-2 ml-auto" onClick={() => onRequestSort("amount")}>
                 Imp <SortIcon active={sortBy === "amount"} dir={sortDir} />
               </button>
             </th>
 
-            <th className="px-4 py-3 w-16 sticky right-0 bg-card border-l shadow-sm"></th>
+            <th className="sticky top-0 right-0 z-30 w-16 border-l bg-muted px-4 py-3 shadow-sm"></th>
           </tr>
         </thead>
 
         <tbody className="bg-card divide-y">
           {transactions.map((tx) => {
             const isOpen = openRowId === tx.id;
+            const originBank = resolveOriginBankLabel(tx);
 
             return (
               <tr key={tx.id} className="hover:bg-muted relative">
@@ -215,6 +217,7 @@ export function TransactionList({
                 >
                   <div
                     className="font-medium leading-snug text-foreground"
+                    title={tx.description}
                     style={{
                       display: "-webkit-box",
                       WebkitLineClamp: 2,
@@ -244,38 +247,41 @@ export function TransactionList({
 
                 {/* Banco origen: prefer bankMap[bankId], else tx.bankName, else id */}
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-muted-foreground truncate max-w-[140px]">
-                    {resolveOriginBankLabel(tx)}
+                  <div className="text-sm text-muted-foreground truncate max-w-[140px]" title={originBank}>
+                    {originBank}
                   </div>
                 </td>
 
                 <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <div className="text-sm text-muted-foreground truncate max-w-[160px]">
+                  <div className="text-sm text-muted-foreground truncate max-w-[160px]" title={tx.counterpartyBankName}>
                     <Highlight text={tx.counterpartyBankName} term={highlight} />
                   </div>
                 </td>
 
-                <td className="px-4 py-3 align-top transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top whitespace-nowrap transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <div className="text-sm text-muted-foreground">
                     {tx.date ? new Date(tx.date).toLocaleDateString("es-ES") : "-"}
                   </div>
                 </td>
 
                 <td className="px-4 py-3 align-top text-sm text-muted-foreground transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
-                  <Highlight text={tx.category} term={highlight} />
+                  <div className="truncate max-w-[160px]" title={tx.category}>
+                    <Highlight text={tx.category} term={highlight} />
+                  </div>
                 </td>
 
                 <td className="px-4 py-3 align-top text-sm text-muted-foreground transition-transform duration-200" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <Highlight text={tx.type} term={highlight} />
                 </td>
 
-                <td className="px-4 py-3 align-top text-right font-bold transition-transform duration-200 pr-12" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
+                <td className="px-4 py-3 align-top text-right font-bold tabular-nums whitespace-nowrap transition-transform duration-200 pr-12" style={{ transform: isOpen && !isMobile ? "translateX(-300px)" : "translateX(0)" }}>
                   <span className={`${tx.amount >= 0 ? "text-positive" : "text-negative"} whitespace-nowrap`}>
-                    {tx.amount.toFixed(2)}{'\u00A0€'}
+                    {money(tx.amount)}
                   </span>
                 </td>
 
-                <td className="px-4 py-3 align-top text-right relative sticky right-0 bg-card border-l shadow-sm">
+                {/* z-10 only from md: on mobile a stacking context here would trap the fixed action sheet below later rows. */}
+                <td className="px-4 py-3 align-top text-right relative sticky right-0 md:z-10 bg-card border-l shadow-sm">
                   <button
                     data-more-btn
                     onClick={(e) => {

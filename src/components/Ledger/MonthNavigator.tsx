@@ -29,7 +29,7 @@ export function MonthNavigator({
   const closed = status === PeriodStatus.Closed;
 
   return (
-    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-3 shadow-sm sm:p-4">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-3 shadow-sm sm:p-4">
       <div data-tour="month-nav" className="flex items-center gap-1.5">
         <Button variant="outline" size="icon" onClick={onPrevious} disabled={busy} aria-label="Mes anterior">
           <ChevronLeft />

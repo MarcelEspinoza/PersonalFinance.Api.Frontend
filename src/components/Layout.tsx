@@ -14,12 +14,13 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { ChatBubble } from './Chat/ChatBubble';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
+import { ScrollButtons } from './ScrollButtons';
 import { HelpMenu } from './Tour/HelpMenu';
 
 interface LayoutProps {
@@ -39,6 +40,9 @@ const navItems = [
   { path: 'ayuda', activePaths: ['ayuda'], label: 'Cómo usar la app', icon: Info, activeClass: 'bg-violet-600 text-white' },
 ];
 
+// Screens with wide tables get extra room; the rest keep a readable width.
+const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly'];
+
 export function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -46,6 +50,10 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
 
   const currentPath = location.pathname.replace('/', '') || 'dashboard';
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -147,11 +155,13 @@ export function Layout({ children }: LayoutProps) {
         </div>
       )}
 
-      <main className="flex-1 overflow-x-hidden">
-        <div className={`mx-auto px-4 py-8 sm:px-6 lg:px-8 ${currentPath === 'imports' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
+      {/* overflow-x-clip (not hidden) so main doesn't become a scroll container and sticky headers keep working. */}
+      <main className="min-w-0 flex-1 overflow-x-clip">
+        <div className={`mx-auto px-4 py-5 sm:px-6 lg:px-8 ${wideContentPaths.includes(currentPath) ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
           {children}
         </div>
       </main>
+      <ScrollButtons />
       <ChatBubble />
       <GlobalImportProgress />
     </div>

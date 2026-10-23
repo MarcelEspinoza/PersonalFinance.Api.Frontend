@@ -14,6 +14,7 @@ export function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -37,7 +38,7 @@ export function Register() {
       if (error) {
         setError(error.message);
       } else {
-        navigate('/login');
+        setRegistered(true);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al registrarse');
@@ -45,6 +46,21 @@ export function Register() {
       setLoading(false);
     }
   };
+
+  if (registered) {
+    return (
+      <AuthLayout title="Cuenta creada" subtitle="Solo faltan dos pasos">
+        <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
+          <p>1. Revisa tu correo y confirma tu dirección.</p>
+          <p>2. El administrador tiene que aprobar tu cuenta. Hasta entonces no podrás entrar.</p>
+          <p className="text-muted-foreground">Tus datos serán solo tuyos: nadie más puede verlos.</p>
+        </div>
+        <Button className="w-full" onClick={() => navigate('/login')}>
+          Ir a iniciar sesión
+        </Button>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title="Crear cuenta" subtitle="Comienza a gestionar tus finanzas hoy">

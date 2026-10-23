@@ -12,7 +12,12 @@ type UserDto = {
   fullName?: string | null;
   createdAt?: string | null;
   roles?: string[];
+  emailConfirmed?: boolean;
+  pendingApproval?: boolean;
 };
+
+const isPendingApproval = (user: UserDto) =>
+  user.pendingApproval ?? !(user.roles ?? []).some((role) => role === "Admin" || role === "User");
 
 export default function ManageRoles() {
   const [users, setUsers] = useState<UserDto[]>([]);
@@ -62,6 +67,8 @@ export default function ManageRoles() {
         fullName: data.fullName,
         createdAt: data.createdAt,
         roles,
+        emailConfirmed: data.emailConfirmed,
+        pendingApproval: data.pendingApproval,
       });
     } catch (err) {
       console.error("Error cargando usuario", err);
@@ -106,6 +113,22 @@ export default function ManageRoles() {
     }
   };
 
+  const handleApprove = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      const res = await adminService.approveUser(selectedUser.id);
+      const roles = unwrap(res) ?? [];
+      setSelectedUser(prev => prev ? { ...prev, roles, pendingApproval: false } : prev);
+      await loadAll();
+    } catch (err) {
+      console.error("Error aprobando usuario", err);
+      alert("No se pudo aprobar la cuenta.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     if (!confirm(`Eliminar usuario ${selectedUser.userName || selectedUser.email || selectedUser.id}? Esta acción es irreversible.`)) return;
@@ -139,15 +162,25 @@ export default function ManageRoles() {
           </div>
           {loading && <p className="px-2 py-3 text-sm text-muted-foreground">Cargando...</p>}
           {!loading && users.length === 0 && <p className="px-2 py-3 text-sm text-muted-foreground">No hay usuarios.</p>}
+          {!loading && users.some(isPendingApproval) && (
+            <p className="mb-2 rounded-md bg-warning-soft/60 px-3 py-2 text-xs text-foreground">
+              {users.filter(isPendingApproval).length} cuenta(s) esperando tu aprobación.
+            </p>
+          )}
           <ul className="space-y-1">
             {users.map(u => (
               <li key={u.id}>
                 <Button
-                  className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left"
+                  className="h-auto w-full justify-start gap-2 whitespace-normal px-3 py-2 text-left"
                   variant={selectedUser?.id === u.id ? "secondary" : "ghost"}
                   onClick={() => selectUser(u)}
                 >
                   <span className="truncate">{u.email}</span>
+                  {isPendingApproval(u) && (
+                    <span className="ml-auto shrink-0 rounded bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                      Pendiente
+                    </span>
+                  )}
                 </Button>
               </li>
             ))}
@@ -166,9 +199,24 @@ export default function ManageRoles() {
                   {selectedUser.createdAt && <p className="mt-1 text-xs text-muted-foreground">Creado: {new Date(selectedUser.createdAt).toLocaleString()}</p>}
                 </div>
                 <Button onClick={handleDeleteUser} variant="destructive" size="sm" disabled={deleting}>
-                  {deleting ? "Eliminando..." : "Eliminar usuario"}
+                  {deleting ? "Eliminando..." : isPendingApproval(selectedUser) ? "Rechazar y eliminar" : "Eliminar usuario"}
                 </Button>
               </div>
+
+              {isPendingApproval(selectedUser) && (
+                <div className="space-y-3 rounded-md border border-warning/30 bg-warning-soft/40 p-4 text-sm">
+                  <p>
+                    Esta cuenta está <strong>pendiente de aprobación</strong>: no puede entrar en la app hasta que la apruebes.
+                    Aunque la apruebes, solo verá sus propios datos, nunca los tuyos.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Correo confirmado: {selectedUser.emailConfirmed ? "sí" : selectedUser.emailConfirmed === false ? "todavía no" : "—"}
+                  </p>
+                  <Button onClick={handleApprove} size="sm" disabled={saving}>
+                    {saving ? "Aprobando..." : "Aprobar acceso"}
+                  </Button>
+                </div>
+              )}
 
               <div className="space-y-3 border-t pt-5">
                 <Label>Roles de {selectedUser.fullName ?? selectedUser.userName ?? selectedUser.email}</Label>
@@ -211,7 +259,7 @@ export default function ManageRoles() {
               </div>
 
               <p className="border-t pt-4 text-xs text-muted-foreground">
-                Puedes asignar varios roles a un usuario. Los cambios se aplican inmediatamente.
+                Las cuentas nuevas quedan pendientes hasta que las apruebes. Cada usuario solo ve y cambia sus propios datos.
               </p>
             </div>
           )}

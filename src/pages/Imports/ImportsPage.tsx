@@ -6,7 +6,15 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
-import type { Account, ChartGroup, ImportBatchResult, ImportChatMessage, ImportReview, ImportRow } from "../../types/ledger";
+import type {
+  Account,
+  ChartGroup,
+  ImportBatchResult,
+  ImportChatMessage,
+  ImportChatProposedAction,
+  ImportReview,
+  ImportRow,
+} from "../../types/ledger";
 import { TransactionTransferCenter } from "../../components/TransactionImportExport/TransactionTransferCenter";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
 import { money, shortDate } from "../../utils/civilDate";
@@ -26,6 +34,9 @@ const conceptKindLabel = (kind: string) => {
   return "Gasto";
 };
 
+const formatAmount = (amount: number, currency?: string | null) =>
+  !currency || currency.toUpperCase() === "EUR" ? money(amount) : `${amount.toFixed(2)} ${currency}`;
+
 const createdBatchMessage = (result: ImportBatchResult) => {
   const confirmed = result.confirmedPendingRows ?? 0;
   const confirmedText =
@@ -36,6 +47,29 @@ const createdBatchMessage = (result: ImportBatchResult) => {
         : "";
   return `Lote creado: ${result.acceptedRows} filas para revisar.${confirmedText}`;
 };
+
+type ChatActionState = "pending" | "running" | "done" | "dismissed" | "failed";
+
+type ImportChatAction = ImportChatProposedAction & { state: ChatActionState; error?: string };
+
+type ImportChatEntry = ImportChatMessage & { actions?: ImportChatAction[] };
+
+class ChatActionError extends Error {}
+
+const chatActionNote: Partial<Record<ChatActionState, string>> = {
+  done: "El usuario confirmó",
+  dismissed: "El usuario descartó",
+  failed: "No se pudo aplicar",
+};
+
+/** Historial que se reenvía al asistente: solo texto, más lo que el usuario decidió sobre cada propuesta. */
+const toChatHistory = (entries: ImportChatEntry[]): ImportChatMessage[] =>
+  entries.map(({ role, content, actions }) => {
+    const notes = (actions ?? [])
+      .filter((action) => chatActionNote[action.state])
+      .map((action) => `[${chatActionNote[action.state]}: ${action.summary}]`);
+    return { role, content: notes.length > 0 ? `${content}\n${notes.join("\n")}` : content };
+  });
 
 export function ImportsPage() {
   const importProgress = useImportProgress();
@@ -372,7 +406,7 @@ export function ImportsPage() {
     }
   };
 
-  const [chatMessages, setChatMessages] = useState<ImportChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ImportChatEntry[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -384,12 +418,16 @@ export function ImportsPage() {
   const askAssistant = async (text: string) => {
     if (!text || !review) return;
 
-    const history = chatMessages;
+    const history = toChatHistory(chatMessages);
     setChatMessages((current) => [...current, { role: "user", content: text }]);
     setChatBusy(true);
     try {
       const result = await LedgerService.chatImport(review.id, text, history);
-      setChatMessages((current) => [...current, { role: "assistant", content: result.reply }]);
+      const actions: ImportChatAction[] = (result.proposedActions ?? []).map((action) => ({
+        ...action,
+        state: "pending",
+      }));
+      setChatMessages((current) => [...current, { role: "assistant", content: result.reply, actions }]);
       if (result.appliedChanges > 0) {
         setReview(await LedgerService.getImportReview(review.id));
       }
@@ -414,6 +452,72 @@ export function ImportsPage() {
   const explainReview = () => {
     setShowImportAssistant(true);
     void askAssistant(explainReviewPrompt);
+  };
+
+  const setChatActionState = (entryIndex: number, actionIndex: number, state: ChatActionState, error?: string) =>
+    setChatMessages((current) =>
+      current.map((entry, index) =>
+        index !== entryIndex || !entry.actions
+          ? entry
+          : {
+              ...entry,
+              actions: entry.actions.map((action, position) =>
+                position === actionIndex ? { ...action, state, error } : action,
+              ),
+            },
+      ),
+    );
+
+  const executeChatAction = async (batchId: string, action: ImportChatProposedAction) => {
+    if (action.type === "create_concept") {
+      const [firstRowId, ...otherRowIds] = action.rowIds;
+      if (!firstRowId || !action.groupId || !action.name) {
+        throw new ChatActionError("La propuesta está incompleta.");
+      }
+      const created = await LedgerService.createImportConcept(batchId, firstRowId, {
+        groupId: action.groupId,
+        name: action.name,
+        nature: action.nature ?? ConceptNature.Variable,
+        saveForFuture: action.saveForFuture,
+      });
+      const newConceptId = created.confirmedConceptId;
+      if (otherRowIds.length > 0 && !newConceptId) {
+        throw new ChatActionError("Se creó la categoría, pero no se pudo asignar al resto de movimientos.");
+      }
+      for (const rowId of otherRowIds) {
+        await LedgerService.selectImportConcept(batchId, rowId, newConceptId ?? null, action.saveForFuture);
+      }
+      return;
+    }
+
+    if (!action.conceptId) throw new ChatActionError("La propuesta no indica la categoría.");
+    for (const rowId of action.rowIds) {
+      await LedgerService.selectImportConcept(batchId, rowId, action.conceptId, action.saveForFuture);
+    }
+  };
+
+  const confirmChatActions = async (entryIndex: number, actionIndexes: number[]) => {
+    if (!review) return;
+    const batchId = review.id;
+    const actions = chatMessages[entryIndex]?.actions ?? [];
+    for (const actionIndex of actionIndexes) {
+      const action = actions[actionIndex];
+      if (!action || (action.state !== "pending" && action.state !== "failed")) continue;
+      setChatActionState(entryIndex, actionIndex, "running");
+      try {
+        await executeChatAction(batchId, action);
+        setChatActionState(entryIndex, actionIndex, "done");
+      } catch (err) {
+        const reason =
+          err instanceof ChatActionError ? err.message : ledgerErrorMessage(err, "No se ha podido aplicar este cambio.");
+        setChatActionState(entryIndex, actionIndex, "failed", reason);
+      }
+    }
+    try {
+      setReview(await LedgerService.getImportReview(batchId));
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido recargar la revisión."));
+    }
   };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -455,13 +559,104 @@ export function ImportsPage() {
     () => new Map((review?.rows ?? []).map((row) => [row.rowNumber, row] as const)),
     [review],
   );
+  const rowsById = useMemo(
+    () => new Map((review?.rows ?? []).map((row) => [row.id, row] as const)),
+    [review],
+  );
+  const conceptNameById = useMemo(
+    () => new Map((review?.concepts ?? []).map((concept) => [concept.id, concept.name] as const)),
+    [review],
+  );
+
+  const renderChatActions = (entry: ImportChatEntry, entryIndex: number) => {
+    const actions = entry.actions ?? [];
+    if (actions.length === 0) return null;
+    const pendingIndexes = actions.flatMap((action, index) => (action.state === "pending" ? [index] : []));
+    const locked = review?.status === "Applied" || actions.some((action) => action.state === "running");
+
+    return (
+      <div className="mt-3 space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Te propongo estos cambios. No se aplica nada hasta que pulses «Confirmar».
+        </p>
+        {actions.map((action, actionIndex) => {
+          const rows = action.rowIds
+            .map((rowId) => rowsById.get(rowId))
+            .filter((row): row is ImportRow => Boolean(row));
+          const target =
+            action.type === "create_concept"
+              ? `Nueva categoría «${action.name ?? ""}»${action.groupName ? ` en ${action.groupName}` : ""}`
+              : `Categoría: ${action.conceptName ?? conceptNameById.get(action.conceptId ?? "") ?? "—"}`;
+          return (
+            <div key={actionIndex} className="rounded-md border bg-background p-3">
+              <p className="font-medium">{action.summary}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {target}
+                {action.saveForFuture ? " · se recordará para próximas importaciones" : ""}
+              </p>
+              {rows.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  {rows.slice(0, 3).map((row) => (
+                    <li key={row.id} className="truncate">
+                      {shortDate(row.valueDate)} · {row.rawDescription} · {money(row.amount)}
+                    </li>
+                  ))}
+                  {rows.length > 3 && <li>y {rows.length - 3} movimientos más</li>}
+                </ul>
+              )}
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                {(action.state === "pending" || action.state === "failed") && (
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={locked}
+                      onClick={() => void confirmChatActions(entryIndex, [actionIndex])}
+                    >
+                      <Check className="mr-1 h-3 w-3" /> {action.state === "failed" ? "Reintentar" : "Confirmar"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={locked}
+                      onClick={() => setChatActionState(entryIndex, actionIndex, "dismissed")}
+                    >
+                      <X className="mr-1 h-3 w-3" /> Descartar
+                    </Button>
+                  </>
+                )}
+                {action.state === "running" && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Aplicando…
+                  </span>
+                )}
+                {action.state === "done" && (
+                  <span className="flex items-center gap-1 text-positive">
+                    <CheckCircle2 className="h-3 w-3" /> Hecho
+                  </span>
+                )}
+                {action.state === "dismissed" && <span className="text-muted-foreground">Descartado</span>}
+              </div>
+              {action.state === "failed" && action.error && (
+                <p className="mt-1 text-xs text-destructive">{action.error}</p>
+              )}
+            </div>
+          );
+        })}
+        {pendingIndexes.length > 1 && (
+          <Button size="sm" disabled={locked} onClick={() => void confirmChatActions(entryIndex, pendingIndexes)}>
+            <Check className="mr-1 h-3 w-3" /> Confirmar todo ({pendingIndexes.length})
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="flex items-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando cuentas…</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Importar / Exportar</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -635,42 +830,49 @@ export function ImportsPage() {
               Clasifica un comercio una vez para actualizar todas sus apariciones.
             </p>
           </div>
-          <div className="max-h-[65vh] overflow-auto">
+          <div key={reviewMode} className="max-h-[calc(100vh-14rem)] min-h-[16rem] overflow-auto">
             {reviewMode === "groups" ? (
               <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 bg-muted">
+                <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
-                    <th className="w-[38%] px-4 py-3 text-left">Comercio / descripción</th>
-                    <th className="w-[7%] px-3 py-3 text-right">Mov.</th>
-                    <th className="w-[13%] px-3 py-3 text-right">Neto</th>
-                    <th className="w-[32%] px-3 py-3 text-left">Concepto para el grupo</th>
-                    <th className="w-[10%] px-3 py-3 text-left">Origen</th>
+                    <th className="w-[38%] px-4 py-2 text-left">Comercio / descripción</th>
+                    <th className="w-[7%] px-3 py-2 text-right">Mov.</th>
+                    <th className="w-[13%] px-3 py-2 text-right">Neto</th>
+                    <th className="w-[32%] px-3 py-2 text-left">Concepto para el grupo</th>
+                    <th className="w-[10%] px-3 py-2 text-left">Origen</th>
                   </tr>
                 </thead>
                 <tbody>
                   {importGroups.map((group) => (
                     <tr key={group.normalizedDescription} className="border-t">
-                      <td className="px-4 py-3">
-                        <div className="break-words font-medium leading-snug">{group.rows[0]?.rawDescription}</div>
-                        {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground">{group.normalizedDescription}</div>}
+                      <td className="px-4 py-2">
+                        <div className="line-clamp-2 break-words font-medium leading-snug" title={group.rows[0]?.rawDescription}>{group.rows[0]?.rawDescription}</div>
+                        {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground" title={group.normalizedDescription}>{group.normalizedDescription}</div>}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">{group.count}</td>
-                      <td className={`whitespace-nowrap px-3 py-2 text-right ${group.total < 0 ? "text-negative" : "text-positive"}`}>{group.total.toFixed(2)} EUR</td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">{group.count}</td>
+                      <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${group.total < 0 ? "text-negative" : "text-positive"}`}>{money(group.total)}</td>
                       <td className="px-3 py-2">
                         <select data-tour="import-concept" className="h-9 w-full rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
                           <option value="">Sin concepto (revisar)</option>
                           {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                         </select>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{group.suggestionSource ?? "manual"}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{group.suggestionSource ?? "manual"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <table className="min-w-full text-sm">
-                <thead className="sticky top-0 bg-muted">
-                  <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Descripción</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-left">Concepto</th><th className="px-3 py-2 text-left">Origen</th><th className="px-3 py-2 text-left">Dividir</th><th className="px-3 py-2 text-left">Acción</th></tr>
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-muted">
+                  <tr>
+                    <th className="w-28 px-3 py-2 text-left">Fecha</th>
+                    <th className="w-full px-3 py-2 text-left">Descripción</th>
+                    <th className="px-3 py-2 text-right">Importe</th>
+                    <th className="px-3 py-2 text-left">Concepto</th>
+                    <th className="px-3 py-2 text-left">Origen</th>
+                    <th className="px-3 py-2 text-left">Acciones</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {(reviewMode === "unassigned" ? unassignedRows : review.rows).map((row) => {
@@ -689,40 +891,42 @@ export function ImportsPage() {
                             </div>
                           )}
                         </td>
-                        <td className="max-w-[28rem] px-3 py-2">{row.rawDescription}</td>
-                        <td className={`whitespace-nowrap px-3 py-2 text-right ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{row.amount.toFixed(2)} {row.currency ?? ""}</td>
+                        <td className="px-3 py-2">
+                          <div className="line-clamp-2 break-words" title={row.rawDescription}>{row.rawDescription}</div>
+                        </td>
+                        <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${row.amount < 0 ? "text-negative" : "text-positive"}`}>{formatAmount(row.amount, row.currency)}</td>
                         <td className="px-3 py-2">
                           {splitSummary ? (
                             <span className="text-xs font-medium text-primary">{splitSummary}</span>
                           ) : (
-                            <select data-tour="import-concept" className="h-8 min-w-52 rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
+                            <select data-tour="import-concept" className="h-8 min-w-52 max-w-xs rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
                               <option value="">Sin concepto (revisar)</option>
                               {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                             </select>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
                         <td className="px-3 py-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
-                            onClick={() => openSplitRow(row)}
-                          >
-                            <Layers3 className="h-3.5 w-3.5" /> {splitSummary ? "Editar partes" : "Dividir"}
-                          </Button>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
-                            onClick={() => void openCreateConcept(row)}
-                          >
-                            <Plus className="h-3.5 w-3.5" /> Crear categoría
-                          </Button>
+                          <div className="flex gap-1 whitespace-nowrap">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
+                              onClick={() => openSplitRow(row)}
+                            >
+                              <Layers3 className="h-3.5 w-3.5" /> {splitSummary ? "Editar partes" : "Dividir"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
+                              onClick={() => void openCreateConcept(row)}
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Crear categoría
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -744,7 +948,7 @@ export function ImportsPage() {
           <div className="flex-1 space-y-3 overflow-auto p-5">
             {chatMessages.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Pídeme cosas como «pon Mercadona en Alimentación», «¿por qué no cuadra el saldo?» o «¿qué significa el aviso del agua?».
+                Pídeme cosas como «pon Mercadona en Alimentación», «crea una categoría Gimnasio para estos pagos» o «¿por qué no cuadra el saldo?». Yo te propongo los cambios y tú decides si los confirmas.
               </p>
             )}
             {chatMessages.map((entry, index) => (
@@ -756,7 +960,8 @@ export function ImportsPage() {
                     : "mr-12 bg-muted text-foreground"
                 }`}
               >
-                {entry.content}
+                <p className="whitespace-pre-wrap">{entry.content}</p>
+                {renderChatActions(entry, index)}
               </div>
             ))}
             {chatBusy && (
@@ -967,5 +1172,14 @@ export function ImportsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="space-y-1.5">
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }

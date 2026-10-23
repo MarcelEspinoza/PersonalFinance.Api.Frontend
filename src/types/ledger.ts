@@ -267,10 +267,31 @@ export interface ImportChatMessage {
   content: string;
 }
 
+export type ImportChatActionType = "set_row_concept" | "create_concept";
+
+/** Cambio que propone el asistente; no se aplica hasta que el usuario lo confirma. */
+export interface ImportChatProposedAction {
+  type: ImportChatActionType;
+  summary: string;
+  rowIds: string[];
+  /** set_row_concept: categoría existente que se asignará. */
+  conceptId?: string | null;
+  conceptName?: string | null;
+  /** create_concept: categoría nueva que se creará dentro de un grupo. */
+  name?: string | null;
+  groupId?: string | null;
+  groupName?: string | null;
+  nature?: ConceptNature | null;
+  /** Si es true, se recuerda para próximas importaciones de esta cuenta. */
+  saveForFuture: boolean;
+}
+
 export interface ImportChatResponse {
   reply: string;
+  /** Siempre 0: el asistente ya no aplica cambios sin confirmación. */
   appliedChanges: number;
   unrecognized: string[];
+  proposedActions?: ImportChatProposedAction[];
 }
 
 export interface CreateLedgerEntryPayload {

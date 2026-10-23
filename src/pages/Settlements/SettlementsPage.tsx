@@ -125,7 +125,7 @@ export function SettlementsPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="rounded-xl bg-teal-100 p-2 text-teal-700">
@@ -292,9 +292,9 @@ function SettlementList({
               onClick={() => onOpen(item.id)}
               className="min-w-0 flex-1 text-left"
             >
-              <p className="truncate text-sm font-medium text-slate-800">{item.counterpartyName}</p>
-              <p className="truncate text-xs text-slate-500">{item.title}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-700">
+              <p className="truncate text-sm font-medium text-slate-800" title={item.counterpartyName}>{item.counterpartyName}</p>
+              <p className="truncate text-xs text-slate-500" title={item.title}>{item.title}</p>
+              <p className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums text-slate-700">
                 {euro(item.pending)}
                 <span className="ml-2 text-xs font-normal text-slate-400">
                   {item.lineCount} {item.lineCount === 1 ? 'línea' : 'líneas'}

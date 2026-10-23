@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { MonthNavigator } from "../../components/Ledger/MonthNavigator";
 import { TotalsPanel } from "../../components/Ledger/TotalsPanel";
 import { GroupSection } from "../../components/Ledger/GroupSection";
+import { LedgerColumnsHeader } from "../../components/Ledger/ledgerColumns";
 import { EntryDialog, type EntryFormValues } from "../../components/Ledger/EntryDialog";
 import {
   ConfirmEntryDialog,
@@ -63,9 +64,15 @@ export function LedgerMonthPage() {
   const [assignTarget, setAssignTarget] = useState<MonthlyEntry | null>(null);
   const [renameTarget, setRenameTarget] = useState<MonthlyConcept | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  /** Groups folded down to their header, by groupId (all expanded by default). */
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(async (targetYear: number, targetMonth: number) => {
-    setLoading(true);
+  /**
+   * `background` refreshes (after an action) keep the current month on screen instead of the
+   * loading state, so the list isn't unmounted and the scroll position isn't lost.
+   */
+  const load = useCallback(async (targetYear: number, targetMonth: number, background = false) => {
+    if (!background) setLoading(true);
     setPageError(null);
 
     try {
@@ -93,7 +100,7 @@ export function LedgerMonthPage() {
 
     try {
       await action();
-      await load(year, month);
+      await load(year, month, true);
       onDone?.();
     } catch (error) {
       const message = ledgerErrorMessage(error, "No se ha podido completar la operación.");
@@ -189,6 +196,15 @@ export function LedgerMonthPage() {
   const locked = summary?.status === PeriodStatus.Closed;
   const groups = summary ? [...summary.incomeGroups, ...summary.expenseGroups] : [];
   const isEmpty = summary !== null && groups.length === 0;
+  const allGroupsCollapsed = groups.length > 0 && groups.every((group) => collapsedGroups[group.groupId]);
+
+  const toggleGroup = (groupId: string) =>
+    setCollapsedGroups((current) => ({ ...current, [groupId]: !current[groupId] }));
+
+  const toggleAllGroups = () =>
+    setCollapsedGroups(
+      allGroupsCollapsed ? {} : Object.fromEntries(groups.map((group) => [group.groupId, true])),
+    );
 
   const rowHandlers = {
     onConfirm: setConfirmTarget,
@@ -201,7 +217,7 @@ export function LedgerMonthPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="space-y-4">
       <MonthWorkspaceTabs year={year} month={month} />
 
       <MonthNavigator
@@ -250,20 +266,26 @@ export function LedgerMonthPage() {
         <>
           <TotalsPanel summary={summary} />
 
-          {groups.map((group) => (
-            <GroupSection
-              key={group.groupId}
-              group={group}
-              locked={locked ?? false}
-              busy={busy}
-              onAddEntry={handleAddEntry}
-              onRenameConcept={(concept) => {
-                setDialogError(null);
-                setRenameTarget(concept);
-              }}
-              {...rowHandlers}
-            />
-          ))}
+          <div>
+            <LedgerColumnsHeader allCollapsed={allGroupsCollapsed} onToggleAll={toggleAllGroups} />
+
+            {groups.map((group) => (
+              <GroupSection
+                key={group.groupId}
+                group={group}
+                locked={locked ?? false}
+                busy={busy}
+                collapsed={collapsedGroups[group.groupId] ?? false}
+                onToggleCollapsed={() => toggleGroup(group.groupId)}
+                onAddEntry={handleAddEntry}
+                onRenameConcept={(concept) => {
+                  setDialogError(null);
+                  setRenameTarget(concept);
+                }}
+                {...rowHandlers}
+              />
+            ))}
+          </div>
         </>
       )}
 

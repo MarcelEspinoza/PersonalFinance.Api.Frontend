@@ -140,17 +140,17 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                   #{p.assignedNumber}
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate font-medium text-card-foreground">{p.name}</div>
+                  <div className="truncate font-medium text-card-foreground" title={p.name}>{p.name}</div>
                   <div className="text-xs text-muted-foreground">Mes: {displayMonth}</div>
                 </div>
               </div>
-                <div className={`rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : payment ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
+                <div className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : payment ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
                   {payment?.paid ? "Pagado" : payment ? "Pendiente" : "Sin pago"}
                 </div>
               </div>
 
               {!readOnly && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
                   <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
                     <Banknote /> Crear préstamo
                   </Button>
