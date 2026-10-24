@@ -2,6 +2,7 @@ import { useEffect, useRef, type FormEvent } from "react";
 import { Bell, CheckCircle2, Loader2, Send } from "lucide-react";
 import { Button } from "../ui/button";
 import { useGlobalChat } from "../../hooks/useGlobalChat";
+import { ApiCallActionCard } from "./ApiCallActionCard";
 
 interface ChatThreadProps {
   chat: ReturnType<typeof useGlobalChat>;
@@ -14,7 +15,7 @@ interface ChatThreadProps {
  * la lógica de confirmación de acciones.
  */
 export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
-  const { messages, input, setInput, busy, actionBusy, send, confirmAction } = chat;
+  const { messages, input, setInput, busy, actionBusy, apiCallsRunning, send, confirmAction } = chat;
   const listRef = useRef<HTMLDivElement | null>(null);
   const messageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const renderedCountRef = useRef(0);
@@ -71,6 +72,17 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
             {entry.actions?.map((action, actionIndex) => {
               const resolved = entry.resolvedActions?.has(actionIndex);
               const key = `${messageIndex}-${actionIndex}`;
+              if (action.type === "api_call") {
+                return (
+                  <ApiCallActionCard
+                    key={actionIndex}
+                    action={action}
+                    resolved={Boolean(resolved)}
+                    busy={apiCallsRunning.includes(key)}
+                    onConfirm={() => void confirmAction(messageIndex, actionIndex, action)}
+                  />
+                );
+              }
               const isReminder = action.type === "create_reminder";
               return (
                 <div

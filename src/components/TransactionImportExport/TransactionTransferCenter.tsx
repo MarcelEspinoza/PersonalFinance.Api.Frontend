@@ -12,7 +12,11 @@ import { LedgerService } from "../../services/ledgerService";
 
 type MovementMode = "income" | "expense";
 
-export function TransactionTransferCenter() {
+interface Props {
+  onImportClose?: () => void;
+}
+
+export function TransactionTransferCenter({ onImportClose }: Props = {}) {
   const { user } = useAuth();
   const now = new Date();
   const [importOpen, setImportOpen] = useState(false);
@@ -146,7 +150,10 @@ export function TransactionTransferCenter() {
       {importOpen && user && (
         <ImportModal
           show
-          onClose={() => setImportOpen(false)}
+          onClose={() => {
+            setImportOpen(false);
+            onImportClose?.();
+          }}
           userId={user.id}
         />
       )}

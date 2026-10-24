@@ -5,6 +5,9 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Write methods an admin `api_call` proposal may use. */
+export type ApiCallMethod = "POST" | "PUT" | "PATCH" | "DELETE";
+
 export interface ProposedAction {
   type:
     | "create_expense"
@@ -19,7 +22,8 @@ export interface ProposedAction {
     | "reopen_pasanaco"
     | "classify_import_group"
     | "apply_import"
-    | "create_reminder";
+    | "create_reminder"
+    | "api_call";
   summary: string;
   amount: number;
   description: string;
@@ -38,6 +42,20 @@ export interface ProposedAction {
   /** create_reminder: `name` is the title, `date` the due date, `amount` (0 = none) and `notes`. */
   repeat?: ReminderRepeat | null;
   notifyDaysBefore?: number | null;
+  /**
+   * api_call (admin only): write request the browser sends itself after the user confirms it.
+   * For this type the other fields come with default values and are ignored.
+   */
+  method?: ApiCallMethod | null;
+  /** Relative to the API base, e.g. "/Expense/12" or "/Pasanaco/abc?force=true". */
+  path?: string | null;
+  body?: Record<string, unknown> | null;
+  /** Server-generated title, e.g. "Borrar · Gasto". */
+  label?: string | null;
+  /** True for destructive or admin operations. */
+  danger?: boolean;
+  /** Server-resolved name of the affected item. */
+  targetName?: string | null;
 }
 
 export interface ChatResponse {

@@ -331,8 +331,8 @@ export function Dashboard() {
         <a href={`/monthly?year=${selectedYear}&month=${selectedMonth}`} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           Ver detalle del mes
         </a>
-        <a href="/movements" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-muted">
-          Revisar movimientos
+        <a href={`/ledger?year=${selectedYear}&month=${selectedMonth}`} className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-muted">
+          Revisar apuntes del mes
         </a>
       </div>
     </div>

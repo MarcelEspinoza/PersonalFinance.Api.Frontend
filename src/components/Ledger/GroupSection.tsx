@@ -22,6 +22,10 @@ interface Props {
   onEdit: (entry: MonthlyEntry) => void;
   onDelete: (entry: MonthlyEntry) => void;
   onAssign?: (entry: MonthlyEntry) => void;
+  /** Nothing in the group matches the search; it stays mounted so its folds are kept. */
+  hidden?: boolean;
+  /** While searching, concept folds come from here instead of the group's own ones (kept for afterwards). */
+  searchFolding?: { folds: Record<string, boolean>; toggle: (conceptId: string) => void };
 }
 
 export function GroupSection({
@@ -32,12 +36,16 @@ export function GroupSection({
   onToggleCollapsed,
   onAddEntry,
   onRenameConcept,
+  hidden = false,
+  searchFolding,
   ...rowHandlers
 }: Props) {
   const [collapsedConcepts, setCollapsedConcepts] = useState<Record<string, boolean>>({});
 
   const toggle = (conceptId: string) =>
     setCollapsedConcepts((current) => ({ ...current, [conceptId]: !current[conceptId] }));
+
+  if (hidden) return null;
 
   return (
     <section className="mb-4 overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -90,7 +98,9 @@ export function GroupSection({
 
           <tbody>
             {group.concepts.map((concept) => {
-              const isCollapsed = collapsedConcepts[concept.conceptId] ?? false;
+              const isCollapsed = searchFolding
+                ? searchFolding.folds[concept.conceptId] ?? false
+                : collapsedConcepts[concept.conceptId] ?? false;
               const hasEntries = concept.entries.length > 0;
 
               return (
@@ -101,7 +111,9 @@ export function GroupSection({
                   hasEntries={hasEntries}
                   locked={locked}
                   busy={busy}
-                  onToggle={() => toggle(concept.conceptId)}
+                  onToggle={() =>
+                    searchFolding ? searchFolding.toggle(concept.conceptId) : toggle(concept.conceptId)
+                  }
                   onAddEntry={() => onAddEntry(concept, group)}
                   onRename={onRenameConcept ? () => onRenameConcept(concept) : undefined}
                   rowHandlers={rowHandlers}
@@ -144,7 +156,7 @@ function ConceptRows({
   onRename?: () => void;
   rowHandlers: Omit<
     Props,
-    "group" | "locked" | "busy" | "collapsed" | "onToggleCollapsed" | "onAddEntry" | "onRenameConcept"
+    "group" | "locked" | "busy" | "collapsed" | "onToggleCollapsed" | "onAddEntry" | "onRenameConcept" | "hidden" | "searchFolding"
   >;
 }) {
   return (

@@ -70,8 +70,8 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="/incomes" element={<Navigate to="/movements?type=income" replace />} />
-      <Route path="/expenses" element={<Navigate to="/movements?type=expense" replace />} />
+      <Route path="/incomes" element={<Navigate to="/ledger" replace />} />
+      <Route path="/expenses" element={<Navigate to="/ledger" replace />} />
       <Route
         path="/loans"
         element={

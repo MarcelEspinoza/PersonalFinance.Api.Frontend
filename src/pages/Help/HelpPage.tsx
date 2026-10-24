@@ -58,7 +58,7 @@ const ROUTINE: RoutineStep[] = [
     title: "Súbelo en la app",
     body: (
       <>
-        Ve a «Importar / Exportar», elige la cuenta y pulsa «Seleccionar CSV de Revolut» para buscar el archivo. Luego pulsa
+        Ve a «Importar», elige la cuenta y pulsa «Seleccionar CSV de Revolut» para buscar el archivo. Luego pulsa
         «Importar para revisar». Tranquilo: todavía no se guarda nada.
       </>
     ),
@@ -354,7 +354,7 @@ function HelpPageContent() {
             </div>
             <div className="rounded-lg border p-3 text-sm">
               <p className="font-semibold">2. Lo que pasó de verdad</p>
-              <p className="mt-1 text-muted-foreground">Lo sacas del extracto del banco y lo subes en «Importar / Exportar».</p>
+              <p className="mt-1 text-muted-foreground">Lo sacas del extracto del banco y lo subes en «Importar».</p>
             </div>
             <div className="rounded-lg border p-3 text-sm">
               <p className="font-semibold">3. ¿Cuadra?</p>
@@ -537,7 +537,7 @@ function HelpPageContent() {
             </ul>
           </div>
           <p>
-            En «Importar / Exportar» hay otro asistente, solo para la importación que estás revisando (botón «Asistente»). Por ejemplo: «pon
+            En «Importar» hay otro asistente, solo para la importación que estás revisando (botón «Asistente»). Por ejemplo: «pon
             Mercadona en Alimentación» o «¿qué significa el aviso del agua?».
           </p>
         </Foldable>
@@ -557,7 +557,7 @@ function HelpPageContent() {
 
         <Foldable
           icon={Upload}
-          title="Novedades en «Importar / Exportar»"
+          title="Novedades en «Importar»"
           subtitle="El asistente ya no tapa tus movimientos y puedes descontar pagos de un previsto."
         >
           <TermList items={IMPORT_NEWS} />

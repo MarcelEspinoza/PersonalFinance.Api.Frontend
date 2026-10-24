@@ -8,17 +8,17 @@ import {
   LogOut,
   Menu,
   MessageCircle,
-  ReceiptText,
   Settings,
   Upload,
   Users,
   Wallet,
   X,
 } from 'lucide-react';
-import { ReactNode, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Fragment, ReactNode, useEffect, useState } from 'react';
+import { matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { DATA_CHANGED_EVENT } from '../services/chatService';
 import { ChatBubble } from './Chat/ChatBubble';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
 import { ReminderBell } from './Reminders/ReminderBell';
@@ -32,8 +32,7 @@ interface LayoutProps {
 const navItems = [
   { path: 'dashboard', activePaths: ['dashboard'], label: 'Dashboard', icon: LayoutDashboard, activeClass: 'bg-indigo-600 text-white' },
   { path: 'ledger', activePaths: ['ledger', 'monthly'], label: 'Mes', icon: ClipboardList, activeClass: 'bg-sky-600 text-white' },
-  { path: 'imports', activePaths: ['imports'], label: 'Importar / Exportar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
-  { path: 'movements', activePaths: ['movements'], label: 'Movimientos', icon: ReceiptText, activeClass: 'bg-emerald-600 text-white' },
+  { path: 'imports', activePaths: ['imports'], label: 'Importar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
   { path: 'loans', activePaths: ['loans'], label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
   { path: 'pasanaco', activePaths: ['pasanaco'], label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
   { path: 'settlements', activePaths: ['settlements'], label: 'Liquidaciones', icon: HandCoins, activeClass: 'bg-teal-600 text-white' },
@@ -46,17 +45,32 @@ const navItems = [
 // Screens with wide tables get extra room; the rest keep a readable width.
 const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly'];
 
+// Not re-mounted when data changes: the chat pages would lose their conversation, and «Mes» reloads itself
+// so its search, folds and scroll position survive.
+const keepMountedOnDataChangePaths = ['/assistant', '/imports', '/ledger'];
+
 export function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Changing it re-mounts only the routed page so it refetches; ChatBubble and the rest of the layout keep their state.
+  const [pageKey, setPageKey] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
   const currentPath = location.pathname.replace('/', '') || 'dashboard';
+  const keepPageMounted = keepMountedOnDataChangePaths.some((path) => matchPath(path, location.pathname) !== null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  // An action confirmed in the assistant changed data: refresh the page on screen.
+  useEffect(() => {
+    if (keepPageMounted) return;
+    const remountPage = () => setPageKey((key) => key + 1);
+    window.addEventListener(DATA_CHANGED_EVENT, remountPage);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, remountPage);
+  }, [keepPageMounted]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -165,7 +179,7 @@ export function Layout({ children }: LayoutProps) {
       {/* overflow-x-clip (not hidden) so main doesn't become a scroll container and sticky headers keep working. */}
       <main className="min-w-0 flex-1 overflow-x-clip">
         <div className={`mx-auto px-4 py-5 sm:px-6 lg:px-8 ${wideContentPaths.includes(currentPath) ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
-          {children}
+          <Fragment key={pageKey}>{children}</Fragment>
         </div>
       </main>
       <ScrollButtons />

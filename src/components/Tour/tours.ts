@@ -73,7 +73,7 @@ export const TOURS: TourDefinition[] = [
       {
         target: t("nav-imports"),
         fallbackTarget: MOBILE_MENU,
-        title: "«Importar / Exportar»: lo que pasó en el banco",
+        title: "«Importar»: lo que pasó en el banco",
         body: "Una vez al mes, aquí subes el extracto de cada cuenta. La app lee los movimientos y los pone en su sitio por ti.",
         example: "Extracto = el archivo (CSV) con la lista de movimientos que descargas de la app de Revolut.",
       },
@@ -86,11 +86,10 @@ export const TOURS: TourDefinition[] = [
           "También están tus cuentas, con su saldo inicial.",
       },
       {
-        target: t("nav-movements"),
+        target: t("nav-loans"),
         fallbackTarget: MOBILE_MENU,
         title: "Otras pantallas",
         body:
-          "• «Movimientos»: todo lo que entró y salió.\n" +
           "• «Préstamos»: lo que debes y lo que te deben.\n" +
           "• «Pasanaco»: los turnos y pagos de tu pasanaco.\n" +
           "• «Liquidaciones»: marcas qué gastos son de mamá o de Vane y les mandas el resumen por WhatsApp.\n" +
@@ -219,6 +218,15 @@ export const TOURS: TourDefinition[] = [
         target: t("month-nav"),
         title: "Cambia de mes",
         body: "Usa las flechas para ir al mes anterior o al siguiente. «Hoy» te devuelve al mes actual.",
+      },
+      {
+        target: t("month-search"),
+        optional: true,
+        title: "Busca un apunte",
+        body:
+          "Escribe una palabra, un importe o una fecha y verás solo los apuntes del mes que coinciden. Los totales no cambian.\n\n" +
+          "Para borrar la búsqueda, pulsa la «×» o la tecla Esc.",
+        example: "«mercadona», «45,99» o «15/03».",
       },
       {
         target: t("month-totals"),

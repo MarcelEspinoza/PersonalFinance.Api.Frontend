@@ -1,11 +1,12 @@
 ﻿import {
+  Archive,
   Landmark,
   ShieldCheck,
   SlidersHorizontal,
   Tags,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
 import ExpensePlanningManager from "../../components/Settings/ExpensePlanningManager";
@@ -60,7 +61,9 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("Admin");
   const availableTabs = tabs.filter((tab) => tab.id !== "admin" || isAdmin);
-  const [activeTab, setActiveTab] = useState<SettingsTab>("planning");
+  // The tab lives in the URL (?tab=) so it survives the page refresh after an assistant action.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab");
   const active = availableTabs.find((tab) => tab.id === activeTab) ?? availableTabs[0];
   const ActiveIcon = active.icon;
 
@@ -87,7 +90,7 @@ export default function SettingsPage() {
               aria-selected={selected}
               aria-controls={`settings-panel-${tab.id}`}
               data-tour={`settings-tab-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setSearchParams({ tab: tab.id }, { replace: true })}
               className={cn(
                 "flex min-w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
                 selected
@@ -123,6 +126,16 @@ export default function SettingsPage() {
           {active.id === "admin" && isAdmin && <ManageRoles />}
         </CardContent>
       </Card>
+
+      <section className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-dashed bg-muted/20 px-4 py-3 text-sm">
+        <p className="flex items-start gap-2 text-muted-foreground">
+          <Archive className="mt-0.5 h-4 w-4 shrink-0" />
+          El cuaderno viejo con los gastos e ingresos que se anotaban a mano. No cuenta en «Mes» ni en tus saldos.
+        </p>
+        <Link to="/movements" className="font-medium text-primary hover:underline">
+          Ver anotaciones antiguas
+        </Link>
+      </section>
     </div>
   );
 }

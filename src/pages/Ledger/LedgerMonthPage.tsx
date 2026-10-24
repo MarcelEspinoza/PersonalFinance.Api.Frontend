@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { AlertCircle, Loader2, Search, Sparkles, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { MonthNavigator } from "../../components/Ledger/MonthNavigator";
 import { TotalsPanel } from "../../components/Ledger/TotalsPanel";
 import { GroupSection } from "../../components/Ledger/GroupSection";
 import { LedgerColumnsHeader } from "../../components/Ledger/ledgerColumns";
+import { parseLedgerSearch, searchLedgerGroups } from "../../components/Ledger/ledgerSearch";
 import { EntryDialog, type EntryFormValues } from "../../components/Ledger/EntryDialog";
 import {
   ConfirmEntryDialog,
@@ -16,6 +18,7 @@ import { AssignEntryDialog } from "../../components/Ledger/AssignEntryDialog";
 import { RenameConceptDialog } from "../../components/Ledger/RenameConceptDialog";
 import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
+import { DATA_CHANGED_EVENT } from "../../services/chatService";
 import {
   ConceptKind,
   EntryDirection,
@@ -66,6 +69,11 @@ export function LedgerMonthPage() {
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   /** Groups folded down to their header, by groupId (all expanded by default). */
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  /** Survives month changes. */
+  const [searchTerm, setSearchTerm] = useState("");
+  /** Folds made while searching (group and concept ids): everything starts open and each new search resets them. */
+  const [searchFolds, setSearchFolds] = useState<Record<string, boolean>>({});
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * `background` refreshes (after an action) keep the current month on screen instead of the
@@ -87,6 +95,13 @@ export function LedgerMonthPage() {
 
   useEffect(() => {
     void load(year, month);
+  }, [load, year, month]);
+
+  // The assistant changed data (Layout doesn't re-mount this page): reload in place.
+  useEffect(() => {
+    const refresh = () => void load(year, month, true);
+    window.addEventListener(DATA_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, refresh);
   }, [load, year, month]);
 
   /**
@@ -196,15 +211,36 @@ export function LedgerMonthPage() {
   const locked = summary?.status === PeriodStatus.Closed;
   const groups = summary ? [...summary.incomeGroups, ...summary.expenseGroups] : [];
   const isEmpty = summary !== null && groups.length === 0;
-  const allGroupsCollapsed = groups.length > 0 && groups.every((group) => collapsedGroups[group.groupId]);
 
-  const toggleGroup = (groupId: string) =>
-    setCollapsedGroups((current) => ({ ...current, [groupId]: !current[groupId] }));
+  const searchTokens = useMemo(() => parseLedgerSearch(searchTerm), [searchTerm]);
+  const searching = searchTokens !== null;
+  const searchResult = useMemo(
+    () =>
+      searchTokens && summary
+        ? searchLedgerGroups([...summary.incomeGroups, ...summary.expenseGroups], searchTokens)
+        : null,
+    [searchTokens, summary],
+  );
+  const visibleGroups = searchResult ? groups.filter((group) => searchResult.groups.has(group.groupId)) : groups;
+
+  const folds = searching ? searchFolds : collapsedGroups;
+  const setFolds = searching ? setSearchFolds : setCollapsedGroups;
+  const allGroupsCollapsed = visibleGroups.length > 0 && visibleGroups.every((group) => folds[group.groupId]);
+
+  const toggleFold = (id: string) => setFolds((current) => ({ ...current, [id]: !current[id] }));
 
   const toggleAllGroups = () =>
-    setCollapsedGroups(
-      allGroupsCollapsed ? {} : Object.fromEntries(groups.map((group) => [group.groupId, true])),
-    );
+    setFolds(allGroupsCollapsed ? {} : Object.fromEntries(visibleGroups.map((group) => [group.groupId, true])));
+
+  const updateSearch = (value: string) => {
+    setSearchTerm(value);
+    setSearchFolds({});
+  };
+
+  const clearSearch = () => {
+    updateSearch("");
+    searchInputRef.current?.focus();
+  };
 
   const rowHandlers = {
     onConfirm: setConfirmTarget,
@@ -234,6 +270,45 @@ export function LedgerMonthPage() {
         }}
         onReopen={() => void mutate(() => LedgerService.reopenMonth(year, month))}
       />
+
+      {(loading || (summary !== null && !isEmpty)) && (
+        <div data-tour="month-search" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              value={searchTerm}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => updateSearch(event.target.value)}
+              onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                if (event.key === "Escape" && searchTerm !== "") {
+                  event.preventDefault();
+                  updateSearch("");
+                }
+              }}
+              placeholder="Buscar por texto, importe o fecha (dd/mm)"
+              aria-label="Buscar apuntes del mes"
+              className="bg-card pl-8 pr-9"
+            />
+            {searchTerm !== "" && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                title="Borrar búsqueda (Esc)"
+                aria-label="Borrar búsqueda"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {searchResult && !loading && (
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              {searchResult.count === 1 ? "1 resultado" : `${searchResult.count} resultados`}
+              {" · los totales son del mes completo"}
+            </p>
+          )}
+        </div>
+      )}
 
       {pageError && (
         <div className="flex items-start gap-3 rounded-xl border border-negative/25 bg-negative-soft p-4 text-sm text-negative">
@@ -266,25 +341,39 @@ export function LedgerMonthPage() {
         <>
           <TotalsPanel summary={summary} />
 
-          <div>
-            <LedgerColumnsHeader allCollapsed={allGroupsCollapsed} onToggleAll={toggleAllGroups} />
+          {searchResult?.count === 0 && (
+            <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+              No hay apuntes de este mes que coincidan con «{searchTerm.trim()}».
+            </div>
+          )}
 
-            {groups.map((group) => (
-              <GroupSection
-                key={group.groupId}
-                group={group}
-                locked={locked ?? false}
-                busy={busy}
-                collapsed={collapsedGroups[group.groupId] ?? false}
-                onToggleCollapsed={() => toggleGroup(group.groupId)}
-                onAddEntry={handleAddEntry}
-                onRenameConcept={(concept) => {
-                  setDialogError(null);
-                  setRenameTarget(concept);
-                }}
-                {...rowHandlers}
-              />
-            ))}
+          <div>
+            {visibleGroups.length > 0 && (
+              <LedgerColumnsHeader allCollapsed={allGroupsCollapsed} onToggleAll={toggleAllGroups} />
+            )}
+
+            {groups.map((group) => {
+              const shown = searchResult ? searchResult.groups.get(group.groupId) : group;
+
+              return (
+                <GroupSection
+                  key={group.groupId}
+                  group={shown ?? group}
+                  hidden={!shown}
+                  locked={locked ?? false}
+                  busy={busy}
+                  collapsed={folds[group.groupId] ?? false}
+                  onToggleCollapsed={() => toggleFold(group.groupId)}
+                  searchFolding={searching ? { folds: searchFolds, toggle: toggleFold } : undefined}
+                  onAddEntry={handleAddEntry}
+                  onRenameConcept={(concept) => {
+                    setDialogError(null);
+                    setRenameTarget(concept);
+                  }}
+                  {...rowHandlers}
+                />
+              );
+            })}
           </div>
         </>
       )}

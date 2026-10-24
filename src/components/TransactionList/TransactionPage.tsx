@@ -14,6 +14,8 @@ import { money, monthLabel, monthName, nextMonth, previousMonth } from "../../ut
 interface Props {
   mode: "income" | "expense";
   compact?: boolean;
+  allowCreate?: boolean;
+  reloadKey?: number;
   service: {
     getAll: (year?: number, month?: number) => Promise<any>;
     getById?: (id: number) => Promise<any>;
@@ -28,7 +30,7 @@ type SortDir = "asc" | "desc";
 
 interface Category { id: number; name: string; }
 
-export function TransactionPage({ mode, service, compact = false }: Props) {
+export function TransactionPage({ mode, service, compact = false, allowCreate = true, reloadKey }: Props) {
   const { user } = useAuth();
   const now = new Date();
 
@@ -82,7 +84,7 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
     if (!user) return;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, selectedYear, selectedMonth]);
+  }, [user, selectedYear, selectedMonth, reloadKey]);
 
   const loadBanks = async () => {
     try {
@@ -371,13 +373,15 @@ export function TransactionPage({ mode, service, compact = false }: Props) {
                   {deleting ? "Eliminando..." : "Eliminar (" + selectedIds.length + ")"}
                 </Button>
               )}
-              <Button type="button" onClick={() => {
-                setEditingId(null);
-                setFormData(getInitialFormData());
-                setShowModal(true);
-              }}>
-                Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
-              </Button>
+              {allowCreate && (
+                <Button type="button" onClick={() => {
+                  setEditingId(null);
+                  setFormData(getInitialFormData());
+                  setShowModal(true);
+                }}>
+                  Nuevo {mode === "income" ? "Ingreso" : "Gasto"}
+                </Button>
+              )}
             </div>
           }
         />
