@@ -1,5 +1,6 @@
-import { AlertOctagon, AlertTriangle, CheckCircle2, Info, Loader2, MessageCircle, RefreshCw, Send, Sparkles } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, MessageCircle, RefreshCw, Send, Sparkles } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import {
@@ -43,6 +44,7 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sending, setSending] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setAdvice(readCached(year, month));
@@ -50,6 +52,7 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
     setOpenThread(null);
     setDrafts({});
     setNotes([]);
+    setExpanded(false);
 
     let cancelled = false;
     void getAdviceNotes(year, month)
@@ -68,6 +71,7 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
     try {
       const { data } = await getMonthAdvice(year, month);
       setAdvice(data);
+      setExpanded(true);
       if (data.available) localStorage.setItem(storageKey(year, month), JSON.stringify(data));
     } catch {
       setError("No se ha podido obtener el análisis. Inténtalo de nuevo.");
@@ -96,20 +100,25 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
     }
   };
 
+  const insightCount = advice?.insights.length ?? 0;
+  const canExpand = !!advice && (insightCount > 0 || (advice.summary?.length ?? 0) > 160);
+
   return (
     <Card className="border-primary/30">
-      <CardContent className="space-y-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+      <CardContent className="space-y-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="flex items-center gap-2 font-semibold">
               <Sparkles className="h-5 w-5 text-primary" />
               Consejos de la IA para {monthName}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Lee tu previsión de este mes y los dos siguientes y te explica qué va a pasar y qué hacer.
-            </p>
+            {!advice && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                La IA lee tu previsión de este mes y los dos siguientes y te dice qué va a pasar y qué hacer.
+              </p>
+            )}
           </div>
-          <Button onClick={() => void analyse()} disabled={loading} variant={advice ? "outline" : "default"}>
+          <Button size="sm" onClick={() => void analyse()} disabled={loading} variant={advice ? "outline" : "default"}>
             {loading
               ? <Loader2 className="h-4 w-4 animate-spin" />
               : advice ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
@@ -121,80 +130,100 @@ export function MonthAdvicePanel({ year, month, monthName }: Props) {
 
         {advice && (
           <div className="space-y-3">
-            {advice.summary && <p className="text-sm leading-relaxed">{advice.summary}</p>}
-            <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
-              {advice.insights.map((insight, index) => {
-                const style = severityStyle[insight.severity] ?? severityStyle.info;
-                const thread = notes.filter((note) => note.insightTitle === insight.title);
-                const open = openThread === insight.title;
-                return (
-                  <div key={index} className={`rounded-lg border p-3 ${style.box}`}>
-                    <p className="flex items-center gap-2 text-sm font-semibold">{style.icon}{insight.title}</p>
-                    {insight.detail && <p className="mt-1 text-sm leading-relaxed text-foreground/90">{insight.detail}</p>}
-
-                    {thread.length > 0 && (
-                      <div className="mt-3 space-y-2 border-t pt-3">
-                        {thread.map((note, noteIndex) => (
-                          <div key={noteIndex} className="space-y-1">
-                            <p className="rounded-md bg-background/70 px-2 py-1 text-xs">
-                              <span className="font-medium">Tú: </span>{note.message}
-                            </p>
-                            <p className="px-2 text-xs leading-relaxed text-muted-foreground">{note.reply}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {open ? (
-                      <div className="mt-3 space-y-2">
-                        <textarea
-                          value={drafts[insight.title] ?? ""}
-                          onChange={(event) => setDrafts((current) => ({ ...current, [insight.title]: event.target.value }))}
-                          rows={2}
-                          autoFocus
-                          placeholder="Corrígeme, dime que no aplica o pregúntame algo…"
-                          className="w-full rounded-md border bg-background p-2 text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => void send(insight.title, insight.detail)}
-                            disabled={sending === insight.title || !(drafts[insight.title] ?? "").trim()}
-                          >
-                            {sending === insight.title
-                              ? <Loader2 className="h-4 w-4 animate-spin" />
-                              : <Send className="h-4 w-4" />}
-                            Enviar
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setOpenThread(null)}>
-                            Cerrar
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setOpenThread(insight.title)}
-                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-primary"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        {thread.length > 0 ? "Seguir la conversación" : "Responder a este consejo"}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {notes.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Tus respuestas se tienen en cuenta la próxima vez que analices el mes.
-              </p>
+            {advice.summary && (
+              <p className={cn("text-sm leading-relaxed", !expanded && "line-clamp-2")}>{advice.summary}</p>
             )}
-            {advice.available && (
-              <p className="text-xs text-muted-foreground">
-                Análisis del {new Date(advice.generatedAt).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}.
-                Si cambias pagos o cobros, vuelve a analizar.
-              </p>
+            {canExpand && (
+              <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              >
+                {expanded
+                  ? "Ocultar consejos"
+                  : insightCount > 0
+                    ? `Ver ${insightCount} ${insightCount === 1 ? "consejo" : "consejos"}`
+                    : "Leer todo"}
+                <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
+              </button>
+            )}
+            {expanded && (
+              <>
+                <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
+                  {advice.insights.map((insight, index) => {
+                    const style = severityStyle[insight.severity] ?? severityStyle.info;
+                    const thread = notes.filter((note) => note.insightTitle === insight.title);
+                    const open = openThread === insight.title;
+                    return (
+                      <div key={index} className={`rounded-lg border p-3 ${style.box}`}>
+                        <p className="flex items-center gap-2 text-sm font-semibold">{style.icon}{insight.title}</p>
+                        {insight.detail && <p className="mt-1 text-sm leading-relaxed text-foreground/90">{insight.detail}</p>}
+
+                        {thread.length > 0 && (
+                          <div className="mt-3 space-y-2 border-t pt-3">
+                            {thread.map((note, noteIndex) => (
+                              <div key={noteIndex} className="space-y-1">
+                                <p className="rounded-md bg-background/70 px-2 py-1 text-xs">
+                                  <span className="font-medium">Tú: </span>{note.message}
+                                </p>
+                                <p className="px-2 text-xs leading-relaxed text-muted-foreground">{note.reply}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {open ? (
+                          <div className="mt-3 space-y-2">
+                            <textarea
+                              value={drafts[insight.title] ?? ""}
+                              onChange={(event) => setDrafts((current) => ({ ...current, [insight.title]: event.target.value }))}
+                              rows={2}
+                              autoFocus
+                              placeholder="Corrígeme, dime que no aplica o pregúntame algo…"
+                              className="w-full rounded-md border bg-background p-2 text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => void send(insight.title, insight.detail)}
+                                disabled={sending === insight.title || !(drafts[insight.title] ?? "").trim()}
+                              >
+                                {sending === insight.title
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Send className="h-4 w-4" />}
+                                Enviar
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setOpenThread(null)}>
+                                Cerrar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setOpenThread(insight.title)}
+                            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-primary"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            {thread.length > 0 ? "Seguir la conversación" : "Responder a este consejo"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {notes.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Tus respuestas se tienen en cuenta la próxima vez que analices el mes.
+                  </p>
+                )}
+                {advice.available && (
+                  <p className="text-xs text-muted-foreground">
+                    Análisis del {new Date(advice.generatedAt).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}.
+                    Si cambias pagos o cobros, vuelve a analizar.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

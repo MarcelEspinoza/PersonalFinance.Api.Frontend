@@ -59,8 +59,8 @@ export const TOURS: TourDefinition[] = [
         optional: true,
         title: "Tu dinero hoy",
         body:
-          "En «Dashboard» (la pantalla de inicio) ves el dinero que tienes hoy, según los movimientos que ya pasaron por el banco.\n\n" +
-          "Al lado, en «Tus cuentas», ves cuánto hay en cada cuenta.",
+          "En «Dashboard» (la pantalla de inicio) ves arriba el dinero que tienes hoy, lo que te quedará libre a fin de mes y lo que falta por cobrar y por pagar.\n\n" +
+          "Debajo, «Qué tienes que hacer» te dice lo que necesita tu atención, y «Tus cuentas» te muestra cuánto hay en cada cuenta.",
       },
       {
         target: t("nav-ledger"),

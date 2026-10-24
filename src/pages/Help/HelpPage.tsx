@@ -545,8 +545,8 @@ function HelpPageContent() {
         <Foldable icon={Bell} title="Recordatorios" subtitle="Para que no se te pase ningún pago ni ninguna fecha importante.">
           <p>
             Un recordatorio es un aviso con fecha: «pagar el seguro de la casa», «renovar el pasaporte», «cobrarle a Ana». Puede llevar un
-            importe y notas. Los creas en «Recordatorios», en el menú, con el botón «Nuevo recordatorio». En el Dashboard también ves los
-            que tocan en los próximos 7 días.
+            importe y notas. Los creas en «Recordatorios», en el menú, con el botón «Nuevo recordatorio».             En el Dashboard, en «Qué tienes
+                        que hacer», también ves los que tocan en los próximos 7 días.
           </p>
           <TermList items={REMINDER_TOPICS} />
           <Example>
