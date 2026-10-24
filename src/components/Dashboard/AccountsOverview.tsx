@@ -98,36 +98,34 @@ function AccountRow({
   return (
     <li className="px-5 py-3">
       <div className={GRID}>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium" title={account.name}>
-            {account.name}
-          </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            {hasFlows ? (
-              <>
-                {account.pendingIncome > 0.005 && (
-                  <span className="text-positive">
-                    +{money(account.pendingIncome)} {incomeWord}
-                  </span>
-                )}
-                {account.pendingExpense > 0.005 && (
-                  <span>
-                    −{money(account.pendingExpense)} {expenseWord}
-                  </span>
-                )}
-              </>
-            ) : (
-              !outlook.isPast && (
-                <span title="Si pagas o cobras algo desde esta cuenta, asígnala a ese concepto en Configuración.">
-                  Sin cobros ni pagos previstos
-                </span>
-              )
-            )}
-            {!isFuture && <ReconcileStatus account={account} isPast={outlook.isPast} />}
-          </p>
-        </div>
+        <p className="min-w-0 truncate text-sm font-medium" title={account.name}>
+          {account.name}
+        </p>
         <Amount value={todayBalance} className="text-right text-sm" />
         <Amount value={account.projectedEndBalance} className="text-right text-sm font-semibold" />
+        <p className="col-span-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground sm:col-span-1">
+          {hasFlows ? (
+            <>
+              {account.pendingIncome > 0.005 && (
+                <span className="text-positive">
+                  +{money(account.pendingIncome)} {incomeWord}
+                </span>
+              )}
+              {account.pendingExpense > 0.005 && (
+                <span>
+                  −{money(account.pendingExpense)} {expenseWord}
+                </span>
+              )}
+            </>
+          ) : (
+            !outlook.isPast && (
+              <span title="Si pagas o cobras algo desde esta cuenta, asígnala a ese concepto en Configuración.">
+                Sin cobros ni pagos previstos
+              </span>
+            )
+          )}
+          {!isFuture && <ReconcileStatus account={account} isPast={outlook.isPast} />}
+        </p>
       </div>
       {atRisk && (
         <RiskNote

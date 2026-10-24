@@ -63,10 +63,11 @@ export function FutureMonthsChart({ months, title }: { months: MonthlyData[]; ti
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
                 <YAxis
                   tickFormatter={(value) => `${axisNumber.format(Number(value))} €`}
-                  width={64}
+                  width={84}
+                  tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
                 />
@@ -77,7 +78,7 @@ export function FutureMonthsChart({ months, title }: { months: MonthlyData[]; ti
                     return point?.fullName ?? String(label ?? "");
                   }}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <ReferenceLine y={0} stroke="#94a3b8" />
                 <Bar dataKey="income" name="Entra" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={36} />
                 <Bar dataKey="expense" name="Sale" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={36} />
