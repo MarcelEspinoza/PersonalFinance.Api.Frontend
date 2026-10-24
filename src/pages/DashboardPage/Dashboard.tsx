@@ -18,6 +18,7 @@ import { ActionCenter } from "../../components/Dashboard/ActionCenter";
 import { FutureMonthsBoxes } from "../../components/Dashboard/FutureMonthsBoxes";
 import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
 import { MonthProgressCard } from "../../components/Dashboard/MonthProgressCard";
+import { ServiceSavingsCard } from "../../components/Dashboard/ServiceSavingsCard";
 import { UpcomingItemsCard } from "../../components/Dashboard/UpcomingItemsCard";
 import { capitalize, ledgerLink, pendingFlows, type PendingFlows } from "../../components/Dashboard/dashboardUtils";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
@@ -266,16 +267,19 @@ export function Dashboard() {
               />
             )}
           </div>
-          <MonthProgressCard
-            title={monthTitle}
-            collected={summary.currentMonthIncome}
-            toCollect={flows.toCollect}
-            paid={summary.currentMonthExpense}
-            toPay={flows.toPay}
-            result={summary.currentMonthResult}
-            deviations={outlook.deviations}
-            isPast={isPast}
-          />
+          <div className="space-y-6">
+            <MonthProgressCard
+              title={monthTitle}
+              collected={summary.currentMonthIncome}
+              toCollect={flows.toCollect}
+              paid={summary.currentMonthExpense}
+              toPay={flows.toPay}
+              result={summary.currentMonthResult}
+              deviations={outlook.deviations}
+              isPast={isPast}
+            />
+            <ServiceSavingsCard />
+          </div>
         </div>
 
         <FutureMonthsBoxes
