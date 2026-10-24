@@ -22,6 +22,7 @@ const APP_ROUTES = [
   "/dashboard",
   "/monthly",
   "/ledger",
+  "/plan",
   "/imports",
   "/movements",
   "/loans",

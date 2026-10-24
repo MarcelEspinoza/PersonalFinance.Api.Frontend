@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettinggPage/SettingsPage';
 import { ImportsPage } from './pages/Imports/ImportsPage';
 import { AssistantPage } from './pages/Assistant/AssistantPage';
 import { HelpPage } from './pages/Help/HelpPage';
+import { PlanPage } from './pages/Plan/PlanPage';
 import { TourProvider } from './components/Tour/TourProvider';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -51,6 +52,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><LedgerMonthPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/plan"
+        element={
+          <PrivateRoute>
+            <Layout><PlanPage /></Layout>
           </PrivateRoute>
         }
       />

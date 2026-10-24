@@ -43,6 +43,48 @@ export interface UpdateExpensePlanning {
   firstDueMonth?: string | null;
 }
 
+export interface ExpensePlanMonth {
+  year: number;
+  month: number;
+  isCurrent: boolean;
+  isClosed: boolean;
+  income: number;
+  fixedExpense: number;
+  variableExpense: number;
+}
+
+export interface ExpensePlanFixedRow {
+  conceptId: string;
+  name: string;
+  groupName?: string | null;
+  cells: { amount: number; paid: boolean }[];
+}
+
+export interface ExpensePlanVariableCell {
+  /** The month's own limit when it has one, otherwise the usual limit. */
+  budget?: number | null;
+  isOverride: boolean;
+  spent: number;
+  /** Paid plus still pending entries of the month. */
+  planned: number;
+  /** What the forecast counts: the larger of planned and budget. */
+  counted: number;
+}
+
+export interface ExpensePlanVariableRow {
+  conceptId: string;
+  name: string;
+  groupName?: string | null;
+  defaultBudget?: number | null;
+  cells: ExpensePlanVariableCell[];
+}
+
+export interface ExpensePlanMonths {
+  months: ExpensePlanMonth[];
+  fixed: ExpensePlanFixedRow[];
+  variable: ExpensePlanVariableRow[];
+}
+
 export const expensePlanningService = {
   get: async (): Promise<ExpensePlanning> => {
     const { data } = await apiClient.get<ExpensePlanning>("/expense-planning");
@@ -58,5 +100,21 @@ export const expensePlanningService = {
       payload,
     );
     return data;
+  },
+
+  /** 6 months of fixed and variable expenses, from the given month (default: the current one). */
+  getMonths: async (start?: { year: number; month: number }): Promise<ExpensePlanMonths> => {
+    const { data } = await apiClient.get<ExpensePlanMonths>("/expense-planning/months", { params: start });
+    return data;
+  },
+
+  /** Usual monthly limit of a variable expense; null removes it. */
+  setDefaultBudget: async (conceptId: string, limit: number | null): Promise<void> => {
+    await apiClient.put(`/expense-planning/${conceptId}/budget`, { limit });
+  },
+
+  /** Limit for one month only; null goes back to the usual limit. */
+  setMonthBudget: async (conceptId: string, year: number, month: number, limit: number | null): Promise<void> => {
+    await apiClient.put(`/expense-planning/${conceptId}/budget/${year}/${month}`, { limit });
   },
 };

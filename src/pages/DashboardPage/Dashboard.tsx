@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AccountsOverview } from "../../components/Dashboard/AccountsOverview";
 import { ActionCenter } from "../../components/Dashboard/ActionCenter";
-import { FutureMonthsChart } from "../../components/Dashboard/FutureMonthsChart";
+import { FutureMonthsBoxes } from "../../components/Dashboard/FutureMonthsBoxes";
 import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
 import { MonthProgressCard } from "../../components/Dashboard/MonthProgressCard";
 import { UpcomingItemsCard } from "../../components/Dashboard/UpcomingItemsCard";
@@ -278,9 +278,12 @@ export function Dashboard() {
           />
         </div>
 
-        <FutureMonthsChart
+        <FutureMonthsBoxes
           months={futureMonths}
           title={isDefaultMonth ? "Próximos 6 meses" : `Los 6 meses después de ${monthOnly}`}
+          startBalance={isPast ? closingBalance : outlook.freeMoney}
+          startMonthName={monthOnly}
+          onSelectMonth={goTo}
         />
 
         <MonthAdvicePanel year={selectedYear} month={selectedMonth} monthName={monthLabel(selectedYear, selectedMonth)} />

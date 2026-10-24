@@ -1,5 +1,6 @@
 import {
   Bell,
+  CalendarRange,
   ClipboardList,
   Coins,
   HandCoins,
@@ -32,6 +33,7 @@ interface LayoutProps {
 const navItems = [
   { path: 'dashboard', activePaths: ['dashboard'], label: 'Dashboard', icon: LayoutDashboard, activeClass: 'bg-indigo-600 text-white' },
   { path: 'ledger', activePaths: ['ledger', 'monthly'], label: 'Mes', icon: ClipboardList, activeClass: 'bg-sky-600 text-white' },
+  { path: 'plan', activePaths: ['plan'], label: 'Plan de gastos', icon: CalendarRange, activeClass: 'bg-emerald-600 text-white' },
   { path: 'imports', activePaths: ['imports'], label: 'Importar', icon: Upload, activeClass: 'bg-cyan-600 text-white' },
   { path: 'loans', activePaths: ['loans'], label: 'Préstamos', icon: Coins, activeClass: 'bg-amber-600 text-white' },
   { path: 'pasanaco', activePaths: ['pasanaco'], label: 'Pasanaco', icon: Users, activeClass: 'bg-orange-600 text-white' },
@@ -43,7 +45,7 @@ const navItems = [
 ];
 
 // Screens with wide tables get extra room; the rest keep a readable width.
-const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly'];
+const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly', 'plan'];
 
 // Not re-mounted when data changes: the chat pages would lose their conversation, and «Mes» reloads itself
 // so its search, folds and scroll position survive.
