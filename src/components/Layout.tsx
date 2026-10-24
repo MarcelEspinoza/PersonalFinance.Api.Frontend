@@ -18,9 +18,11 @@ import {
 import { Fragment, ReactNode, useEffect, useState } from 'react';
 import { matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useGlobalChatPanel } from '../contexts/globalChatContext';
+import { GlobalChatProvider } from '../contexts/GlobalChatProvider';
 import { cn } from '../lib/utils';
 import { DATA_CHANGED_EVENT } from '../services/chatService';
-import { ChatBubble } from './Chat/ChatBubble';
+import { GlobalChatPanel } from './Chat/GlobalChatPanel';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
 import { ReminderBell } from './Reminders/ReminderBell';
 import { ScrollButtons } from './ScrollButtons';
@@ -52,9 +54,18 @@ const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly', 'plan'];
 const keepMountedOnDataChangePaths = ['/assistant', '/imports', '/ledger'];
 
 export function Layout({ children }: LayoutProps) {
+  return (
+    <GlobalChatProvider>
+      <LayoutShell>{children}</LayoutShell>
+    </GlobalChatProvider>
+  );
+}
+
+function LayoutShell({ children }: LayoutProps) {
   const { signOut } = useAuth();
+  const { view: chatView, hidden: chatHidden, minimizePanel: minimizeChat } = useGlobalChatPanel();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Changing it re-mounts only the routed page so it refetches; ChatBubble and the rest of the layout keep their state.
+  // Changing it re-mounts only the routed page so it refetches; the assistant and the rest of the layout keep their state.
   const [pageKey, setPageKey] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
@@ -153,7 +164,11 @@ export function Layout({ children }: LayoutProps) {
           <HelpMenu compact align="right" />
           <button
             data-tour="mobile-menu-button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              // The open assistant would cover the lower part of the menu.
+              if (!mobileMenuOpen && chatView === 'open') minimizeChat();
+              setMobileMenuOpen(!mobileMenuOpen);
+            }}
             className="rounded-md p-2 hover:bg-accent"
             aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           >
@@ -180,12 +195,21 @@ export function Layout({ children }: LayoutProps) {
 
       {/* overflow-x-clip (not hidden) so main doesn't become a scroll container and sticky headers keep working. */}
       <main className="min-w-0 flex-1 overflow-x-clip">
-        <div className={`mx-auto px-4 py-5 sm:px-6 lg:px-8 ${wideContentPaths.includes(currentPath) ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
+        <div
+          className={cn(
+            'mx-auto px-4 py-5 sm:px-6 lg:px-8',
+            wideContentPaths.includes(currentPath) ? 'max-w-[1500px]' : 'max-w-6xl',
+            // On small screens the assistant sits over the bottom of the page: leave room to scroll past it.
+            !chatHidden && chatView === 'open' && 'pb-[65vh] lg:pb-5',
+            !chatHidden && chatView === 'minimized' && 'pb-16 lg:pb-5',
+          )}
+        >
           <Fragment key={pageKey}>{children}</Fragment>
         </div>
       </main>
+      {/* On large screens it docks as a column to the right of main. */}
+      <GlobalChatPanel />
       <ScrollButtons />
-      <ChatBubble />
       <GlobalImportProgress />
     </div>
   );

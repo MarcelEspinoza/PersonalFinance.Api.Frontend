@@ -84,7 +84,7 @@ export function FutureMonthsBoxes({ months, title, startBalance, startMonthName,
                 </div>
                 <dl className="mt-2 space-y-1 text-sm">
                   <BoxRow label="Entra" value={euros(month.income)} valueClassName="text-positive" />
-                  <IncomeNote settlements={month.settlementIncome ?? 0} />
+                  <IncomeNote reminders={month.reminderIncome ?? 0} settlements={month.settlementIncome ?? 0} />
                   <BoxRow label="Sale" value={euros(month.expense)} valueClassName="text-orange-600" />
                   <ExpenseNote
                     reserve={month.variableExpenseReserve}
@@ -181,13 +181,16 @@ function ExpenseNote({ reserve, reminders, settlements }: { reserve: number; rem
   );
 }
 
-/** What open settlements are expected to pay you, already inside «Entra». */
-function IncomeNote({ settlements }: { settlements: number }) {
-  if (Math.round(settlements) <= 0) return null;
+/** What reminders of cobro and open settlements are expected to pay you, already inside «Entra». */
+function IncomeNote({ reminders, settlements }: { reminders: number; settlements: number }) {
+  const parts: string[] = [];
+  if (Math.round(reminders) > 0) parts.push(`${euros(reminders)} de recordatorios`);
+  if (Math.round(settlements) > 0) parts.push(`${euros(settlements)} de liquidaciones`);
+  if (parts.length === 0) return null;
 
   return (
     <div className="text-[11px] leading-snug text-muted-foreground">
-      <dt className="inline">incluye</dt> <dd className="inline">{euros(settlements)} de liquidaciones</dd>
+      <dt className="inline">incluye</dt> <dd className="inline">{parts.join(" · ")}</dd>
     </div>
   );
 }

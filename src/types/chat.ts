@@ -46,6 +46,8 @@ export interface ProposedAction {
   /** create_reminder: `name` is the title, `date` the due date, `amount` (0 = none) and `notes`. */
   repeat?: ReminderRepeat | null;
   notifyDaysBefore?: number | null;
+  /** create_reminder / update_reminder: true = a cobro (money comes in). On update, null keeps it as it is. */
+  isIncome?: boolean | null;
   /**
    * api_call (admin only): write request the browser sends itself after the user confirms it.
    * For this type the other fields come with default values and are ignored.

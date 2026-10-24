@@ -24,6 +24,8 @@ import {
   formatTimestamp,
   hasAmount,
   noticeLabel,
+  reminderAmountLabel,
+  reminderDirectionLabel,
   reminderUrgency,
   repeatLabel,
   sortReminders,
@@ -34,7 +36,7 @@ import { cn } from "../../lib/utils";
 import { chatErrorMessage } from "../../services/chatService";
 import { REMINDERS_CHANGED_EVENT, ReminderService } from "../../services/reminderService";
 import type { Reminder, ReminderStatusFilter } from "../../types/reminder";
-import { money, today } from "../../utils/civilDate";
+import { today } from "../../utils/civilDate";
 
 const FILTERS: { value: ReminderStatusFilter; label: string }[] = [
   { value: "active", label: "Activos" },
@@ -343,7 +345,10 @@ function ReminderCard({ reminder, todayValue, actions }: ReminderItemProps) {
           <h3 className="break-words font-semibold leading-snug">{reminder.title}</h3>
         </div>
         {hasAmount(reminder) && (
-          <span className="shrink-0 font-semibold tabular-nums">{money(reminder.amount)}</span>
+          <span className={cn("shrink-0 text-right font-semibold tabular-nums", reminder.isIncome && "text-positive")}>
+            {reminderAmountLabel(reminder)}
+            <span className="block text-[11px] font-medium text-muted-foreground">{reminderDirectionLabel(reminder)}</span>
+          </span>
         )}
       </div>
 
@@ -401,7 +406,14 @@ function ReminderRow({ reminder, todayValue, actions }: ReminderItemProps) {
         </div>
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">
-        {hasAmount(reminder) ? money(reminder.amount) : <span className="text-muted-foreground">—</span>}
+        {hasAmount(reminder) ? (
+          <>
+            <div className={cn(reminder.isIncome && "text-positive")}>{reminderAmountLabel(reminder)}</div>
+            <div className="mt-0.5 text-xs font-normal text-muted-foreground">{reminderDirectionLabel(reminder)}</div>
+          </>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </td>
       <td className="whitespace-nowrap px-4 py-3">
         <div>{repeatLabel(reminder.repeat)}</div>

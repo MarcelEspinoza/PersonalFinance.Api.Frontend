@@ -5,9 +5,16 @@ import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { REMINDERS_CHANGED_EVENT, ReminderService } from "../../services/reminderService";
 import type { DueReminders, Reminder } from "../../types/reminder";
-import { money, today } from "../../utils/civilDate";
+import { today } from "../../utils/civilDate";
 import { UrgencyBadge } from "./ReminderBadges";
-import { formatCivilDate, hasAmount, relativeDayLabel, reminderUrgency } from "./reminderUtils";
+import {
+  formatCivilDate,
+  hasAmount,
+  relativeDayLabel,
+  reminderAmountLabel,
+  reminderDirectionLabel,
+  reminderUrgency,
+} from "./reminderUtils";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -255,7 +262,8 @@ export function ReminderBell({ variant }: ReminderBellProps) {
                         <p className="break-words text-sm font-medium leading-snug">{reminder.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {formatCivilDate(reminder.dueDate)} · {relativeDayLabel(reminder.dueDate, todayValue)}
-                          {hasAmount(reminder) && ` · ${money(reminder.amount)}`}
+                          {hasAmount(reminder) &&
+                            ` · ${reminderDirectionLabel(reminder).toLowerCase()} ${reminderAmountLabel(reminder)}`}
                         </p>
                       </div>
                       {urgency && <UrgencyBadge urgency={urgency} className="shrink-0" />}

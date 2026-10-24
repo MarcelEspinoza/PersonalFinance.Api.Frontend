@@ -1,9 +1,11 @@
 import { PageHeader } from "../../components/PageHeader";
-import { useGlobalChat } from "../../hooks/useGlobalChat";
+import { useHideGlobalChat, useSharedGlobalChat } from "../../contexts/globalChatContext";
 import { ChatThread } from "../../components/Chat/ChatThread";
 
 export function AssistantPage() {
-  const chat = useGlobalChat();
+  // Same conversation as the docked assistant, which hides here so it isn't shown twice.
+  const chat = useSharedGlobalChat();
+  useHideGlobalChat();
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col space-y-6">

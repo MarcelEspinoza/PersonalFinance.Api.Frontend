@@ -1,5 +1,5 @@
 import type { Reminder, ReminderRepeat } from "../../types/reminder";
-import { civilDate, today } from "../../utils/civilDate";
+import { civilDate, money, today } from "../../utils/civilDate";
 
 export const MAX_NOTIFY_DAYS = 30;
 
@@ -122,6 +122,15 @@ export function formatAmountInput(value: number | null | undefined): string {
 
 export function hasAmount(reminder: Reminder): reminder is Reminder & { amount: number } {
   return typeof reminder.amount === "number" && reminder.amount !== 0;
+}
+
+/** Cobros carry a «+» so they don't read like a payment. */
+export function reminderAmountLabel(reminder: Reminder & { amount: number }): string {
+  return reminder.isIncome ? `+${money(reminder.amount)}` : money(reminder.amount);
+}
+
+export function reminderDirectionLabel(reminder: Reminder): string {
+  return reminder.isIncome ? "Cobro" : "Pago";
 }
 
 /** Active ones first (closest date first), then the done ones (most recent first). */

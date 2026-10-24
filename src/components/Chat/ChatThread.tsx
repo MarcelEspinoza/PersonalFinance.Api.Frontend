@@ -1,28 +1,36 @@
-import { useEffect, useRef, type FormEvent } from "react";
-import { Bell, CheckCircle2, Loader2, Send } from "lucide-react";
+import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
+import { Loader2, Send } from "lucide-react";
 import { Button } from "../ui/button";
-import { useGlobalChat } from "../../hooks/useGlobalChat";
-import { ApiCallActionCard } from "./ApiCallActionCard";
+import { useAutosizeTextarea } from "../../hooks/useAutosizeTextarea";
+import type { GlobalChat } from "../../hooks/useGlobalChat";
+import { ChatActionCards } from "./ChatActionCards";
+
+export const GLOBAL_CHAT_EMPTY_HINT =
+  "Pregúntame lo que quieras sobre tus finanzas. También puedo preparar movimientos, categorías, presupuestos, pagos de préstamos, cambios de Pasanaco, clasificaciones de importación y recordatorios; nada se aplica sin tu confirmación.";
+const MAX_INPUT_HEIGHT_PX = 160;
 
 interface ChatThreadProps {
-  chat: ReturnType<typeof useGlobalChat>;
+  chat: GlobalChat;
   emptyHint?: string;
 }
 
 /**
- * Lista de mensajes + input + tarjetas de acciones propuestas. Compartido por
- * la burbuja flotante y la página dedicada del asistente para no duplicar
- * la lógica de confirmación de acciones.
+ * Full-page conversation with the global assistant (the «Asistente» screen). It shows the same
+ * conversation as the docked panel, which hides on that screen.
  */
 export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
-  const { messages, input, setInput, busy, actionBusy, apiCallsRunning, send, confirmAction } = chat;
+  const { messages, input, setInput, busy, send } = chat;
   const listRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const renderedCountRef = useRef(0);
+  const canSend = !busy && input.trim().length > 0;
+
+  useAutosizeTextarea(inputRef, input, MAX_INPUT_HEIGHT_PX);
 
   // New user message: show the end (and the "Pensando…" line). New assistant message: show its
   // beginning, so long answers are read from the top instead of from the last line.
-  // Scrolls only the message list (not the page behind the floating bubble).
+  // Scrolls only the message list, not the page.
   useEffect(() => {
     const previousCount = renderedCountRef.current;
     renderedCountRef.current = messages.length;
@@ -42,17 +50,21 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    void send(input);
+    if (canSend) void send(input);
+  };
+
+  // Enter sends; Shift+Enter starts a new line.
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    if (canSend) void send(input);
   };
 
   return (
     <div className="flex h-full flex-col">
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {emptyHint ??
-              "Pregúntame lo que quieras sobre tus finanzas. También puedo preparar movimientos, categorías, presupuestos, pagos de préstamos, cambios de Pasanaco, clasificaciones de importación y recordatorios; nada se aplica sin tu confirmación."}
-          </p>
+          <p className="text-sm text-muted-foreground">{emptyHint ?? GLOBAL_CHAT_EMPTY_HINT}</p>
         )}
         {messages.map((entry, messageIndex) => (
           <div
@@ -69,59 +81,7 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
             >
               {entry.content}
             </div>
-            {entry.actions?.map((action, actionIndex) => {
-              const resolved = entry.resolvedActions?.has(actionIndex);
-              const key = `${messageIndex}-${actionIndex}`;
-              if (action.type === "api_call") {
-                return (
-                  <ApiCallActionCard
-                    key={actionIndex}
-                    action={action}
-                    resolved={Boolean(resolved)}
-                    busy={apiCallsRunning.includes(key)}
-                    onConfirm={() => void confirmAction(messageIndex, actionIndex, action)}
-                  />
-                );
-              }
-              const isReminder = action.type.endsWith("_reminder");
-              const doneLabel =
-                action.type === "create_reminder"
-                  ? "Recordatorio creado"
-                  : action.type === "complete_reminder"
-                    ? "Hecho"
-                    : action.type === "delete_reminder"
-                      ? "Borrado"
-                      : "Aplicado";
-              return (
-                <div
-                  key={actionIndex}
-                  className="mr-6 flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-sm"
-                >
-                  {isReminder ? (
-                    <span className="flex min-w-0 items-start gap-2">
-                      <Bell className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
-                      <span className="min-w-0 break-words">{action.summary}</span>
-                    </span>
-                  ) : (
-                    <span className="min-w-0 break-words">{action.summary}</span>
-                  )}
-                  {resolved ? (
-                    <span className="flex items-center gap-1 text-positive">
-                      <CheckCircle2 className="h-4 w-4" /> {doneLabel}
-                    </span>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={actionBusy === key}
-                      onClick={() => void confirmAction(messageIndex, actionIndex, action)}
-                    >
-                      {actionBusy === key ? "Aplicando…" : "Confirmar"}
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
+            <ChatActionCards chat={chat} messageIndex={messageIndex} className="mr-6" />
           </div>
         ))}
         {busy && (
@@ -130,15 +90,18 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
           </div>
         )}
       </div>
-      <form onSubmit={onSubmit} className="flex gap-2 border-t p-3">
-        <input
-          className="h-9 flex-1 rounded-md border bg-background px-3 text-sm"
+      <form onSubmit={onSubmit} className="flex items-end gap-2 border-t p-3">
+        <textarea
+          ref={inputRef}
+          rows={1}
+          className="min-h-[2.25rem] flex-1 resize-none overflow-hidden rounded-md border bg-background px-3 py-2 text-sm leading-5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           placeholder="Escribe un mensaje…"
+          aria-label="Mensaje para el asistente"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={busy}
+          onKeyDown={onKeyDown}
         />
-        <Button type="submit" size="icon" disabled={busy || !input.trim()}>
+        <Button type="submit" size="icon" className="shrink-0" disabled={!canSend} title="Enviar" aria-label="Enviar">
           <Send className="h-4 w-4" />
         </Button>
       </form>

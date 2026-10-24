@@ -14,9 +14,11 @@ export interface DisplayMessage extends ChatMessage {
   resolvedActions?: Set<number>;
 }
 
+export type GlobalChat = ReturnType<typeof useGlobalChat>;
+
 /**
- * Lógica compartida entre la burbuja flotante y la página dedicada del
- * asistente, para no duplicar el manejo de historial/acciones propuestas.
+ * The conversation with the global assistant. GlobalChatProvider creates it once for the whole session,
+ * so the docked panel and the «Asistente» page share it and changing screens doesn't clear it.
  */
 export function useGlobalChat() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);

@@ -11,6 +11,8 @@ export interface Reminder {
   notes?: string | null;
   dueDate: string;
   amount?: number | null;
+  /** true = cobro (dinero que entra); false = pago. Sólo cuenta si hay importe. */
+  isIncome: boolean;
   repeat: ReminderRepeat;
   /** Días antes de la fecha en los que empieza a avisar (0 = el mismo día). */
   notifyDaysBefore: number;
@@ -29,6 +31,7 @@ export interface ReminderInput {
   notes?: string | null;
   dueDate: string;
   amount?: number | null;
+  isIncome?: boolean;
   repeat: ReminderRepeat;
   notifyDaysBefore: number;
   emailEnabled: boolean;

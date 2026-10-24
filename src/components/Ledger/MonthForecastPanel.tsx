@@ -15,13 +15,17 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
     { label: "Apuntado", value: forecast.entryExpense },
     { label: "Pagos que se repiten (aún sin apuntar)", value: forecast.ruleExpense },
     { label: "Reservado para gastos variables", value: forecast.variableExpenseReserve },
-    { label: "Recordatorios", value: forecast.reminders },
+    { label: "Recordatorios de pago", value: forecast.reminders },
     { label: "Liquidaciones que pagas tú", value: forecast.settlementExpense ?? 0 },
   ].filter((part) => hasValue(part.value));
   const expenseReserves = forecast.reserveItems.filter((item) => !item.isIncome);
   const incomeReserves = forecast.reserveItems.filter((item) => item.isIncome);
   const settlementItems = forecast.settlementItems ?? [];
   const settlementIncome = forecast.settlementIncome ?? 0;
+  const incomeParts = [
+    { label: "de recordatorios de cobro", value: forecast.reminderIncome ?? 0 },
+    { label: "de liquidaciones que te deben pagar", value: settlementIncome },
+  ].filter((part) => hasValue(part.value));
   const hasDetail =
     forecast.reserveItems.length > 0 || forecast.reminderItems.length > 0 || settlementItems.length > 0;
 
@@ -45,9 +49,9 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
           «Sale» incluye: {expenseParts.map((part) => `${part.label} ${money(part.value)}`).join(" · ")}
         </p>
       )}
-      {hasValue(settlementIncome) && (
+      {incomeParts.length > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
-          «Entra» incluye {money(settlementIncome)} de liquidaciones que te deben pagar.
+          «Entra» incluye {incomeParts.map((part) => `${money(part.value)} ${part.label}`).join(" y ")}.
         </p>
       )}
 
@@ -118,7 +122,16 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
                       <UrgencyBadge urgency="overdue" />
                     </span>
                   )}
-                  <span className="shrink-0 font-medium tabular-nums text-foreground">{money(item.amount)}</span>
+                  <span
+                    className={cn(
+                      "shrink-0 font-medium tabular-nums",
+                      item.isIncome ? "text-positive" : "text-foreground",
+                    )}
+                    title={item.isIncome ? "Cobro: entra dinero" : "Pago: sale dinero"}
+                  >
+                    {item.isIncome ? "+" : "−"}
+                    {money(item.amount)}
+                  </span>
                 </li>
               ))}
             </DetailBlock>

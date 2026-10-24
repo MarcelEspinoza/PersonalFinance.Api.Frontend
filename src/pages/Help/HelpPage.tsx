@@ -224,6 +224,11 @@ const REMINDER_TOPICS: GlossaryItem[] = [
       "¿Todavía no puedes hacerlo? Pulsa «Posponer» y elige 1, 3 o 7 días (en la campanita, «Mañana»). La fecha no cambia: solo deja de avisarte esos días.",
   },
   {
+    term: "¿Pago o cobro?",
+    meaning:
+      "Si el recordatorio lleva importe, eliges si es un pago (sale dinero) o un cobro (entra dinero: te pagan o te devuelven). La previsión del mes lo cuenta como gasto o como ingreso. Si ese dinero ya está anotado en «Mes» o en una liquidación, déjalo sin importe para no contarlo dos veces.",
+  },
+  {
     term: "Con la IA",
     meaning:
       "El asistente también puede proponerte recordatorios. Escríbele, por ejemplo, «recuérdame pagar el seguro de la casa el 30 de septiembre». Te muestra la propuesta y solo se crea cuando tú pulsas «Confirmar». En la lista salen con la etiqueta «IA».",
@@ -519,8 +524,9 @@ function HelpPageContent() {
 
         <Foldable icon={MessageCircle} title="El asistente de la app" subtitle="Pregúntale con tus palabras, como a una persona.">
           <p>
-            Es un chat: le escribes y te contesta con tus datos. Lo abres con el botón redondo de abajo a la derecha o en «Asistente», en el
-            menú.
+            Es un chat: le escribes y te contesta con tus datos. Lo abres con el botón redondo de abajo a la derecha: se abre a un lado
+            de la pantalla (en el teléfono, abajo) y se queda abierto aunque cambies de pantalla, con la misma conversación. También lo
+            tienes a pantalla completa en «Asistente», en el menú.
           </p>
           <p>
             Puede consultar toda tu información, preparar cambios en movimientos, categorías, presupuestos, préstamos, Pasanaco e
@@ -538,7 +544,8 @@ function HelpPageContent() {
           </div>
           <p>
             En «Importar» hay otro asistente, solo para la importación que estás revisando (botón «Asistente»). Por ejemplo: «pon
-            Mercadona en Alimentación» o «¿qué significa el aviso del agua?».
+            Mercadona en Alimentación» o «¿qué significa el aviso del agua?». Mientras lo tienes abierto, el asistente general se
+            esconde para que no veas dos chats a la vez.
           </p>
         </Foldable>
 

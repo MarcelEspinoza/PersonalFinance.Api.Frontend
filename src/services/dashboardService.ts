@@ -15,8 +15,10 @@ export interface MonthlyData {
   pendingExpense: number;
   /** Part of `expense` kept for what is left of the variable expense limits. */
   variableExpenseReserve: number;
-  /** Part of `expense` that comes from pending reminders with an amount. */
+  /** Part of `expense` that comes from pending reminders with an amount that are pagos. */
   reminders: number;
+  /** Part of `income` that comes from pending reminders with an amount that are cobros. */
+  reminderIncome?: number;
   /** Part of `income` / `expense` that open settlements (mamá, Vane…) still expect. */
   settlementIncome?: number;
   settlementExpense?: number;

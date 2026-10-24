@@ -711,6 +711,7 @@ export function ImportsPage() {
           title,
           dueDate: action.dueDate,
           amount: action.amount ?? null,
+          isIncome: action.isIncome ?? false,
           repeat: normalizeReminderRepeat(action.repeat),
           notifyDaysBefore: reminderNoticeDays(action),
           emailEnabled: true,

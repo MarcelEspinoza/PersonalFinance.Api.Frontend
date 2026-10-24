@@ -87,7 +87,7 @@
   }
 }
 
-/* Space taken by a docked right-side panel (e.g. the imports assistant); floating buttons shift left by it. */
+/* Space taken by a docked right-side panel (the assistants); floating buttons shift left by it. */
 :root {
   --right-panel-offset: 0px;
 }

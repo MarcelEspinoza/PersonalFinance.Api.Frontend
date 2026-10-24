@@ -107,12 +107,14 @@ export interface MonthForecastReserveItem {
   amount: number;
 }
 
-/** A pending reminder with an amount: the forecast counts it as an expense. */
+/** A pending reminder with an amount: the forecast counts it as an expense (pago) or as income (cobro). */
 export interface MonthForecastReminderItem {
   reminderId: string;
   title: string;
   date: CivilDate;
   amount: number;
+  /** True: a cobro (money comes in). False: a pago. */
+  isIncome?: boolean;
   /** Its date already passed and it is not done yet. */
   isOverdue: boolean;
 }
@@ -130,7 +132,7 @@ export interface MonthForecastSettlementItem {
 
 /**
  * The month as the forecast sees it: the same numbers as the dashboard boxes and the «Plan de gastos».
- * income = entryIncome + ruleIncome + variableIncomeExpected + settlementIncome;
+ * income = entryIncome + ruleIncome + variableIncomeExpected + reminderIncome + settlementIncome;
  * expense = entryExpense + ruleExpense + variableExpenseReserve + reminders + settlementExpense;
  * balance = income − expense, without the carry-over from the previous month.
  */
@@ -148,8 +150,10 @@ export interface MonthForecastSummary {
   ruleExpense: number;
   variableExpenseReserve: number;
   variableIncomeExpected: number;
-  /** Pending reminders with an amount. */
+  /** Pending reminders with an amount that are pagos. */
   reminders: number;
+  /** Pending reminders with an amount that are cobros. */
+  reminderIncome?: number;
   /** What open settlements still expect to collect / to pay. */
   settlementIncome?: number;
   settlementExpense?: number;
@@ -392,6 +396,8 @@ export interface ImportChatProposedAction {
   repeat?: ReminderRepeat | null;
   notifyDaysBefore?: number | null;
   notes?: string | null;
+  /** create_reminder: true = a cobro (money comes in); false or missing = a pago. */
+  isIncome?: boolean | null;
 }
 
 export interface ImportChatResponse {

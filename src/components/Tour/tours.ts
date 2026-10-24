@@ -101,8 +101,8 @@ export const TOURS: TourDefinition[] = [
         target: t("chat-bubble"),
         title: "Tu asistente",
         body:
-          "Este botón redondo abre el asistente. Escríbele como a una persona: busca en tus datos y te prepara cambios.\n\n" +
-          "No cambia nada hasta que tú lo confirmas.",
+          "Con este botón redondo abres el asistente a un lado de la pantalla (en el teléfono, abajo). Escríbele como a una persona: busca en tus datos y te prepara cambios.\n\n" +
+          "Se queda abierto aunque cambies de pantalla, con la misma conversación. No cambia nada hasta que tú lo confirmas.",
         example: "«¿Cuánto gasté en Alimentación en octubre?»",
       },
       {

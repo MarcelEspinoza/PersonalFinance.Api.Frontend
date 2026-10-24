@@ -23,6 +23,7 @@ import {
   formatCivilDate,
   hasAmount,
   relativeDayLabel,
+  reminderAmountLabel,
   reminderUrgency,
 } from "../Reminders/reminderUtils";
 import { CountBadge, SectionCard } from "./SectionCard";
@@ -190,7 +191,7 @@ function buildTasks(
       detail:
         `${formatCivilDate(reminder.dueDate)} · ${relativeDayLabel(reminder.dueDate, todayValue)}` +
         (snoozedUntil ? ` · pospuesto hasta el ${formatCivilDate(snoozedUntil)}` : ""),
-      amount: hasAmount(reminder) ? money(reminder.amount) : undefined,
+      amount: hasAmount(reminder) ? reminderAmountLabel(reminder) : undefined,
       link: { to: "/reminders", label: "Ver" },
     });
   });

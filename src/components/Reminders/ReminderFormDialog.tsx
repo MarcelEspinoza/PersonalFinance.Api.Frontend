@@ -47,6 +47,7 @@ export function ReminderFormDialog({ open, reminder, onOpenChange, onSaved }: Re
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [amount, setAmount] = useState("");
+  const [isIncome, setIsIncome] = useState(false);
   const [repeat, setRepeat] = useState<ReminderRepeat>("none");
   const [notifyDaysBefore, setNotifyDaysBefore] = useState(1);
   const [emailEnabled, setEmailEnabled] = useState(true);
@@ -60,6 +61,7 @@ export function ReminderFormDialog({ open, reminder, onOpenChange, onSaved }: Re
     setTitle(reminder?.title ?? "");
     setDueDate(reminder?.dueDate.slice(0, 10) ?? "");
     setAmount(formatAmountInput(reminder?.amount));
+    setIsIncome(reminder?.isIncome ?? false);
     setRepeat(reminder?.repeat ?? "none");
     setNotifyDaysBefore(reminder ? clampNoticeDays(reminder.notifyDaysBefore) : 1);
     setEmailEnabled(reminder?.emailEnabled ?? true);
@@ -87,6 +89,7 @@ export function ReminderFormDialog({ open, reminder, onOpenChange, onSaved }: Re
       notes: notes.trim() || null,
       dueDate,
       amount: parsedAmount !== null && parsedAmount > 0 ? Math.round(parsedAmount * 100) / 100 : null,
+      isIncome,
       repeat,
       notifyDaysBefore,
       emailEnabled,
@@ -158,6 +161,29 @@ export function ReminderFormDialog({ open, reminder, onOpenChange, onSaved }: Re
                 </div>
               </Field>
             </div>
+
+            {parsedAmount !== null && parsedAmount > 0 && (
+              <div className="-mt-1 grid gap-2">
+                <div role="radiogroup" aria-label="¿Sale o entra dinero?" className="grid grid-cols-2 gap-2">
+                  <DirectionOption
+                    checked={!isIncome}
+                    label="Es un pago"
+                    hint="Sale dinero"
+                    onSelect={() => setIsIncome(false)}
+                  />
+                  <DirectionOption
+                    checked={isIncome}
+                    label="Es un cobro"
+                    hint="Entra dinero (me pagan o me devuelven)"
+                    onSelect={() => setIsIncome(true)}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  El importe cuenta en la previsión del mes. Si ese dinero ya está anotado en «Mes» o en una
+                  liquidación, déjalo sin importe para no contarlo dos veces.
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="reminder-repeat" label="Repetir">
@@ -244,6 +270,38 @@ export function ReminderFormDialog({ open, reminder, onOpenChange, onSaved }: Re
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DirectionOption({
+  checked,
+  label,
+  hint,
+  onSelect,
+}: {
+  checked: boolean;
+  label: string;
+  hint: string;
+  onSelect: () => void;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 text-sm transition-colors ${
+        checked ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+      }`}
+    >
+      <input
+        type="radio"
+        name="reminder-direction"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+        checked={checked}
+        onChange={onSelect}
+      />
+      <span>
+        <span className="font-medium">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
   );
 }
 
