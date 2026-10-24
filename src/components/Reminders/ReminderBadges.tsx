@@ -1,4 +1,4 @@
-import { Check, Mail, Sparkles } from "lucide-react";
+import { BellRing, Check, Mail, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { URGENCY_LABEL, type ReminderUrgency } from "./reminderUtils";
 
@@ -28,6 +28,16 @@ export function DoneBadge({ className }: { className?: string }) {
     <span className={cn(BADGE, "bg-positive-soft text-positive", className)}>
       <Check className="h-3 w-3" aria-hidden="true" />
       Hecho
+    </span>
+  );
+}
+
+/** Marks a money line that comes from a reminder, not from an entry of «Mes». */
+export function ReminderTag({ className }: { className?: string }) {
+  return (
+    <span className={cn(BADGE, "bg-rose-500/10 text-rose-600", className)}>
+      <BellRing className="h-3 w-3" aria-hidden="true" />
+      Recordatorio
     </span>
   );
 }

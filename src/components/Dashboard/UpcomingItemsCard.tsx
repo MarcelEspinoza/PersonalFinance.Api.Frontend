@@ -1,9 +1,11 @@
 import { CalendarClock, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import type { MonthOutlook, OutlookItem } from "../../services/dashboardService";
 import { EntryDirection } from "../../types/ledger";
 import { money, shortDate } from "../../utils/civilDate";
+import { ReminderTag } from "../Reminders/ReminderBadges";
 import { SectionCard, SectionLink } from "./SectionCard";
 import { ledgerLink } from "./dashboardUtils";
 
@@ -69,10 +71,21 @@ function ItemRow({ item }: { item: OutlookItem }) {
         <p className="truncate text-sm font-medium" title={item.description}>
           {item.description}
         </p>
-        <p className="truncate text-xs text-muted-foreground">
-          {item.accountName ?? "Sin cuenta asignada"}
-          {item.isVariableReserve ? " · estimado" : ""}
-        </p>
+        {item.reminderId ? (
+          // Reminder lines have no entry in «Mes» and no account: they are handled in Recordatorios.
+          <Link
+            to="/reminders"
+            title="Ver tus recordatorios"
+            className="mt-0.5 inline-flex rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ReminderTag />
+          </Link>
+        ) : (
+          <p className="truncate text-xs text-muted-foreground">
+            {item.accountName ?? "Sin cuenta asignada"}
+            {item.isVariableReserve ? " · estimado" : ""}
+          </p>
+        )}
       </div>
       <span
         className={cn("shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums", isIncome && "text-positive")}

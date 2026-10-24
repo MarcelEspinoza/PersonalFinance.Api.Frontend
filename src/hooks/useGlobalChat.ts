@@ -106,9 +106,10 @@ export function useGlobalChat() {
     try {
       await chatService.confirmAction(action);
       markResolved(messageIndex, actionIndex);
-      // The backend applied it: refresh the reminders bell, or the page on screen for any other change.
-      if (action.type === "create_reminder") notifyRemindersChanged();
-      else notifyDataChanged("/chat/actions/confirm");
+      // The backend applied it. Reminders with an amount also count in the forecast,
+      // so a reminder change refreshes both the bell and the page on screen.
+      if (action.type.endsWith("_reminder")) notifyRemindersChanged();
+      notifyDataChanged("/chat/actions/confirm");
     } catch (err) {
       setMessages((current) => [
         ...current,

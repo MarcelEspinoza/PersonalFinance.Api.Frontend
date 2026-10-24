@@ -65,7 +65,7 @@ type Props = {
 /** One list with everything that needs your attention, most urgent first. */
 export function ActionCenter({ outlook, alerts, reminders, remindersFailed, monthName }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const tasks = buildTasks(outlook, alerts, remindersFailed ? [] : reminders ?? []);
+  const tasks = buildTasks(outlook, alerts, remindersFailed ? [] : reminders ?? [], remindersFailed);
   const checkingReminders = reminders === null && !remindersFailed;
   const total = tasks.reduce((sum, task) => sum + (task.count ?? 1), 0);
   const visible = expanded ? tasks : tasks.slice(0, VISIBLE_TASKS);
@@ -111,7 +111,12 @@ export function ActionCenter({ outlook, alerts, reminders, remindersFailed, mont
   );
 }
 
-function buildTasks(outlook: MonthOutlook, alerts: Props["alerts"], reminders: Reminder[]): Task[] {
+function buildTasks(
+  outlook: MonthOutlook,
+  alerts: Props["alerts"],
+  reminders: Reminder[],
+  remindersFailed: boolean,
+): Task[] {
   const tasks: Task[] = [];
 
   if (!outlook.isPast) {
@@ -165,7 +170,11 @@ function buildTasks(outlook: MonthOutlook, alerts: Props["alerts"], reminders: R
     .filter((alert) => alert.type === "Balance")
     .forEach((alert, index) => tasks.push(alertTask(alert, `balance-${index}`, "danger")));
 
-  if (outlook.overdueItems.length > 0) tasks.push(overdueTask(outlook.overdueItems));
+  // Reminder lines are not entries of «Mes»: overdue reminders are listed with the other reminders below.
+  const overdueEntries = outlook.overdueItems.filter((item) => !item.reminderId);
+  if (overdueEntries.length > 0) tasks.push(overdueTask(overdueEntries));
+  const overdueReminders = new Set(outlook.overdueItems.flatMap((item) => (item.reminderId ? [item.reminderId] : [])));
+  if (remindersFailed && overdueReminders.size > 0) tasks.push(overdueRemindersTask(overdueReminders.size));
 
   const todayValue = today();
   reminders.slice(0, VISIBLE_REMINDERS).forEach((reminder) => {
@@ -245,6 +254,21 @@ function overdueTask(overdueItems: OutlookItem[]): Task {
       </>
     ),
     link: { to: ledgerLink(oldest.year, oldest.month), label: "Revisar" },
+  };
+}
+
+/** Fallback when the reminders could not be loaded, so overdue ones are not silently hidden. */
+function overdueRemindersTask(count: number): Task {
+  return {
+    key: "overdue-reminders",
+    tone: "danger",
+    icon: BellRing,
+    title: count === 1 ? "1 recordatorio vencido" : `${count} recordatorios vencidos`,
+    detail:
+      count === 1
+        ? "Su fecha ya pasó y todavía no está hecho."
+        : "Sus fechas ya pasaron y todavía no están hechos.",
+    link: { to: "/reminders", label: "Ver" },
   };
 }
 

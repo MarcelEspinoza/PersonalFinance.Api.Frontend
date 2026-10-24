@@ -50,7 +50,7 @@ export function FutureMonthsBoxes({ months, title, startBalance, startMonthName,
     <SectionCard
       icon={<BarChart3 className="h-5 w-5 text-primary" />}
       title={title}
-      subtitle="Previsión de cada mes según tus gastos fijos y los límites de tus gastos variables."
+      subtitle="Previsión de cada mes según tus gastos fijos, los límites de tus gastos variables y tus recordatorios."
       action={<SectionLink to="/plan">Plan de gastos</SectionLink>}
     >
       {isEmpty ? (
@@ -85,6 +85,7 @@ export function FutureMonthsBoxes({ months, title, startBalance, startMonthName,
                 <dl className="mt-2 space-y-1 text-sm">
                   <BoxRow label="Entra" value={euros(month.income)} valueClassName="text-positive" />
                   <BoxRow label="Sale" value={euros(month.expense)} valueClassName="text-orange-600" />
+                  <ExpenseNote reserve={month.variableExpenseReserve} reminders={month.reminders} />
                   <BoxRow
                     label="Te queda"
                     value={signedEuros(month.balance)}
@@ -156,6 +157,20 @@ function BoxRow({
     <div className={cn("flex items-baseline justify-between gap-2", className)}>
       <dt className="truncate">{label}</dt>
       <dd className={cn("shrink-0 tabular-nums", valueClassName)}>{value}</dd>
+    </div>
+  );
+}
+
+/** The estimated parts already inside «Sale»: hidden when both are zero. */
+function ExpenseNote({ reserve, reminders }: { reserve: number; reminders: number }) {
+  const parts: string[] = [];
+  if (Math.round(reserve) > 0) parts.push(`${euros(reserve)} reservado para variables`);
+  if (Math.round(reminders) > 0) parts.push(`${euros(reminders)} de recordatorios`);
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="text-[11px] leading-snug text-muted-foreground">
+      <dt className="inline">incluye</dt> <dd className="inline">{parts.join(" · ")}</dd>
     </div>
   );
 }

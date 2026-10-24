@@ -83,7 +83,15 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
                   />
                 );
               }
-              const isReminder = action.type === "create_reminder";
+              const isReminder = action.type.endsWith("_reminder");
+              const doneLabel =
+                action.type === "create_reminder"
+                  ? "Recordatorio creado"
+                  : action.type === "complete_reminder"
+                    ? "Hecho"
+                    : action.type === "delete_reminder"
+                      ? "Borrado"
+                      : "Aplicado";
               return (
                 <div
                   key={actionIndex}
@@ -99,7 +107,7 @@ export function ChatThread({ chat, emptyHint }: ChatThreadProps) {
                   )}
                   {resolved ? (
                     <span className="flex items-center gap-1 text-positive">
-                      <CheckCircle2 className="h-4 w-4" /> {isReminder ? "Recordatorio creado" : "Aplicado"}
+                      <CheckCircle2 className="h-4 w-4" /> {doneLabel}
                     </span>
                   ) : (
                     <Button

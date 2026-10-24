@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { MonthNavigator } from "../../components/Ledger/MonthNavigator";
 import { TotalsPanel } from "../../components/Ledger/TotalsPanel";
+import { MonthForecastPanel } from "../../components/Ledger/MonthForecastPanel";
 import { GroupSection } from "../../components/Ledger/GroupSection";
 import { LedgerColumnsHeader } from "../../components/Ledger/ledgerColumns";
 import { parseLedgerSearch, searchLedgerGroups } from "../../components/Ledger/ledgerSearch";
@@ -340,6 +341,7 @@ export function LedgerMonthPage() {
       {!loading && summary && !isEmpty && (
         <>
           <TotalsPanel summary={summary} />
+          {summary.forecast && <MonthForecastPanel forecast={summary.forecast} />}
 
           {searchResult?.count === 0 && (
             <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">

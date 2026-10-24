@@ -13,6 +13,10 @@ export interface MonthlyData {
   projectionSource: string;
   pendingIncome: number;
   pendingExpense: number;
+  /** Part of `expense` kept for what is left of the variable expense limits. */
+  variableExpenseReserve: number;
+  /** Part of `expense` that comes from pending reminders with an amount. */
+  reminders: number;
 }
 
 export interface Summary {
@@ -72,6 +76,8 @@ export interface OutlookItem {
   isOverdue: boolean;
   isTransfer: boolean;
   isVariableReserve: boolean;
+  /** Set when the line comes from a pending reminder with an amount: it has no entry and no concept. */
+  reminderId?: string;
 }
 
 export interface TransferSuggestion {

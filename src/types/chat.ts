@@ -15,6 +15,7 @@ export interface ProposedAction {
     | "update_expense"
     | "update_income"
     | "update_ledger_entry"
+    | "skip_ledger_entry"
     | "create_category"
     | "create_budget"
     | "record_loan_payment"
@@ -23,6 +24,9 @@ export interface ProposedAction {
     | "classify_import_group"
     | "apply_import"
     | "create_reminder"
+    | "update_reminder"
+    | "complete_reminder"
+    | "delete_reminder"
     | "api_call";
   summary: string;
   amount: number;

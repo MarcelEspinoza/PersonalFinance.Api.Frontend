@@ -96,6 +96,53 @@ export interface MonthlyTotals {
   pendingIncome: number;
 }
 
+/** What is still left of a variable concept's monthly limit (or of a variable income's estimate). */
+export interface MonthForecastReserveItem {
+  conceptId: string;
+  conceptName: string;
+  isIncome: boolean;
+  limit: number;
+  used: number;
+  /** limit − used: what the forecast still counts for this concept. */
+  amount: number;
+}
+
+/** A pending reminder with an amount: the forecast counts it as an expense. */
+export interface MonthForecastReminderItem {
+  reminderId: string;
+  title: string;
+  date: CivilDate;
+  amount: number;
+  /** Its date already passed and it is not done yet. */
+  isOverdue: boolean;
+}
+
+/**
+ * The month as the forecast sees it: the same numbers as the dashboard boxes and the «Plan de gastos».
+ * income = entryIncome + ruleIncome + variableIncomeExpected;
+ * expense = entryExpense + ruleExpense + variableExpenseReserve + reminders;
+ * balance = income − expense, without the carry-over from the previous month.
+ */
+export interface MonthForecastSummary {
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  balance: number;
+  /** Entries already written in the month (paid or not). */
+  entryIncome: number;
+  entryExpense: number;
+  /** Recurring payments of the month that are not written as entries yet. */
+  ruleIncome: number;
+  ruleExpense: number;
+  variableExpenseReserve: number;
+  variableIncomeExpected: number;
+  /** Pending reminders with an amount. */
+  reminders: number;
+  reserveItems: MonthForecastReserveItem[];
+  reminderItems: MonthForecastReminderItem[];
+}
+
 export interface MonthlySummary {
   periodId: string;
   year: number;
@@ -105,6 +152,8 @@ export interface MonthlySummary {
   incomeGroups: MonthlyGroup[];
   expenseGroups: MonthlyGroup[];
   totals: MonthlyTotals;
+  /** Absent for months before the current one. */
+  forecast?: MonthForecastSummary | null;
 }
 
 export interface ChartConcept {
