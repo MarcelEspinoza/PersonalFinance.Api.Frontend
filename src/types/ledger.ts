@@ -117,10 +117,21 @@ export interface MonthForecastReminderItem {
   isOverdue: boolean;
 }
 
+/** What an open settlement (mamá, Vane…) still expects: she pays me (isIncome) or I pay her. */
+export interface MonthForecastSettlementItem {
+  settlementId: string;
+  title: string;
+  date: CivilDate;
+  isIncome: boolean;
+  amount: number;
+  /** Its expected date already passed and it is still open. */
+  isOverdue: boolean;
+}
+
 /**
  * The month as the forecast sees it: the same numbers as the dashboard boxes and the «Plan de gastos».
- * income = entryIncome + ruleIncome + variableIncomeExpected;
- * expense = entryExpense + ruleExpense + variableExpenseReserve + reminders;
+ * income = entryIncome + ruleIncome + variableIncomeExpected + settlementIncome;
+ * expense = entryExpense + ruleExpense + variableExpenseReserve + reminders + settlementExpense;
  * balance = income − expense, without the carry-over from the previous month.
  */
 export interface MonthForecastSummary {
@@ -139,8 +150,12 @@ export interface MonthForecastSummary {
   variableIncomeExpected: number;
   /** Pending reminders with an amount. */
   reminders: number;
+  /** What open settlements still expect to collect / to pay. */
+  settlementIncome?: number;
+  settlementExpense?: number;
   reserveItems: MonthForecastReserveItem[];
   reminderItems: MonthForecastReminderItem[];
+  settlementItems?: MonthForecastSettlementItem[];
 }
 
 export interface MonthlySummary {

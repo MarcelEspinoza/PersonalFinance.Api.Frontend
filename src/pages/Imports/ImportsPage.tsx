@@ -434,8 +434,11 @@ export function ImportsPage() {
     setError(null);
     try {
       const result = await LedgerService.applyImport(review.id);
+      const settlementText = result.settlementPayments
+        ? ` ${result.settlementPayments} transferencias apuntadas en Liquidaciones.`
+        : "";
       setMessage(
-        `Importación aplicada: ${result.applied} movimientos; ${result.matchedForecasts} previsiones actualizadas.`,
+        `Importación aplicada: ${result.applied} movimientos; ${result.matchedForecasts} previsiones actualizadas.${settlementText}`,
       );
       // Applied batches have no planned candidates (the endpoint rejects them).
       await reloadReview(review.id, false);

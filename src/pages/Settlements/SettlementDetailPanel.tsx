@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Loader2, Plus, RotateCcw, Send, Trash2 } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, Plus, RotateCcw, Send, Trash2 } from 'lucide-react';
 import {
   settlementService,
   type SettlementCandidate,
@@ -20,6 +20,33 @@ const kindLabels: Record<SettlementLineKind, string> = {
   Charge: 'Gastos',
   Deduction: 'A restar',
   Payment: 'Ya pagado',
+  PaymentSent: 'Ya le pagué',
+};
+
+const statusLabels: Record<SettlementDetail['status'], { text: string; className: string }> = {
+  Draft: { text: 'Borrador', className: 'bg-amber-100 text-amber-700' },
+  Sent: { text: 'Enviada', className: 'bg-emerald-100 text-emerald-700' },
+  Closed: { text: 'Pagada', className: 'bg-slate-200 text-slate-700' },
+};
+
+/** yyyy-MM-dd de hoy + n días, en hora local. */
+const inDays = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+/** Qué pone la liquidación en la previsión, dicho en cristiano. */
+const forecastText = (detail: SettlementDetail) => {
+  const forecast = detail.forecast;
+  if (!forecast) return null;
+  if (forecast.counts && forecast.date) {
+    return forecast.direction === 'Out'
+      ? `En la previsión: le pagas ${euro(forecast.amount)} a ${detail.counterpartyName} el ${day(forecast.date)}.`
+      : `En la previsión: ${detail.counterpartyName} te paga ${euro(forecast.amount)} el ${day(forecast.date)}.`;
+  }
+  return `No cuenta en la previsión: ${forecast.reason ?? 'no queda nada pendiente'}.`;
 };
 
 export function SettlementDetailPanel({
@@ -37,8 +64,15 @@ export function SettlementDetailPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendDate, setSendDate] = useState(() => detail.expectedDate ?? inDays(7));
 
   const editable = detail.status === 'Draft';
+  const status = statusLabels[detail.status] ?? statusLabels.Sent;
+
+  // Keeps the «¿Cuándo esperas el dinero?» box in step with the saved date and the selected settlement.
+  useEffect(() => {
+    setSendDate(detail.expectedDate ?? inDays(7));
+  }, [detail.id, detail.expectedDate]);
 
   const loadCandidates = useCallback(async () => {
     setLoadingCandidates(true);
@@ -102,12 +136,8 @@ export function SettlementDetailPanel({
               {detail.counterpartyName} · {day(detail.periodStart)} a {day(detail.periodEnd)}
             </p>
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              editable ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-            }`}
-          >
-            {editable ? 'Borrador' : 'Enviada'}
+          <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
+            {status.text}
           </span>
         </div>
 
@@ -115,8 +145,57 @@ export function SettlementDetailPanel({
           <Total label="Gastos" value={detail.totals.charges} />
           <Total label="A restar" value={detail.totals.deductions} />
           <Total label="Ya pagado" value={detail.totals.payments} />
+          {(detail.totals.paymentsSent ?? 0) > 0 && (
+            <Total label="Ya le pagué" value={detail.totals.paymentsSent ?? 0} />
+          )}
           <Total label="Pendiente" value={detail.totals.pending} strong />
         </dl>
+
+        <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <p>{forecastText(detail)}</p>
+          {detail.status !== 'Closed' && (
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-slate-600">Día en que esperas el dinero</span>
+                <input
+                  key={detail.expectedDate ?? 'sin-fecha'}
+                  type="date"
+                  defaultValue={detail.expectedDate ?? ''}
+                  disabled={busy}
+                  onBlur={(e) => {
+                    if (e.target.value && e.target.value !== (detail.expectedDate ?? '')) {
+                      void run(() =>
+                        settlementService.update(detail.id, { expectedDate: e.target.value }),
+                      );
+                    }
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      '¿Ya está pagada (en efectivo, por otra cuenta…)? Saldrá de la previsión. Las transferencias del banco la marcan sola al llegar a 0.',
+                    )
+                  ) {
+                    void run(() => settlementService.markPaid(detail.id));
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Marcar como pagada
+              </button>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Si en «Personas» pusiste cómo sale {detail.counterpartyName} en el banco, sus
+            transferencias se apuntan solas aquí al importar el extracto.
+          </p>
+        </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm">
@@ -266,7 +345,7 @@ export function SettlementDetailPanel({
           </p>
         ) : (
           <div className="space-y-3">
-            {(['Charge', 'Deduction', 'Payment'] as SettlementLineKind[]).map((kind) => {
+            {(['Charge', 'Deduction', 'Payment', 'PaymentSent'] as SettlementLineKind[]).map((kind) => {
               const lines = detail.lines.filter((l) => l.kind === kind);
               if (lines.length === 0) return null;
 
@@ -339,13 +418,25 @@ export function SettlementDetailPanel({
             {copied ? 'Copiado' : 'Copiar'}
           </button>
 
+          {editable && detail.whatsAppUrl && (
+            <label className="text-sm">
+              <span className="mb-1 block text-xs text-slate-600">¿Cuándo esperas el dinero?</span>
+              <input
+                type="date"
+                value={sendDate}
+                onChange={(e) => setSendDate(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5"
+              />
+            </label>
+          )}
+
           {detail.whatsAppUrl ? (
             <a
               href={detail.whatsAppUrl}
               target="_blank"
               rel="noreferrer"
               onClick={() => {
-                if (editable) void run(() => settlementService.markSent(detail.id));
+                if (editable) void run(() => settlementService.markSent(detail.id, sendDate || null));
               }}
               className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
@@ -433,6 +524,7 @@ function ManualLineForm({
           <option value="Charge">Gasto</option>
           <option value="Deduction">A restar</option>
           <option value="Payment">Ya pagado</option>
+          <option value="PaymentSent">Ya le pagué</option>
         </select>
       </label>
       <label className="min-w-[12rem] flex-1 text-sm">

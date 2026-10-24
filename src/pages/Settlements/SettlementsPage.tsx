@@ -110,7 +110,8 @@ export function SettlementsPage() {
   const grouped = useMemo(
     () => ({
       drafts: list.filter((s) => s.status === 'Draft'),
-      sent: list.filter((s) => s.status !== 'Draft'),
+      sent: list.filter((s) => s.status === 'Sent'),
+      paid: list.filter((s) => s.status === 'Closed'),
     }),
     [list],
   );
@@ -219,6 +220,13 @@ export function SettlementsPage() {
           <SettlementList
             title="Enviadas"
             items={grouped.sent}
+            selectedId={selected?.id ?? null}
+            onOpen={openSettlement}
+            onRemove={remove}
+          />
+          <SettlementList
+            title="Pagadas"
+            items={grouped.paid}
             selectedId={selected?.id ?? null}
             onOpen={openSettlement}
             onRemove={remove}

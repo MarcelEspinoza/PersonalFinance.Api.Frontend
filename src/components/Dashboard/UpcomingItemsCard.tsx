@@ -80,6 +80,15 @@ function ItemRow({ item }: { item: OutlookItem }) {
           >
             <ReminderTag />
           </Link>
+        ) : item.settlementId ? (
+          // Settlement lines have no entry either: they are handled in Liquidaciones.
+          <Link
+            to="/settlements"
+            title="Ver tus liquidaciones"
+            className="mt-0.5 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Liquidación
+          </Link>
         ) : (
           <p className="truncate text-xs text-muted-foreground">
             {item.accountName ?? "Sin cuenta asignada"}

@@ -16,10 +16,14 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
     { label: "Pagos que se repiten (aún sin apuntar)", value: forecast.ruleExpense },
     { label: "Reservado para gastos variables", value: forecast.variableExpenseReserve },
     { label: "Recordatorios", value: forecast.reminders },
+    { label: "Liquidaciones que pagas tú", value: forecast.settlementExpense ?? 0 },
   ].filter((part) => hasValue(part.value));
   const expenseReserves = forecast.reserveItems.filter((item) => !item.isIncome);
   const incomeReserves = forecast.reserveItems.filter((item) => item.isIncome);
-  const hasDetail = forecast.reserveItems.length > 0 || forecast.reminderItems.length > 0;
+  const settlementItems = forecast.settlementItems ?? [];
+  const settlementIncome = forecast.settlementIncome ?? 0;
+  const hasDetail =
+    forecast.reserveItems.length > 0 || forecast.reminderItems.length > 0 || settlementItems.length > 0;
 
   return (
     <section className="rounded-xl border bg-card p-4 shadow-sm">
@@ -39,6 +43,11 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
       {expenseParts.length > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           «Sale» incluye: {expenseParts.map((part) => `${part.label} ${money(part.value)}`).join(" · ")}
+        </p>
+      )}
+      {hasValue(settlementIncome) && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          «Entra» incluye {money(settlementIncome)} de liquidaciones que te deben pagar.
         </p>
       )}
 
@@ -110,6 +119,44 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
                     </span>
                   )}
                   <span className="shrink-0 font-medium tabular-nums text-foreground">{money(item.amount)}</span>
+                </li>
+              ))}
+            </DetailBlock>
+          )}
+
+          {settlementItems.length > 0 && (
+            <DetailBlock
+              title="Liquidaciones"
+              hint="Lo que falta cobrar o pagar de cada liquidación abierta. Se cambia en «Liquidaciones»."
+              action={
+                <Link to="/settlements" className="font-medium text-primary hover:underline">
+                  Ver liquidaciones
+                </Link>
+              }
+            >
+              {settlementItems.map((item) => (
+                <li key={item.settlementId} className="flex items-center gap-2">
+                  <span className="w-12 shrink-0 tabular-nums">{shortDate(item.date)}</span>
+                  <span className="min-w-0 flex-1 truncate text-foreground" title={item.title}>
+                    {item.title}
+                  </span>
+                  {item.isOverdue && (
+                    <span
+                      className="shrink-0"
+                      title="El día que esperabas ya pasó y sigue sin pagarse, así que se cuenta en este mes."
+                    >
+                      <UrgencyBadge urgency="overdue" />
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "shrink-0 font-medium tabular-nums",
+                      item.isIncome ? "text-positive" : "text-foreground",
+                    )}
+                  >
+                    {item.isIncome ? "+" : "−"}
+                    {money(item.amount)}
+                  </span>
                 </li>
               ))}
             </DetailBlock>

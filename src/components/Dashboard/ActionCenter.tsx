@@ -170,9 +170,11 @@ function buildTasks(
     .filter((alert) => alert.type === "Balance")
     .forEach((alert, index) => tasks.push(alertTask(alert, `balance-${index}`, "danger")));
 
-  // Reminder lines are not entries of «Mes»: overdue reminders are listed with the other reminders below.
-  const overdueEntries = outlook.overdueItems.filter((item) => !item.reminderId);
+  // Reminder and settlement lines are not entries of «Mes»: they get their own rows.
+  const overdueEntries = outlook.overdueItems.filter((item) => !item.reminderId && !item.settlementId);
   if (overdueEntries.length > 0) tasks.push(overdueTask(overdueEntries));
+  const overdueSettlements = outlook.overdueItems.filter((item) => item.settlementId);
+  if (overdueSettlements.length > 0) tasks.push(overdueSettlementsTask(overdueSettlements));
   const overdueReminders = new Set(outlook.overdueItems.flatMap((item) => (item.reminderId ? [item.reminderId] : [])));
   if (remindersFailed && overdueReminders.size > 0) tasks.push(overdueRemindersTask(overdueReminders.size));
 
@@ -254,6 +256,32 @@ function overdueTask(overdueItems: OutlookItem[]): Task {
       </>
     ),
     link: { to: ledgerLink(oldest.year, oldest.month), label: "Revisar" },
+  };
+}
+
+/** Settlements whose expected day already passed and are still open. */
+function overdueSettlementsTask(items: OutlookItem[]): Task {
+  const examples = items
+    .slice(0, 3)
+    .map((item) => `${item.description} (${item.direction === EntryDirection.In ? "+" : "−"}${money(item.amount)})`)
+    .join(", ");
+
+  return {
+    key: "overdue-settlements",
+    tone: "warning",
+    icon: Clock,
+    title:
+      items.length === 1
+        ? "1 liquidación pasada de fecha sin pagar"
+        : `${items.length} liquidaciones pasadas de fecha sin pagar`,
+    detail: (
+      <>
+        {examples}
+        {items.length > 3 ? ` y ${items.length - 3} más` : ""}. Si ya se pagó, márcala como pagada; si no, ponle otra
+        fecha.
+      </>
+    ),
+    link: { to: "/settlements", label: "Revisar" },
   };
 }
 

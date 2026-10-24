@@ -17,6 +17,9 @@ export interface MonthlyData {
   variableExpenseReserve: number;
   /** Part of `expense` that comes from pending reminders with an amount. */
   reminders: number;
+  /** Part of `income` / `expense` that open settlements (mamá, Vane…) still expect. */
+  settlementIncome?: number;
+  settlementExpense?: number;
 }
 
 export interface Summary {
@@ -78,6 +81,8 @@ export interface OutlookItem {
   isVariableReserve: boolean;
   /** Set when the line comes from a pending reminder with an amount: it has no entry and no concept. */
   reminderId?: string;
+  /** Set when the line is what an open settlement still expects: it is changed in «Liquidaciones». */
+  settlementId?: string;
 }
 
 export interface TransferSuggestion {

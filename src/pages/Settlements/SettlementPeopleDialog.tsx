@@ -5,8 +5,22 @@ import { settlementService, type SettlementPerson } from '../../services/settlem
 /**
  * Alta y edición de las personas con las que se comparten gastos. El teléfono
  * se queda solo en la base de datos: es lo único que hace falta para abrir el
- * chat de WhatsApp con el mensaje ya escrito.
+ * chat de WhatsApp con el mensaje ya escrito. «Cómo sale en el banco» sirve
+ * para que, al importar el extracto, sus transferencias se apunten solas en su
+ * liquidación.
  */
+type PersonDraft = { name: string; phone: string; bank: string };
+
+const fromPerson = (person: SettlementPerson): PersonDraft => ({
+  name: person.name,
+  phone: person.phoneNumber ?? '',
+  bank: person.bankName ?? '',
+});
+
+/** The server needs at least 4 letters to recognise the name in the bank text. */
+const bankNameTooShort = (bank: string) =>
+  bank.trim().length > 0 && bank.replace(/[^A-Za-z0-9À-ÿ]/g, '').length < 4;
+
 export function SettlementPeopleDialog({
   people,
   onClose,
@@ -16,23 +30,28 @@ export function SettlementPeopleDialog({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [drafts, setDrafts] = useState<Record<string, { name: string; phone: string }>>(() =>
-    Object.fromEntries(
-      people.map((p) => [p.id, { name: p.name, phone: p.phoneNumber ?? '' }]),
-    ),
+  const [drafts, setDrafts] = useState<Record<string, PersonDraft>>(() =>
+    Object.fromEntries(people.map((p) => [p.id, fromPerson(p)])),
   );
-  const [newPerson, setNewPerson] = useState({ name: '', phone: '' });
+  const [newPerson, setNewPerson] = useState<PersonDraft>({ name: '', phone: '', bank: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const patch = (person: SettlementPerson, change: Partial<PersonDraft>) =>
+    setDrafts({ ...drafts, [person.id]: { ...(drafts[person.id] ?? fromPerson(person)), ...change } });
 
   const save = async (id: string) => {
     const draft = drafts[id];
     if (!draft) return;
+    if (bankNameTooShort(draft.bank)) {
+      setError('El nombre del banco necesita al menos 4 letras.');
+      return;
+    }
 
     setBusy(true);
     setError(null);
     try {
-      await settlementService.updatePerson(id, draft.name, draft.phone || null);
+      await settlementService.updatePerson(id, draft.name, draft.phone || null, draft.bank.trim() || null);
       await onSaved();
     } catch {
       setError('No he podido guardar los cambios.');
@@ -46,12 +65,20 @@ export function SettlementPeopleDialog({
       setError('Ponle un nombre.');
       return;
     }
+    if (bankNameTooShort(newPerson.bank)) {
+      setError('El nombre del banco necesita al menos 4 letras.');
+      return;
+    }
 
     setBusy(true);
     setError(null);
     try {
-      await settlementService.createPerson(newPerson.name.trim(), newPerson.phone || null);
-      setNewPerson({ name: '', phone: '' });
+      await settlementService.createPerson(
+        newPerson.name.trim(),
+        newPerson.phone || null,
+        newPerson.bank.trim() || null,
+      );
+      setNewPerson({ name: '', phone: '', bank: '' });
       await onSaved();
       onClose();
     } catch {
@@ -78,51 +105,58 @@ export function SettlementPeopleDialog({
             </p>
           )}
 
-          {people.map((person) => (
-            <div key={person.id} className="flex flex-wrap items-end gap-2">
-              <label className="flex-1 text-sm">
-                <span className="mb-1 block text-slate-600">Nombre</span>
-                <input
-                  value={drafts[person.id]?.name ?? person.name}
-                  onChange={(e) =>
-                    setDrafts({
-                      ...drafts,
-                      [person.id]: {
-                        name: e.target.value,
-                        phone: drafts[person.id]?.phone ?? person.phoneNumber ?? '',
-                      },
-                    })
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <label className="flex-1 text-sm">
-                <span className="mb-1 block text-slate-600">Teléfono</span>
-                <input
-                  value={drafts[person.id]?.phone ?? person.phoneNumber ?? ''}
-                  placeholder="+34 600 00 00 00"
-                  onChange={(e) =>
-                    setDrafts({
-                      ...drafts,
-                      [person.id]: {
-                        name: drafts[person.id]?.name ?? person.name,
-                        phone: e.target.value,
-                      },
-                    })
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => save(person.id)}
-                disabled={busy}
-                className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-900 disabled:opacity-50"
-              >
-                Guardar
-              </button>
-            </div>
-          ))}
+          {people.length > 0 && (
+            <p className="text-xs text-slate-500">
+              En «Cómo sale en el banco» copia su nombre tal cual aparece en el extracto. Al
+              importar el banco, sus transferencias se apuntan solas en su liquidación.
+            </p>
+          )}
+
+          {people.map((person) => {
+            const draft = drafts[person.id] ?? fromPerson(person);
+            return (
+              <div key={person.id} className="space-y-2 rounded-lg border border-slate-100 p-3">
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex-1 text-sm">
+                    <span className="mb-1 block text-slate-600">Nombre</span>
+                    <input
+                      value={draft.name}
+                      onChange={(e) => patch(person, { name: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                  <label className="flex-1 text-sm">
+                    <span className="mb-1 block text-slate-600">Teléfono</span>
+                    <input
+                      value={draft.phone}
+                      placeholder="+34 600 00 00 00"
+                      onChange={(e) => patch(person, { phone: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex-1 text-sm">
+                    <span className="mb-1 block text-slate-600">Cómo sale en el banco</span>
+                    <input
+                      value={draft.bank}
+                      placeholder="Ej.: JENNY MABEL ESPINOZA"
+                      onChange={(e) => patch(person, { bank: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => save(person.id)}
+                    disabled={busy}
+                    className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-900 disabled:opacity-50"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
 
           <div className="border-t border-slate-100 pt-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -143,6 +177,15 @@ export function SettlementPeopleDialog({
                   value={newPerson.phone}
                   placeholder="+34 600 00 00 00"
                   onChange={(e) => setNewPerson({ ...newPerson, phone: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="w-full text-sm">
+                <span className="mb-1 block text-slate-600">Cómo sale en el banco (opcional)</span>
+                <input
+                  value={newPerson.bank}
+                  placeholder="Ej.: JENNY MABEL ESPINOZA"
+                  onChange={(e) => setNewPerson({ ...newPerson, bank: e.target.value })}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 />
               </label>

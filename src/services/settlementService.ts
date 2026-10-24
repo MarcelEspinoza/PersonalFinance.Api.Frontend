@@ -1,6 +1,6 @@
 import apiClient from "../lib/apiClient";
 
-export type SettlementLineKind = "Charge" | "Deduction" | "Payment";
+export type SettlementLineKind = "Charge" | "Deduction" | "Payment" | "PaymentSent";
 export type SettlementStatus = "Draft" | "Sent" | "Closed";
 
 export interface SettlementPerson {
@@ -8,6 +8,8 @@ export interface SettlementPerson {
   name: string;
   phoneNumber: string | null;
   openSettlements: number;
+  /** How the name shows up in the bank; transfers containing it are booked automatically. */
+  bankName?: string | null;
 }
 
 export interface SettlementLine {
@@ -27,6 +29,16 @@ export interface SettlementTotals {
   payments: number;
   carriedOver: number;
   pending: number;
+  paymentsSent?: number;
+}
+
+/** How the settlement counts in the forecast, or why it does not (reason). */
+export interface SettlementForecastInfo {
+  counts: boolean;
+  direction?: "In" | "Out" | null;
+  amount: number;
+  date?: string | null;
+  reason?: string | null;
 }
 
 export interface SettlementLoan {
@@ -68,6 +80,9 @@ export interface SettlementDetail {
   lines: SettlementLine[];
   message: string;
   whatsAppUrl: string | null;
+  /** Day the money is expected; places the settlement in the forecast. */
+  expectedDate?: string | null;
+  forecast?: SettlementForecastInfo | null;
 }
 
 export interface SettlementCandidate {
@@ -88,13 +103,13 @@ export const settlementService = {
     return data;
   },
 
-  async createPerson(name: string, phoneNumber: string | null): Promise<SettlementPerson> {
-    const { data } = await apiClient.post<SettlementPerson>(`${base}/people`, { name, phoneNumber });
+  async createPerson(name: string, phoneNumber: string | null, bankName: string | null): Promise<SettlementPerson> {
+    const { data } = await apiClient.post<SettlementPerson>(`${base}/people`, { name, phoneNumber, bankName });
     return data;
   },
 
-  async updatePerson(id: string, name: string, phoneNumber: string | null): Promise<SettlementPerson> {
-    const { data } = await apiClient.put<SettlementPerson>(`${base}/people/${id}`, { name, phoneNumber });
+  async updatePerson(id: string, name: string, phoneNumber: string | null, bankName: string | null): Promise<SettlementPerson> {
+    const { data } = await apiClient.put<SettlementPerson>(`${base}/people/${id}`, { name, phoneNumber, bankName });
     return data;
   },
 
@@ -146,6 +161,7 @@ export const settlementService = {
     periodEnd?: string | null;
     carriedOverAmount?: number | null;
     closingNote?: string | null;
+    expectedDate?: string | null;
   }): Promise<SettlementDetail> {
     const { data } = await apiClient.put<SettlementDetail>(`${base}/${id}`, payload);
     return data;
@@ -209,8 +225,17 @@ export const settlementService = {
     return data;
   },
 
-  async markSent(id: string): Promise<SettlementDetail> {
-    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/sent`);
+  /** expectedDate: day the money is expected (yyyy-MM-dd); without it, in 7 days. */
+  async markSent(id: string, expectedDate?: string | null): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/sent`, {
+      expectedDate: expectedDate ?? null,
+    });
+    return data;
+  },
+
+  /** Marks it as paid by hand (cash, another account): it leaves the forecast. */
+  async markPaid(id: string): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/paid`);
     return data;
   },
 

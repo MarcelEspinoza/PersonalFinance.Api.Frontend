@@ -84,8 +84,13 @@ export function FutureMonthsBoxes({ months, title, startBalance, startMonthName,
                 </div>
                 <dl className="mt-2 space-y-1 text-sm">
                   <BoxRow label="Entra" value={euros(month.income)} valueClassName="text-positive" />
+                  <IncomeNote settlements={month.settlementIncome ?? 0} />
                   <BoxRow label="Sale" value={euros(month.expense)} valueClassName="text-orange-600" />
-                  <ExpenseNote reserve={month.variableExpenseReserve} reminders={month.reminders} />
+                  <ExpenseNote
+                    reserve={month.variableExpenseReserve}
+                    reminders={month.reminders}
+                    settlements={month.settlementExpense ?? 0}
+                  />
                   <BoxRow
                     label="Te queda"
                     value={signedEuros(month.balance)}
@@ -161,16 +166,28 @@ function BoxRow({
   );
 }
 
-/** The estimated parts already inside «Sale»: hidden when both are zero. */
-function ExpenseNote({ reserve, reminders }: { reserve: number; reminders: number }) {
+/** The estimated parts already inside «Sale»: hidden when all are zero. */
+function ExpenseNote({ reserve, reminders, settlements }: { reserve: number; reminders: number; settlements: number }) {
   const parts: string[] = [];
   if (Math.round(reserve) > 0) parts.push(`${euros(reserve)} reservado para variables`);
   if (Math.round(reminders) > 0) parts.push(`${euros(reminders)} de recordatorios`);
+  if (Math.round(settlements) > 0) parts.push(`${euros(settlements)} de liquidaciones`);
   if (parts.length === 0) return null;
 
   return (
     <div className="text-[11px] leading-snug text-muted-foreground">
       <dt className="inline">incluye</dt> <dd className="inline">{parts.join(" · ")}</dd>
+    </div>
+  );
+}
+
+/** What open settlements are expected to pay you, already inside «Entra». */
+function IncomeNote({ settlements }: { settlements: number }) {
+  if (Math.round(settlements) <= 0) return null;
+
+  return (
+    <div className="text-[11px] leading-snug text-muted-foreground">
+      <dt className="inline">incluye</dt> <dd className="inline">{euros(settlements)} de liquidaciones</dd>
     </div>
   );
 }
