@@ -27,7 +27,7 @@ import {
   type ExpensePlanVariableCell,
   type ExpensePlanVariableRow,
 } from "../../services/expensePlanningService";
-import { ConceptKind } from "../../types/ledger";
+import { ConceptKind, EntryDirection } from "../../types/ledger";
 import { euros, monthName, nextMonth, previousMonth } from "../../utils/civilDate";
 import { PlanConceptDialog } from "./PlanConceptDialog";
 import {
@@ -43,8 +43,25 @@ import {
 /** Group names the plan gives to the rows that come from a reminder or a settlement. */
 const REMINDER_GROUP = "Recordatorio";
 const SETTLEMENT_GROUP = "Liquidaciones";
+const TWO_DECIMAL_EUROS = new Intl.NumberFormat("es-ES", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const breakdownAmount = (value: number, signed: boolean) => {
+  const rounded = Math.round(value * 100) / 100 || 0;
+  const sign = signed && rounded !== 0 ? (rounded < 0 ? "−" : "+") : "";
+  return `${sign}${TWO_DECIMAL_EUROS.format(Math.abs(rounded))} €`;
+};
 
 type MonthStart = { year: number; month: number };
+type PlanBreakdown = {
+  currentMonthBalance: number;
+  openingBalance: number;
+  passingAdjustment: number;
+  freeMoney: number;
+};
+type PlanOutlook = { key: string; freeMoney: number; breakdown: PlanBreakdown | null };
 /** A limit for one month only, being typed in the table. */
 type Editing = { conceptId: string; name: string; month: MonthStart; text: string };
 type DialogState = { target: PlanDialogTarget | null; open: boolean; seq: number };
@@ -68,7 +85,7 @@ export function PlanPage() {
   const [planning, setPlanning] = useState<ExpensePlanning | null>(null);
   const [planningFailed, setPlanningFailed] = useState(false);
   /** Free money at the end of the first month shown, the same as on the «Dashboard». */
-  const [outlook, setOutlook] = useState<{ key: string; freeMoney: number } | null>(null);
+  const [outlook, setOutlook] = useState<PlanOutlook | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,10 +141,34 @@ export function PlanPage() {
       .then(({ data: projection }) => {
         if (cancelled) return;
         // From a month that is over, adding up the months after it would not match what really happened.
+        const currentMonth = projection.monthlyData.find((month) => month.isCurrent);
+        const transfers = [...projection.outlook.pendingItems, ...projection.outlook.overdueItems].filter(
+          (item) => item.isTransfer,
+        );
+        const pendingTransfers = transfers.reduce(
+          (total, item) =>
+            total + (item.direction === EntryDirection.Out ? item.amount : -item.amount),
+          0,
+        );
+        const { currentBalance, monthOpeningBalance, currentMonthIncome, currentMonthExpense } = projection.summary;
         setOutlook(
           projection.outlook.isPast
             ? null
-            : { key: keyOf({ year: firstYear, month: firstMonth }), freeMoney: projection.outlook.freeMoney },
+            : {
+                key: keyOf({ year: firstYear, month: firstMonth }),
+                freeMoney: projection.outlook.freeMoney,
+                breakdown:
+                  projection.outlook.isCurrent && currentMonth
+                    ? {
+                        currentMonthBalance: currentMonth.balance,
+                        openingBalance: monthOpeningBalance,
+                        passingAdjustment:
+                          currentBalance - (monthOpeningBalance + currentMonthIncome - currentMonthExpense) -
+                          pendingTransfers,
+                        freeMoney: projection.outlook.freeMoney,
+                      }
+                    : null,
+              },
         );
       })
       .catch(() => {
@@ -283,6 +324,8 @@ export function PlanPage() {
   const left = months.map((month) => month.income - month.fixedExpense - month.variableExpense);
   const startFree = outlook && first && outlook.key === keyOf(first) ? outlook.freeMoney : null;
   const free = startFree === null ? null : runningFree(startFree, left);
+  const currentBreakdown =
+    first?.isCurrent && outlook?.key === keyOf(first) ? outlook.breakdown : null;
 
   // Where the guided tour points.
   const fixedTourId = data.fixed.find((row) => concepts.has(row.conceptId))?.conceptId;
@@ -410,11 +453,14 @@ export function PlanPage() {
                 {free && (
                   <SummaryRow
                     label="Libre a fin de mes"
-                    hint="sumando lo que te sobra de antes"
+                    hint="parte del dinero real en tus cuentas y resta el dinero de paso por entregar"
                     months={months}
                     values={free}
                     total
                   />
+                )}
+                {currentBreakdown && first && (
+                  <PlanBreakdownRows months={months} month={first} breakdown={currentBreakdown} />
                 )}
               </tbody>
 
@@ -703,6 +749,69 @@ function SummaryRow({
         );
       })}
     </tr>
+  );
+}
+
+function PlanBreakdownRows({
+  months,
+  month,
+  breakdown,
+}: {
+  months: ExpensePlanMonth[];
+  month: MonthStart;
+  breakdown: PlanBreakdown;
+}) {
+  const previous = previousMonth(month.year, month.month);
+  const passingLabel =
+    breakdown.passingAdjustment > 0.005
+      ? "Dinero de paso recibido que aún no entregas"
+      : "Dinero de paso por entregar";
+  const rows: { label: string; value: number; total?: boolean }[] = [
+    { label: "Te queda este mes", value: breakdown.currentMonthBalance },
+    { label: `${capitalize(monthName(previous.month))} terminó en`, value: breakdown.openingBalance },
+    ...(Math.abs(breakdown.passingAdjustment) > 0.005
+      ? [{ label: passingLabel, value: breakdown.passingAdjustment }]
+      : []),
+    { label: "Libre a fin de mes", value: breakdown.freeMoney, total: true },
+  ];
+
+  return (
+    <>
+      <tr>
+        <th scope="row" className={cn(stickyCell, "border-t px-3 py-1.5 text-left text-xs font-medium text-muted-foreground")}>
+          ¿Por qué?
+        </th>
+        <td colSpan={months.length} className="border-t bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground" />
+      </tr>
+      {rows.map((row) => (
+        <tr key={row.label} className={row.total ? "font-semibold" : "text-muted-foreground"}>
+          <th
+            scope="row"
+            className={cn(
+              stickyCell,
+              "border-t border-dashed px-3 py-1.5 text-left text-xs font-normal",
+              row.total && "font-semibold text-foreground",
+            )}
+          >
+            {row.label}
+          </th>
+          {months.map((item) => (
+            <td
+              key={keyOf(item)}
+              className={cn(
+                "border-t border-dashed px-3 py-1.5 text-right text-xs tabular-nums",
+                item.isCurrent && "bg-primary/5",
+                row.total && "font-semibold text-foreground",
+              )}
+            >
+              {item.isCurrent && (
+                breakdownAmount(row.value, !row.total)
+              )}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   );
 }
 
