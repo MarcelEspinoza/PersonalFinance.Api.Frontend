@@ -7,7 +7,10 @@ import {
 import { Input } from "../../components/ui/input";
 import { chatErrorMessage } from "../../services/chatService";
 import { LedgerService } from "../../services/ledgerService";
-import { ZeusService, type ZeusExpense, type ZeusSummary, type ZeusUsage } from "../../services/zeusService";
+import {
+  ZeusService, careProviderName, duration, timeRangeMinutes, zeusDaycarePackages,
+  type ZeusCareStay, type ZeusExpense, type ZeusSummary, type ZeusUsage,
+} from "../../services/zeusService";
 import { ConceptKind, type Account, type ChartConcept } from "../../types/ledger";
 import { money, shortDate, today } from "../../utils/civilDate";
 
@@ -28,9 +31,11 @@ type DialogProps = {
   onSaved: (summary: ZeusSummary) => void;
 };
 
-export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
+export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { stays?: ZeusCareStay[] }) {
   const [id] = useState(() => crypto.randomUUID());
+  const [packageId, setPackageId] = useState("6-10");
   const [hours, setHours] = useState("60");
+  const [selectedStayIds, setSelectedStayIds] = useState(() => stays?.map(stay => stay.id) ?? []);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const [expenses, setExpenses] = useState<ZeusExpense[]>([]);
@@ -40,12 +45,16 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
   const [accountId, setAccountId] = useState("");
   const [conceptId, setConceptId] = useState("");
   const [date, setDate] = useState(today);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => String(stays ? Math.round(stays.reduce((sum, stay) => sum + stay.amount, 0) * 100) / 100 : 100));
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const provider = stays?.[0]?.provider;
+  const selectedStays = stays?.filter(stay => selectedStayIds.includes(stay.id)) ?? [];
+  const careTotal = Math.round(selectedStays.reduce((sum, stay) => sum + stay.amount, 0) * 100) / 100;
+  const selectedPackage = zeusDaycarePackages.find(item => item.id === packageId);
 
   useEffect(() => {
     let active = true;
@@ -55,7 +64,7 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
     const load = async () => {
       try {
         if (mode === "existing") {
-          const candidates = await ZeusService.expenses(month);
+          const candidates = await ZeusService.expenses(month, provider);
           if (active) setExpenses(candidates);
         } else {
           const [allAccounts, chart] = await Promise.all([
@@ -76,29 +85,35 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
     };
     void load();
     return () => { active = false; };
-  }, [mode, month, reload]);
+  }, [mode, month, reload, provider]);
 
   const selectedExpense = expenses.find(expense => expense.id === entryId);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     const purchasedHours = Number(hours);
-    if (!Number.isInteger(purchasedHours) || purchasedHours < 1 || purchasedHours > 100000) {
+    if (!stays && (!Number.isInteger(purchasedHours) || purchasedHours < 1 || purchasedHours > 100000)) {
       setError("Indica las horas del bono con un número entero positivo.");
       return;
     }
     if (mode === "existing" && !selectedExpense) {
-      setError("Elige el gasto con el que compraste este bono.");
+      setError("Elige el gasto pagado que quieres vincular.");
+      return;
+    }
+    if (stays && (selectedStays.length === 0 || (mode === "existing" && selectedExpense
+      ? Math.round((selectedExpense.amount - (selectedExpense.allocatedAmount ?? 0)) * 100) / 100 < careTotal
+      : Number(amount) < careTotal))) {
+      setError("Selecciona estancias cuyo total esté cubierto por el importe disponible del pago.");
       return;
     }
     setBusy(true);
     try {
-      const summary = await ZeusService.buy({
-        id, minutes: purchasedHours * 60,
-        ...(mode === "existing" ? { ledgerEntryId: entryId } : {
-          newExpense: { conceptId, accountId, date, amount: Number(amount) },
-        }),
-      });
+      const payment = mode === "existing" ? { ledgerEntryId: entryId } : {
+        newExpense: { conceptId, accountId, date, amount: Number(amount) },
+      };
+      const summary = stays
+        ? await ZeusService.payCare({ stayIds: selectedStayIds, ...payment })
+        : await ZeusService.buy({ id, minutes: purchasedHours * 60, ...payment });
       onSaved(summary);
     } catch (err) {
       setError(chatErrorMessage(err, "No se pudo guardar el bono."));
@@ -111,31 +126,61 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
     <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Un nuevo bono para Zeus</DialogTitle>
-          <DialogDescription>Las horas se acumulan y no caducan. Cada bono queda vinculado a su compra.</DialogDescription>
+          <DialogTitle>{provider ? `Registrar pago · ${careProviderName(provider)}` : "Un nuevo bono para Zeus"}</DialogTitle>
+          <DialogDescription>{stays
+            ? "Un pago puede cubrir una o varias estancias. Vincula el gasto existente para no contarlo dos veces."
+            : "Bonos de la guardería. Las horas se acumulan y no caducan; se descuentan solo las horas reales."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-5">
           <fieldset disabled={busy} className="space-y-5">
-            <div className="grid grid-cols-2 gap-2">
-              {[60, 120].map(value => (
-                <Button key={value} type="button" variant={hours === String(value) ? "default" : "outline"}
-                  onClick={() => setHours(String(value))} aria-pressed={hours === String(value)}>
-                  Bono de {value} h
-                </Button>
-              ))}
-            </div>
+            {stays ? (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">Estancias que cubre este pago</p>
+                {stays.map(stay => (
+                  <label key={stay.id} className="flex items-start gap-3 text-sm">
+                    <input type="checkbox" className="mt-1" checked={selectedStayIds.includes(stay.id)} onChange={event => {
+                      const ids = event.target.checked ? [...selectedStayIds, stay.id] : selectedStayIds.filter(id => id !== stay.id);
+                      setSelectedStayIds(ids);
+                      setAmount(String(Math.round(stays.filter(stay => ids.includes(stay.id)).reduce((sum, stay) => sum + stay.amount, 0) * 100) / 100));
+                    }} />
+                    <span>{shortDate(stay.date)} {stay.date.slice(0, 4)} · {stay.kind === "night" ? `${stay.nights} noche(s)` : `${stay.startTime?.slice(0, 5)}–${stay.endTime?.slice(0, 5)}`} · <strong>{money(stay.amount)}</strong></span>
+                  </label>
+                ))}
+                <p className="border-t pt-3 text-sm">Total seleccionado: <strong>{money(careTotal)}</strong></p>
+              </div>
+            ) : (
+              <>
+                <label className={fieldClass}>Bono de la guardería
+                  <select aria-label="Bono de la guardería" className={selectClass} value={packageId} onChange={event => {
+                    setPackageId(event.target.value);
+                    const item = zeusDaycarePackages.find(item => item.id === event.target.value);
+                    if (item) { setHours(String(item.days * item.dailyHours)); setAmount(String(item.price)); }
+                  }}>
+                    {[6, 12].map(dailyHours => <optgroup key={dailyHours} label={`${dailyHours} horas al día`}>
+                      {zeusDaycarePackages.filter(item => item.dailyHours === dailyHours).map(item => (
+                        <option key={item.id} value={item.id}>{item.days} {item.days === 1 ? "día" : "días"} · {item.days * item.dailyHours} h · {money(item.price)}</option>
+                      ))}
+                    </optgroup>)}
+                    <option value="custom">Otro bono · indicar horas y precio</option>
+                  </select>
+                </label>
+                {selectedPackage && <p className="rounded-lg bg-teal-50 p-3 text-sm text-teal-900 dark:bg-teal-950 dark:text-teal-100">
+                  {selectedPackage.days} {selectedPackage.days === 1 ? "día" : "días"} × {selectedPackage.dailyHours} h = <strong>{hours} h</strong> · <strong>{money(selectedPackage.price)}</strong>. Precio del folleto, sin descuento.
+                </p>}
+                <label className={fieldClass}>Horas del bono
+                  <Input type="number" min="1" max="100000" step="1" value={hours} readOnly={packageId !== "custom"}
+                    onChange={event => setHours(event.target.value)} required />
+                </label>
+              </>
+            )}
             <label className={fieldClass}>
-              Horas del bono
-              <Input type="number" min="1" max="100000" step="1" value={hours} onChange={event => setHours(event.target.value)} required />
-            </label>
-            <label className={fieldClass}>
-              Compra del bono
-              <select aria-label="Compra del bono" className={selectClass} value={mode} onChange={event => {
+              {stays ? "Gasto del pago" : "Compra del bono"}
+              <select aria-label={stays ? "Gasto del pago" : "Compra del bono"} className={selectClass} value={mode} onChange={event => {
                 setMode(event.target.value === "new" ? "new" : "existing");
                 setError(null);
               }}>
                 <option value="existing">Vincular un gasto ya pagado</option>
-                <option value="new">Registrar una compra nueva y su gasto</option>
+                <option value="new">{stays ? "Registrar un pago nuevo y su gasto" : "Registrar una compra nueva y su gasto"}</option>
               </select>
             </label>
             {mode === "existing" && (
@@ -154,9 +199,9 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
                 <label className={fieldClass}>
                   Gasto pagado
                   <select aria-label="Gasto pagado" className={selectClass} value={entryId} onChange={event => setEntryId(event.target.value)} required>
-                    <option value="">Selecciona la compra del bono</option>
+                    <option value="">Selecciona el gasto pagado</option>
                     {expenses.map(expense => <option key={expense.id} value={expense.id}>
-                      {shortDate(expense.date)} · {expense.description} · {money(expense.amount)} · {expense.accountName}
+                      {shortDate(expense.date)} · {expense.description} · {money(expense.amount - (expense.allocatedAmount ?? 0))} disponibles · {expense.accountName}
                     </option>)}
                   </select>
                 </label>
@@ -164,21 +209,31 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
                 {selectedExpense && (
                   <div className="rounded-lg bg-muted p-3 text-sm">
                     <p className="font-medium">{money(selectedExpense.amount)} · {selectedExpense.accountName}</p>
-                    <p className="mt-1 text-muted-foreground">Comprado el {shortDate(selectedExpense.date)}. No se creará otro gasto.</p>
+                    <p className="mt-1 text-muted-foreground">Pagado el {shortDate(selectedExpense.date)}. No se creará otro gasto.</p>
+                    {stays && <p className="mt-1 text-muted-foreground">
+                      Ya asignados: {money(selectedExpense.allocatedAmount ?? 0)}. Disponible: {money(selectedExpense.amount - (selectedExpense.allocatedAmount ?? 0))}.
+                      {Math.round((selectedExpense.amount - (selectedExpense.allocatedAmount ?? 0)) * 100) >= Math.round(careTotal * 100)
+                        && <> Sin asignar después: {money(selectedExpense.amount - (selectedExpense.allocatedAmount ?? 0) - careTotal)}.</>}
+                    </p>}
+                    {!stays && selectedPackage && selectedExpense.amount !== selectedPackage.price
+                      && <p className="mt-2 text-muted-foreground">Difiere de los {money(selectedPackage.price)} del folleto. Se conservará el importe real de este gasto.</p>}
                   </div>
                 )}
               </div>
             ) : (
               <div className="space-y-4 rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground">Solo si esta compra todavía no está registrada: se creará un gasto pagado y descontará su precio de la cuenta.</p>
+                <p className="text-sm text-muted-foreground">Solo si este pago todavía no está registrado: se creará un gasto pagado y descontará su importe de la cuenta.</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className={fieldClass}>Fecha de compra
+                  <label className={fieldClass}>{stays ? "Fecha del pago" : "Fecha de compra"}
                     <Input type="date" min="2000-01-01" max={today()} value={date} onChange={event => setDate(event.target.value)} required />
                   </label>
-                  <label className={fieldClass}>Precio (€)
+                  <label className={fieldClass}>{stays ? "Importe del pago (€)" : "Precio (€)"}
                     <Input type="number" min="0.01" max="999999999" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} required />
                   </label>
                 </div>
+                {stays && Number(amount) >= careTotal && <p className="text-sm text-muted-foreground">
+                  Se asignarán {money(careTotal)} a las estancias seleccionadas y quedarán {money(Number(amount) - careTotal)} sin asignar.
+                </p>}
                 <label className={fieldClass}>Cuenta del pago
                   <select aria-label="Cuenta del pago" className={selectClass} value={accountId} onChange={event => setAccountId(event.target.value)} required>
                     <option value="">Selecciona una cuenta</option>
@@ -198,7 +253,8 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
               <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={loading || !!loadError}>
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "new" ? "Comprar bono y crear gasto" : "Guardar bono"}
+                {stays ? mode === "new" ? "Registrar pago y crear gasto" : "Vincular pago"
+                  : mode === "new" ? "Comprar bono y crear gasto" : "Guardar bono"}
               </Button>
             </DialogFooter>
           </fieldset>
@@ -211,23 +267,25 @@ export function ZeusPassDialog({ onClose, onSaved }: DialogProps) {
 export function ZeusUsageDialog({ usage, onClose, onSaved }: DialogProps & { usage: ZeusUsage | null }) {
   const [id] = useState(() => usage?.id ?? crypto.randomUUID());
   const [date, setDate] = useState(usage?.date ?? today());
-  const [hours, setHours] = useState(String(usage ? Math.floor(usage.minutes / 60) : 0));
-  const [minutes, setMinutes] = useState(String(usage ? usage.minutes % 60 : 0));
+  const [startTime, setStartTime] = useState(usage?.startTime?.slice(0, 5) ?? "");
+  const [endTime, setEndTime] = useState(usage?.endTime?.slice(0, 5) ?? "");
   const [note, setNote] = useState(usage?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const total = timeRangeMinutes(startTime, endTime);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const total = Number(hours) * 60 + Number(minutes);
-    if (!Number.isInteger(total) || total < 1 || total > 1440) {
-      setError("Indica una duración entre 1 minuto y 24 horas.");
+    if (!Number.isInteger(total) || total < 1 || total >= 1440) {
+      setError("La salida debe ser posterior a la entrada en el mismo día.");
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      onSaved(await ZeusService.saveUsage({ id, date, minutes: total, note }, !!usage));
+      onSaved(await ZeusService.saveUsage({
+        id, date, startTime: `${startTime}:00`, endTime: `${endTime}:00`, note,
+      }, !!usage));
     } catch (err) {
       setError(chatErrorMessage(err, "No se pudieron guardar las horas."));
     } finally {
@@ -240,7 +298,7 @@ export function ZeusUsageDialog({ usage, onClose, onSaved }: DialogProps & { usa
       <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{usage ? "Corregir horas de Zeus" : "Registrar un día de Zeus"}</DialogTitle>
-          <DialogDescription>Se usarán primero las horas del bono más antiguo comprado hasta esa fecha.</DialogDescription>
+          <DialogDescription>Elige el día y de qué hora a qué hora estuvo. La duración se descuenta automáticamente.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="space-y-5">
@@ -248,17 +306,19 @@ export function ZeusUsageDialog({ usage, onClose, onSaved }: DialogProps & { usa
               <Input type="date" min="2000-01-01" max={today()} value={date} onChange={event => setDate(event.target.value)} required />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className={fieldClass}>Horas
-                <Input type="number" min="0" max="24" step="1" value={hours} onChange={event => setHours(event.target.value)} required />
+              <label className={fieldClass}>Hora de entrada
+                <Input type="time" step="60" value={startTime} onChange={event => setStartTime(event.target.value)} required />
               </label>
-              <label className={fieldClass}>Minutos
-                <Input type="number" min="0" max="59" step="1" value={minutes} onChange={event => setMinutes(event.target.value)} required />
+              <label className={fieldClass}>Hora de salida
+                <Input type="time" step="60" value={endTime} onChange={event => setEndTime(event.target.value)} required />
               </label>
             </div>
-            <div className="flex flex-wrap gap-2" aria-label="Duraciones rápidas">
-              {[2, 4, 8].map(value => <Button key={value} type="button" variant="outline" size="sm"
-                onClick={() => { setHours(String(value)); setMinutes("0"); }}>{value} h</Button>)}
+            <div aria-live="polite" className="rounded-lg bg-teal-50 p-4 text-sm text-teal-900 dark:bg-teal-950 dark:text-teal-100">
+              {total > 0
+                ? <>Se descontarán <strong>{duration(total)}</strong> de sus bonos.</>
+                : startTime && endTime ? "La salida debe ser posterior a la entrada en el mismo día." : "Indica el horario para ver cuántas horas se descontarán."}
             </div>
+            {usage && !usage.startTime && <p className="text-sm text-muted-foreground">Este registro tenía {duration(usage.minutes)} sin horario. Al guardar se actualizará con las horas que indiques.</p>}
             <label className={fieldClass}>Nota (opcional)
               <Input maxLength={300} value={note} onChange={event => setNote(event.target.value)} placeholder="Por ejemplo: mañana en la guardería" />
             </label>
