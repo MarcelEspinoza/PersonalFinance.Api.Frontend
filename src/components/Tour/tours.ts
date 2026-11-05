@@ -57,10 +57,10 @@ export const TOURS: TourDefinition[] = [
       {
         target: t("dashboard-balance"),
         optional: true,
-        title: "Tu dinero hoy",
+        title: "Cómo vas este mes",
         body:
-          "En «Dashboard» (la pantalla de inicio) ves arriba el dinero que tienes hoy, lo que te quedará libre a fin de mes y lo que falta por cobrar y por pagar.\n\n" +
-          "Debajo, «Qué tienes que hacer» te dice lo que necesita tu atención, y «Tus cuentas» te muestra cuánto hay en cada cuenta.",
+          "En «Dashboard» (la pantalla de inicio) ves arriba lo que te quedará libre a fin de mes, la cuenta que lleva a ese número (lo que tienes hoy + lo que falta cobrar − lo que falta pagar) y cuánto hay en cada cuenta.\n\n" +
+          "Debajo, «Qué tienes que hacer» te dice lo que necesita tu atención, y «Próximos meses» te muestra cómo vienen los meses que siguen. Desde ahí llegas al «Plan de gastos» completo.",
       },
       {
         target: t("nav-ledger"),
@@ -456,7 +456,7 @@ export const TOURS: TourDefinition[] = [
       {
         title: "¿Cuánto hay en cada cuenta?",
         body:
-          "Lo ves en «Dashboard», en el recuadro «Tus cuentas».\n\n" +
+          "Lo ves en «Dashboard», en el recuadro de arriba, debajo de «Libre a fin de mes».\n\n" +
           "Para compararlo con el banco, ve a «Mes» → «Resumen y cuadre».",
       },
     ],

@@ -1,37 +1,26 @@
 // pages/Dashboard/Dashboard.tsx
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Loader2,
-  PiggyBank,
-  RotateCcw,
-  Upload,
-  Wallet,
-} from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2, PiggyBank, RotateCcw, Sparkles, Upload } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AccountsOverview } from "../../components/Dashboard/AccountsOverview";
 import { ActionCenter } from "../../components/Dashboard/ActionCenter";
-import { FutureMonthsBoxes } from "../../components/Dashboard/FutureMonthsBoxes";
 import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
-import { MonthProgressCard } from "../../components/Dashboard/MonthProgressCard";
+import { MonthHero } from "../../components/Dashboard/MonthHero";
+import { NextMonthsPreview } from "../../components/Dashboard/NextMonthsPreview";
 import { ServiceSavingsCard } from "../../components/Dashboard/ServiceSavingsCard";
 import { UpcomingItemsCard } from "../../components/Dashboard/UpcomingItemsCard";
-import { capitalize, ledgerLink, pendingFlows, type PendingFlows } from "../../components/Dashboard/dashboardUtils";
+import { capitalize } from "../../components/Dashboard/dashboardUtils";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
 import { PageHeader } from "../../components/PageHeader";
 import { useUpcomingReminders } from "../../components/Reminders/useUpcomingReminders";
 import { Button } from "../../components/ui/button";
-import { Card } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { cn } from "../../lib/utils";
 import { getDashboardProjection, type DashboardProjection, type MonthOutlook } from "../../services/dashboardService";
-import { money, monthLabel, monthName, nextMonth, previousMonth } from "../../utils/civilDate";
+import { monthLabel, monthName, nextMonth, previousMonth } from "../../utils/civilDate";
 
 const RESERVE_STORAGE_KEY = "dashboard-include-variable-reserve";
+
+type Extra = "advice" | "savings";
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -46,6 +35,7 @@ export function Dashboard() {
   const [includeVariableReserve, setIncludeVariableReserve] = useState(
     () => window.localStorage.getItem(RESERVE_STORAGE_KEY) !== "false",
   );
+  const [extra, setExtra] = useState<Extra | null>(null);
   const latestRequest = useRef(0);
   const reminders = useUpcomingReminders();
 
@@ -73,22 +63,14 @@ export function Dashboard() {
   const header = (
     <PageHeader
       title="Tu situación financiera"
-      description="Cómo estás hoy y cómo vas a terminar el mes."
+      description="Cómo vas a terminar el mes y qué te toca hacer."
       actions={
-        <>
-          <Button asChild variant="outline">
-            <Link to={projection ? ledgerLink(projection.outlook.year, projection.outlook.month) : "/ledger"}>
-              <ClipboardList className="h-4 w-4" />
-              Ir a Mes
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to="/imports">
-              <Upload className="h-4 w-4" />
-              Importar extracto
-            </Link>
-          </Button>
-        </>
+        <Button asChild>
+          <Link to="/imports">
+            <Upload className="h-4 w-4" />
+            Importar extracto
+          </Link>
+        </Button>
       }
     />
   );
@@ -118,10 +100,7 @@ export function Dashboard() {
   const isFuture = !outlook.isPast && !outlook.isCurrent;
   const isDefaultMonth = projection.defaultYear === selectedYear && projection.defaultMonth === selectedMonth;
   const atMinMonth = selectedYear * 12 + selectedMonth <= projection.minYear * 12 + projection.minMonth;
-  const flows = pendingFlows(outlook);
-  const variableReserve = projection.outlook.variableExpenseReserve;
   const closingBalance = outlook.accounts.reduce((total, account) => total + account.projectedEndBalance, 0);
-  const futureMonths = projection.monthlyData.filter((month) => !month.isCurrent);
 
   const goTo = (target: { year: number; month: number }) =>
     setSearchParams({ year: String(target.year), month: String(target.month) });
@@ -129,6 +108,7 @@ export function Dashboard() {
     window.localStorage.setItem(RESERVE_STORAGE_KEY, String(value));
     setIncludeVariableReserve(value);
   };
+  const toggleExtra = (value: Extra) => setExtra((current) => (current === value ? null : value));
 
   return (
     <div className="space-y-6">
@@ -180,117 +160,60 @@ export function Dashboard() {
       {error && <ErrorBox message={error} onRetry={retry} />}
 
       <div className={cn("space-y-6 transition-opacity", loading && "pointer-events-none opacity-60")} aria-busy={loading}>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiTile
-            dataTour="dashboard-balance"
-            label="Dinero hoy"
-            icon={<Wallet className="h-4 w-4" />}
-            iconClassName="bg-primary/10 text-primary"
-            value={summary.currentBalance}
-            hint={todayHint(isFuture, projection.accounts.length, monthOnly, summary.monthOpeningBalance)}
-          />
-          {isPast ? (
-            <KpiTile
-              label={`Saldo al cerrar ${monthOnly}`}
-              icon={<PiggyBank className="h-4 w-4" />}
-              iconClassName="bg-primary/10 text-primary"
-              value={closingBalance}
-              hint="Lo que había en tus cuentas el último día del mes."
-            />
-          ) : (
-            <KpiTile
-              label="Libre a fin de mes"
-              icon={<PiggyBank className="h-4 w-4" />}
-              iconClassName={outlook.freeMoney < 0 ? "bg-negative-soft text-negative" : "bg-positive-soft text-positive"}
-              value={outlook.freeMoney}
-              valueClassName={outlook.freeMoney < 0 ? "text-negative" : "text-positive"}
-              hint={
-                isFuture
-                  ? `Lo que te quedará al terminar ${monthOnly}, contando todo lo previsto hasta entonces.`
-                  : "Lo que te quedará cuando se cobre y se pague todo lo previsto."
-              }
-            >
-              {variableReserve > 0.005 && (
-                <label className="mt-3 flex cursor-pointer items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={includeVariableReserve}
-                    onChange={(event) => changeReserve(event.target.checked)}
-                    className="h-3.5 w-3.5 accent-primary"
-                  />
-                  Contar gastos variables ({money(variableReserve)})
-                </label>
-              )}
-            </KpiTile>
-          )}
-          <KpiTile
-            label={isPast ? "Quedó sin cobrar" : "Por cobrar"}
-            icon={<ArrowDownLeft className="h-4 w-4" />}
-            iconClassName="bg-positive-soft text-positive"
-            value={flows.toCollect}
-            valueClassName="text-positive"
-            hint={collectHint(flows, isPast)}
-          />
-          <KpiTile
-            label={isPast ? "Quedó sin pagar" : "Por pagar"}
-            icon={<ArrowUpRight className="h-4 w-4" />}
-            iconClassName="bg-orange-500/10 text-orange-600"
-            value={flows.toPay}
-            hint={payHint(flows, isPast)}
-          />
-        </div>
-
-        <ActionCenter
+        <MonthHero
+          projection={projection}
           outlook={outlook}
-          alerts={projection.alerts?.items ?? []}
-          reminders={reminders.items}
-          remindersFailed={reminders.failed}
           monthName={monthOnly}
+          includeVariableReserve={includeVariableReserve}
+          onChangeReserve={changeReserve}
         />
 
-        <div className="grid items-start gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <AccountsOverview
+        <div className={cn("grid items-start gap-6", !isPast && "lg:grid-cols-2")}>
+          <ActionCenter
+            outlook={outlook}
+            alerts={projection.alerts?.items ?? []}
+            reminders={reminders.items}
+            remindersFailed={reminders.failed}
+            monthName={monthOnly}
+          />
+          {!isPast && (
+            <UpcomingItemsCard
+              key={`${selectedYear}-${selectedMonth}`}
               outlook={outlook}
-              todayBalances={projection.accounts}
               monthName={monthOnly}
               year={selectedYear}
               month={selectedMonth}
             />
-            {!isPast && (
-              <UpcomingItemsCard
-                key={`${selectedYear}-${selectedMonth}`}
-                outlook={outlook}
-                monthName={monthOnly}
-                year={selectedYear}
-                month={selectedMonth}
-              />
-            )}
-          </div>
-          <div className="space-y-6">
-            <MonthProgressCard
-              title={monthTitle}
-              collected={summary.currentMonthIncome}
-              toCollect={flows.toCollect}
-              paid={summary.currentMonthExpense}
-              toPay={flows.toPay}
-              result={summary.currentMonthResult}
-              deviations={outlook.deviations}
-              isPast={isPast}
-            />
-            <ServiceSavingsCard />
-          </div>
+          )}
         </div>
 
-        <FutureMonthsBoxes
-          months={futureMonths}
-          title={isDefaultMonth ? "Próximos 6 meses" : `Los 6 meses después de ${monthOnly}`}
-          startBalance={isPast ? closingBalance : outlook.freeMoney}
-          startMonthName={monthOnly}
+        <NextMonthsPreview
+          months={projection.monthlyData}
+          startFree={isPast ? closingBalance : outlook.freeMoney}
+          includeVariableReserve={isPast || includeVariableReserve}
+          pastTotals={isPast ? { income: summary.currentMonthIncome, expense: summary.currentMonthExpense } : null}
           onSelectMonth={goTo}
         />
 
-        <MonthAdvicePanel year={selectedYear} month={selectedMonth} monthName={monthLabel(selectedYear, selectedMonth)} />
+        <section aria-label="Más cosas" className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-sm font-medium text-muted-foreground">Más cosas:</span>
+            <ExtraButton icon={Sparkles} active={extra === "advice"} onClick={() => toggleExtra("advice")}>
+              Consejos de la IA
+            </ExtraButton>
+            <ExtraButton icon={PiggyBank} active={extra === "savings"} onClick={() => toggleExtra("savings")}>
+              Ahorra en tus servicios
+            </ExtraButton>
+          </div>
+          {extra === "advice" && (
+            <MonthAdvicePanel
+              year={selectedYear}
+              month={selectedMonth}
+              monthName={monthLabel(selectedYear, selectedMonth)}
+            />
+          )}
+          {extra === "savings" && <ServiceSavingsCard />}
+        </section>
       </div>
     </div>
   );
@@ -303,69 +226,32 @@ function selectOutlookVersion(outlook: MonthOutlook, includeVariableReserve: boo
     : outlook;
 }
 
-function todayHint(isFuture: boolean, accountCount: number, monthOnly: string, openingBalance: number): string {
-  if (!isFuture) return `Al empezar ${monthOnly} tenías ${money(openingBalance)}.`;
-  if (accountCount === 0) return "No tienes cuentas activas.";
-  return accountCount === 1 ? "Lo que hay en tu cuenta." : `Suma de tus ${accountCount} cuentas.`;
-}
-
-function collectHint(flows: PendingFlows, isPast: boolean): string {
-  const count = flows.collectCount;
-  if (isPast) return count === 0 ? "Se cobró todo lo previsto." : `${count} ${count === 1 ? "cobro" : "cobros"} sin confirmar.`;
-  const parts = [
-    count > 0 ? `${count} ${count === 1 ? "cobro pendiente" : "cobros pendientes"}` : null,
-    flows.variableIncome > 0.005 ? `${money(flows.variableIncome)} de ingresos variables` : null,
-  ].filter((part): part is string => part !== null);
-  return parts.length === 0 ? "Nada pendiente este mes." : `${parts.join(" + ")}.`;
-}
-
-function payHint(flows: PendingFlows, isPast: boolean): string {
-  const count = flows.payCount;
-  if (isPast) return count === 0 ? "Se pagó todo lo previsto." : `${count} ${count === 1 ? "pago" : "pagos"} sin confirmar.`;
-  const parts = [
-    count > 0 ? `${count} ${count === 1 ? "pago pendiente" : "pagos pendientes"}` : null,
-    flows.variableExpense > 0.005 ? `${money(flows.variableExpense)} de gastos variables` : null,
-  ].filter((part): part is string => part !== null);
-  return parts.length === 0 ? "Nada pendiente este mes." : `${parts.join(" + ")}.`;
-}
-
-function KpiTile({
-  label,
-  value,
-  icon,
-  iconClassName,
-  valueClassName,
-  hint,
-  dataTour,
+/** A pill that opens (or closes) an extra block at the end of the page. */
+function ExtraButton({
+  icon: Icon,
+  active,
+  onClick,
   children,
 }: {
-  label: string;
-  value: number;
-  icon: ReactNode;
-  iconClassName?: string;
-  valueClassName?: string;
-  hint?: string;
-  dataTour?: string;
-  children?: ReactNode;
+  icon: ComponentType<{ className?: string }>;
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
 }) {
   return (
-    <Card className="p-5" data-tour={dataTour}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconClassName)}>{icon}</span>
-      </div>
-      <p
-        className={cn(
-          "mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl",
-          value < -0.005 && "text-negative",
-          valueClassName,
-        )}
-      >
-        {money(value)}
-      </p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "border-primary bg-primary/10 text-primary" : "bg-card text-foreground hover:border-primary/60",
+      )}
+    >
+      <Icon className="h-4 w-4" />
       {children}
-    </Card>
+      <ChevronDown className={cn("h-4 w-4 transition-transform", active && "rotate-180")} />
+    </button>
   );
 }
 

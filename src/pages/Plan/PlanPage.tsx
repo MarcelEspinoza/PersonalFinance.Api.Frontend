@@ -12,21 +12,7 @@ import {
   type ExpensePlanMonths,
   type ExpensePlanVariableRow,
 } from "../../services/expensePlanningService";
-import { monthName, nextMonth, previousMonth } from "../../utils/civilDate";
-
-const wholeEuros = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-const centEuros = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-
-/** "300 €", or "12,50 €" when the amount has cents. */
-function euros(value: number): string {
-  const rounded = Math.round(value * 100) / 100 || 0;
-  return Number.isInteger(rounded) ? wholeEuros.format(rounded) : centEuros.format(rounded);
-}
+import { euros, monthName, nextMonth, previousMonth } from "../../utils/civilDate";
 
 /** null = empty (removes the limit), undefined = not a valid amount. */
 function parseAmount(text: string): number | null | undefined {

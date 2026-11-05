@@ -1,11 +1,9 @@
-import type { MonthOutlook, OutlookItem } from "../../services/dashboardService";
+import type { MonthlyData, MonthOutlook, OutlookItem } from "../../services/dashboardService";
 import { EntryDirection } from "../../types/ledger";
 
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 export const ledgerLink = (year: number, month: number) => `/ledger?year=${year}&month=${month}`;
-
-export const reconcileLink = (year: number, month: number) => `/monthly?year=${year}&month=${month}`;
 
 /** Year and month of a civil date such as "2026-10-24". */
 export function monthOf(date: string): { year: number; month: number } {
@@ -71,4 +69,10 @@ export function pendingFlows(outlook: MonthOutlook): PendingFlows {
     variableExpense: sumAmounts(reserveItems) + unassignedReserve,
     variableIncome,
   };
+}
+
+/** What comes in, goes out and is left in a month. Without the variable expense reserve when it is not counted. */
+export function monthTotals(month: MonthlyData, includeVariableReserve: boolean) {
+  const expense = includeVariableReserve ? month.expense : month.expense - month.variableExpenseReserve;
+  return { income: month.income, expense, result: month.income - expense };
 }

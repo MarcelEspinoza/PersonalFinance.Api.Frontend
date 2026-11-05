@@ -56,7 +56,7 @@ export function MonthForecastPanel({ forecast }: { forecast: MonthForecastSummar
       )}
 
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <p>Son los mismos números que las cajitas del inicio y el Plan de gastos.</p>
+        <p>Son los mismos números que el inicio y el Plan de gastos.</p>
         {hasDetail && (
           <button
             type="button"

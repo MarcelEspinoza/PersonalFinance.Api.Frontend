@@ -9,7 +9,7 @@ import { ReminderTag } from "../Reminders/ReminderBadges";
 import { SectionCard, SectionLink } from "./SectionCard";
 import { ledgerLink } from "./dashboardUtils";
 
-const VISIBLE_ITEMS = 6;
+const VISIBLE_ITEMS = 5;
 
 type Props = {
   outlook: MonthOutlook;

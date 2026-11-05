@@ -23,7 +23,6 @@ import {
   formatCivilDate,
   hasAmount,
   relativeDayLabel,
-  reminderAmountLabel,
   reminderUrgency,
 } from "../Reminders/reminderUtils";
 import { CountBadge, SectionCard } from "./SectionCard";
@@ -51,8 +50,10 @@ const toneIcon: Record<Tone, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-const VISIBLE_TASKS = 6;
+const VISIBLE_TASKS = 4;
 const VISIBLE_REMINDERS = 3;
+/** Smaller suggested transfers are not worth a task. */
+const MIN_TRANSFER = 5;
 
 type Props = {
   outlook: MonthOutlook;
@@ -121,50 +122,64 @@ function buildTasks(
   const tasks: Task[] = [];
 
   if (!outlook.isPast) {
-    outlook.accounts
-      .filter((account) => account.shortfall > 0.01)
-      .forEach((account) =>
-        tasks.push({
-          key: `risk-${account.accountId}`,
-          tone: "danger",
-          icon: AlertTriangle,
-          title: <>«{account.name}» se quedará en negativo</>,
-          detail: (
-            <>
-              Llegará a <strong>{money(account.lowestBalance)}</strong>
-              {account.lowestBalanceDate ? ` el ${shortDate(account.lowestBalanceDate)}` : ""}: le faltan{" "}
-              <strong>{money(account.shortfall)}</strong>.
-            </>
-          ),
-        }),
-      );
-
-    outlook.suggestedTransfers.forEach((transfer, index) =>
-      tasks.push({
-        key: `transfer-${index}`,
-        tone: "action",
-        icon: ArrowRightLeft,
-        title: (
-          <>
-            Mueve {money(transfer.amount)} de «{transfer.fromAccountName}» a «{transfer.toAccountName}»
-          </>
-        ),
-        detail: transfer.before
-          ? `Hazlo antes del ${shortDate(transfer.before)} para que «${transfer.toAccountName}» no se quede en negativo.`
-          : `Así «${transfer.toAccountName}» no se quedará en negativo.`,
-      }),
-    );
-
+    // One row for every account that goes negative, so the same problem is not told several times.
+    const risky = outlook.accounts.filter((account) => account.shortfall > 0.01);
     if (outlook.uncoveredShortfall > 0.01) {
       tasks.push({
         key: "uncovered",
         tone: "danger",
         icon: AlertCircle,
         title: <>Te faltan {money(outlook.uncoveredShortfall)} en algún momento del mes</>,
-        detail:
-          "Ni moviendo dinero entre tus cuentas alcanza. Tendrás que meter dinero, retrasar algún pago o esperar al próximo cobro.",
+        detail: (
+          <>
+            {risky.length > 0 && `${lowPoints(risky)}. `}
+            Ni moviendo dinero entre tus cuentas alcanza: tendrás que meter dinero, retrasar algún pago o esperar al
+            próximo cobro.
+          </>
+        ),
+      });
+    } else if (risky.length === 1) {
+      const [account] = risky;
+      tasks.push({
+        key: `risk-${account.accountId}`,
+        tone: "danger",
+        icon: AlertTriangle,
+        title: <>«{account.name}» se quedará en negativo</>,
+        detail: (
+          <>
+            Llegará a <strong>{money(account.lowestBalance)}</strong>
+            {account.lowestBalanceDate ? ` el ${shortDate(account.lowestBalanceDate)}` : ""}: le faltan{" "}
+            <strong>{money(account.shortfall)}</strong>.
+          </>
+        ),
+      });
+    } else if (risky.length > 1) {
+      tasks.push({
+        key: "risk",
+        tone: "danger",
+        icon: AlertTriangle,
+        title: `${risky.length} cuentas se quedarán en negativo`,
+        detail: `${lowPoints(risky)}.`,
       });
     }
+
+    outlook.suggestedTransfers
+      .filter((transfer) => transfer.amount >= MIN_TRANSFER)
+      .forEach((transfer, index) =>
+        tasks.push({
+          key: `transfer-${index}`,
+          tone: "action",
+          icon: ArrowRightLeft,
+          title: (
+            <>
+              Mueve {money(transfer.amount)} de «{transfer.fromAccountName}» a «{transfer.toAccountName}»
+            </>
+          ),
+          detail: transfer.before
+            ? `Hazlo antes del ${shortDate(transfer.before)} para que «${transfer.toAccountName}» no se quede en negativo.`
+            : `Así «${transfer.toAccountName}» no se quedará en negativo.`,
+        }),
+      );
   }
 
   alerts
@@ -191,7 +206,7 @@ function buildTasks(
       detail:
         `${formatCivilDate(reminder.dueDate)} · ${relativeDayLabel(reminder.dueDate, todayValue)}` +
         (snoozedUntil ? ` · pospuesto hasta el ${formatCivilDate(snoozedUntil)}` : ""),
-      amount: hasAmount(reminder) ? reminderAmountLabel(reminder) : undefined,
+      amount: hasAmount(reminder) ? `${reminder.isIncome ? "+" : "−"}${money(reminder.amount)}` : undefined,
       link: { to: "/reminders", label: "Ver" },
     });
   });
@@ -223,6 +238,17 @@ function alertTask(alert: Props["alerts"][number], key: string, tone: Tone): Tas
     title: alert.message,
     link: route ? { to: route, label: "Ver" } : undefined,
   };
+}
+
+/** "«A» llegará a −10 € el 5 nov y «B» a −3 € el 28 nov". */
+function lowPoints(accounts: MonthOutlook["accounts"]): string {
+  return joinWithAnd(
+    accounts.map(
+      (account, index) =>
+        `«${account.name}» ${index === 0 ? "llegará a " : "a "}${money(account.lowestBalance)}` +
+        (account.lowestBalanceDate ? ` el ${shortDate(account.lowestBalanceDate)}` : ""),
+    ),
+  );
 }
 
 const countLabel = (count: number, singular: string, plural: string) =>

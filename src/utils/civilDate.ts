@@ -68,3 +68,16 @@ const CURRENCY = new Intl.NumberFormat("es-ES", {
 export function money(value: number | null | undefined): string {
   return CURRENCY.format(value ?? 0);
 }
+
+const WHOLE_EUROS = new Intl.NumberFormat("es-ES", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+/** "300 €", or "12,50 €" when the amount has cents. Never "-0 €". */
+export function euros(value: number): string {
+  const rounded = Math.round(value * 100) / 100 || 0;
+  return Number.isInteger(rounded) ? WHOLE_EUROS.format(rounded) : CURRENCY.format(rounded);
+}
