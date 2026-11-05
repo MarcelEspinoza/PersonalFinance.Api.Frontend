@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
-import { useId, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import type {
@@ -58,9 +58,9 @@ export function MonthHero({ projection, outlook, monthName, includeVariableReser
       : currentLines(projection.summary.currentBalance, outlook);
   const unconfirmed = isPast ? unconfirmedText(pendingFlows(outlook)) : null;
   const monthLink = ledgerLink(outlook.year, outlook.month);
-  const [openLines, setOpenLines] = useState<string[]>([]);
-  const toggleLine = (label: string) =>
-    setOpenLines((open) => (open.includes(label) ? open.filter((item) => item !== label) : [...open, label]));
+  // Only one line open at a time, so the sum never grows too long.
+  const [openLine, setOpenLine] = useState<string | null>(null);
+  const toggleLine = (label: string) => setOpenLine((current) => (current === label ? null : label));
 
   return (
     <Card data-tour="dashboard-balance" className="p-5 sm:p-6">
@@ -68,7 +68,7 @@ export function MonthHero({ projection, outlook, monthName, includeVariableReser
         className={cn(
           "grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
           // With a line open the sum gets long: the big number stays at the top instead of floating in the middle.
-          openLines.length > 0 ? "md:items-start" : "md:items-center",
+          openLine ? "md:items-start" : "md:items-center",
         )}
       >
         <div>
@@ -109,7 +109,7 @@ export function MonthHero({ projection, outlook, monthName, includeVariableReser
               <EquationLine
                 key={line.label}
                 line={line}
-                open={openLines.includes(line.label)}
+                open={openLine === line.label}
                 onToggle={() => toggleLine(line.label)}
                 monthLink={monthLink}
               />
@@ -388,14 +388,7 @@ function EquationLine({
       )}
       {detail && open && (
         <div id={panelId} className="border-t bg-muted/30">
-          <ul className="divide-y">
-            {detail.items.map((item, index) => (
-              <OutlookItemRow key={`${item.dueDate}-${item.description}-${index}`} item={item} />
-            ))}
-            {detail.extras.map((extra) => (
-              <ExtraLineRow key={extra.label} line={extra} />
-            ))}
-          </ul>
+          <DetailList detail={detail} />
           <Link
             to={monthLink}
             className="flex items-center justify-end gap-1 border-t px-4 py-2 text-xs font-medium text-primary hover:underline"
@@ -406,6 +399,41 @@ function EquationLine({
         </div>
       )}
     </div>
+  );
+}
+
+// Fades the last visible rows so it is clear the list goes on below.
+const FADE_BOTTOM: CSSProperties = {
+  maskImage: "linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent)",
+  WebkitMaskImage: "linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent)",
+};
+
+/** The rows of an open line. A long list scrolls inside a fixed height instead of stretching the whole card. */
+function DetailList({ detail }: { detail: Detail }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+  const updateMoreBelow = useCallback(() => {
+    const list = listRef.current;
+    setMoreBelow(list !== null && list.scrollHeight - list.scrollTop - list.clientHeight > 1);
+  }, []);
+  useLayoutEffect(() => {
+    updateMoreBelow();
+  }, [updateMoreBelow]);
+
+  return (
+    <ul
+      ref={listRef}
+      onScroll={updateMoreBelow}
+      className="max-h-72 divide-y overflow-y-auto"
+      style={{ scrollbarWidth: "thin", ...(moreBelow ? FADE_BOTTOM : {}) }}
+    >
+      {detail.items.map((item, index) => (
+        <OutlookItemRow key={`${item.dueDate}-${item.description}-${index}`} item={item} />
+      ))}
+      {detail.extras.map((extra) => (
+        <ExtraLineRow key={extra.label} line={extra} />
+      ))}
+    </ul>
   );
 }
 
