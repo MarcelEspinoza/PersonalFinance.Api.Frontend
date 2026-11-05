@@ -7,7 +7,6 @@ import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
 import { MonthHero } from "../../components/Dashboard/MonthHero";
 import { NextMonthsPreview } from "../../components/Dashboard/NextMonthsPreview";
 import { ServiceSavingsCard } from "../../components/Dashboard/ServiceSavingsCard";
-import { UpcomingItemsCard } from "../../components/Dashboard/UpcomingItemsCard";
 import { capitalize } from "../../components/Dashboard/dashboardUtils";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
 import { PageHeader } from "../../components/PageHeader";
@@ -161,6 +160,7 @@ export function Dashboard() {
 
       <div className={cn("space-y-6 transition-opacity", loading && "pointer-events-none opacity-60")} aria-busy={loading}>
         <MonthHero
+          key={`${outlook.year}-${outlook.month}`}
           projection={projection}
           outlook={outlook}
           monthName={monthOnly}
@@ -168,24 +168,13 @@ export function Dashboard() {
           onChangeReserve={changeReserve}
         />
 
-        <div className={cn("grid items-start gap-6", !isPast && "lg:grid-cols-2")}>
-          <ActionCenter
-            outlook={outlook}
-            alerts={projection.alerts?.items ?? []}
-            reminders={reminders.items}
-            remindersFailed={reminders.failed}
-            monthName={monthOnly}
-          />
-          {!isPast && (
-            <UpcomingItemsCard
-              key={`${selectedYear}-${selectedMonth}`}
-              outlook={outlook}
-              monthName={monthOnly}
-              year={selectedYear}
-              month={selectedMonth}
-            />
-          )}
-        </div>
+        <ActionCenter
+          outlook={outlook}
+          alerts={projection.alerts?.items ?? []}
+          reminders={reminders.items}
+          remindersFailed={reminders.failed}
+          monthName={monthOnly}
+        />
 
         <NextMonthsPreview
           months={projection.monthlyData}

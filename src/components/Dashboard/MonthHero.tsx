@@ -1,11 +1,22 @@
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import type { DashboardProjection, MonthlyData, MonthOutlook, Summary } from "../../services/dashboardService";
+import type {
+  DashboardProjection,
+  MonthlyData,
+  MonthOutlook,
+  OutlookItem,
+  Summary,
+} from "../../services/dashboardService";
 import { EntryDirection } from "../../types/ledger";
 import { money } from "../../utils/civilDate";
 import { Card } from "../ui/card";
 import { joinWithAnd, ledgerLink, monthTotals, pendingFlows, type PendingFlows } from "./dashboardUtils";
+import { ExtraLineRow, OutlookItemRow, type ExtraLine } from "./OutlookItemRow";
+
+/** What makes up a line of the sum, shown when the line is opened. */
+type Detail = { items: OutlookItem[]; extras: ExtraLine[] };
 
 type Line = {
   sign?: "+" | "−" | "=";
@@ -14,6 +25,7 @@ type Line = {
   value: number;
   valueClassName?: string;
   total?: boolean;
+  detail?: Detail;
 };
 
 type Props = {
@@ -45,10 +57,20 @@ export function MonthHero({ projection, outlook, monthName, includeVariableReser
       ? futureLines(month, outlook, monthName, includeVariableReserve)
       : currentLines(projection.summary.currentBalance, outlook);
   const unconfirmed = isPast ? unconfirmedText(pendingFlows(outlook)) : null;
+  const monthLink = ledgerLink(outlook.year, outlook.month);
+  const [openLines, setOpenLines] = useState<string[]>([]);
+  const toggleLine = (label: string) =>
+    setOpenLines((open) => (open.includes(label) ? open.filter((item) => item !== label) : [...open, label]));
 
   return (
     <Card data-tour="dashboard-balance" className="p-5 sm:p-6">
-      <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-center">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
+          // With a line open the sum gets long: the big number stays at the top instead of floating in the middle.
+          openLines.length > 0 ? "md:items-start" : "md:items-center",
+        )}
+      >
         <div>
           <p className="text-sm font-medium text-muted-foreground">
             {isPast ? `Saldo al cerrar ${monthName}` : `Libre a fin de ${monthName}`}
@@ -82,19 +104,23 @@ export function MonthHero({ projection, outlook, monthName, includeVariableReser
         </div>
 
         <div>
-          <dl className="overflow-hidden rounded-xl border">
+          <div className="overflow-hidden rounded-xl border">
             {lines.map((line) => (
-              <EquationLine key={line.label} line={line} />
+              <EquationLine
+                key={line.label}
+                line={line}
+                open={openLines.includes(line.label)}
+                onToggle={() => toggleLine(line.label)}
+                monthLink={monthLink}
+              />
             ))}
-          </dl>
-          {unconfirmed && (
+          </div>
+          {isPast && (
+            // A closed month has no lines to open: its movements are in «Mes».
             <p className="mt-2 text-xs text-muted-foreground">
-              {unconfirmed}{" "}
-              <Link
-                to={ledgerLink(outlook.year, outlook.month)}
-                className="inline-flex items-center font-medium text-primary hover:underline"
-              >
-                Revisar en Mes
+              {unconfirmed && `${unconfirmed} `}
+              <Link to={monthLink} className="inline-flex items-center font-medium text-primary hover:underline">
+                {unconfirmed ? "Revisar en Mes" : `Ver los movimientos de ${monthName} en Mes`}
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </p>
@@ -123,9 +149,16 @@ function currentLines(today: number, outlook: MonthOutlook): Line[] {
       hint: collectHint(flows),
       value: flows.toCollect,
       valueClassName: "text-positive",
+      detail: flowDetail(outlook, EntryDirection.In, flows.toCollect),
     },
-    { sign: "−", label: "Falta pagar", hint: payHint(flows), value: flows.toPay },
-    ...signedLine("Dinero de paso", passing, PASSING_HINT),
+    {
+      sign: "−",
+      label: "Falta pagar",
+      hint: payHint(flows),
+      value: flows.toPay,
+      detail: flowDetail(outlook, EntryDirection.Out, flows.toPay),
+    },
+    ...signedLine("Dinero de paso", passing, PASSING_HINT, passingDetail(outlook)),
     ...signedLine("Otros ajustes", rest),
     {
       sign: "=",
@@ -155,14 +188,21 @@ function futureLines(
       value: before,
       valueClassName: before < -0.005 ? "text-negative" : undefined,
     },
-    { sign: "+", label: `Entra en ${monthName}`, value: totals.income, valueClassName: "text-positive" },
+    {
+      sign: "+",
+      label: `Entra en ${monthName}`,
+      value: totals.income,
+      valueClassName: "text-positive",
+      detail: flowDetail(outlook, EntryDirection.In, totals.income),
+    },
     {
       sign: "−",
       label: `Sale en ${monthName}`,
       hint: reserve > 0.005 ? `Incluye ${money(reserve)} reservados para gastos variables.` : undefined,
       value: totals.expense,
+      detail: flowDetail(outlook, EntryDirection.Out, totals.expense),
     },
-    ...signedLine("Dinero de paso", passing, PASSING_HINT),
+    ...signedLine("Dinero de paso", passing, PASSING_HINT, passingDetail(outlook)),
     {
       sign: "=",
       label: `Libre a fin de ${monthName}`,
@@ -213,9 +253,42 @@ function passingMoney(outlook: MonthOutlook): number {
 }
 
 /** A «+» or «−» line, left out when it is zero. */
-function signedLine(label: string, value: number, hint?: string): Line[] {
+function signedLine(label: string, value: number, hint?: string, detail?: Detail): Line[] {
   if (Math.abs(value) < 0.005) return [];
-  return [{ sign: value < 0 ? "−" : "+", label, hint, value: Math.abs(value) }];
+  return [{ sign: value < 0 ? "−" : "+", label, hint, value: Math.abs(value), detail }];
+}
+
+const byDate = (items: OutlookItem[]) => [...items].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+/**
+ * The lines behind a «comes in» or «goes out» total: what is still pending, by date, plus the estimate of the
+ * variable concepts with no account and, in a future month, what is already confirmed in «Mes».
+ */
+function flowDetail(outlook: MonthOutlook, direction: EntryDirection, total: number): Detail {
+  const isIncome = direction === EntryDirection.In;
+  const items = byDate(outlook.pendingItems.filter((item) => !item.isTransfer && item.direction === direction));
+  const estimate = isIncome ? outlook.unassigned.variableIncomeExpected : outlook.unassigned.variableExpenseReserve;
+  const confirmed = total - items.reduce((sum, item) => sum + item.amount, 0) - estimate;
+  const extras: ExtraLine[] = [];
+  if (estimate > 0.005) {
+    extras.push({
+      label: isIncome ? "Ingresos variables que aún esperas (estimado)" : "Gastos variables sin cuenta (estimado)",
+      amount: estimate,
+      direction,
+    });
+  }
+  if (confirmed > 0.005) {
+    extras.push({
+      label: isIncome ? "Ya cobrado (lo ves en Mes)" : "Ya pagado (lo ves en Mes)",
+      amount: confirmed,
+      direction,
+    });
+  }
+  return { items, extras };
+}
+
+function passingDetail(outlook: MonthOutlook): Detail {
+  return { items: byDate(outlook.pendingItems.filter((item) => item.isTransfer)), extras: [] };
 }
 
 const toneOf = (value: number) => (value < -0.005 ? "text-negative" : "text-positive");
@@ -247,15 +320,27 @@ function unconfirmedText(flows: PendingFlows): string | null {
   return parts.length === 0 ? null : `Quedaron sin confirmar ${joinWithAnd(parts)}.`;
 }
 
-function EquationLine({ line }: { line: Line }) {
-  return (
-    <div
-      className={cn(
-        "flex items-start justify-between gap-3 border-t px-4 py-2.5 first:border-t-0",
-        line.total && "bg-muted/50",
-      )}
-    >
-      <dt className="flex min-w-0 gap-2">
+/** A line of the sum. Lines with a detail open on click to show what makes them up. */
+function EquationLine({
+  line,
+  open,
+  onToggle,
+  monthLink,
+}: {
+  line: Line;
+  open: boolean;
+  onToggle: () => void;
+  monthLink: string;
+}) {
+  const panelId = useId();
+  const detail = line.detail && line.detail.items.length + line.detail.extras.length > 0 ? line.detail : null;
+  const rowClassName = cn(
+    "flex w-full items-start justify-between gap-3 px-4 py-2.5 text-left",
+    line.total && "bg-muted/50",
+  );
+  const content = (
+    <>
+      <span className="flex min-w-0 gap-2">
         <span aria-hidden="true" className="w-3 shrink-0 text-center font-semibold text-muted-foreground">
           {line.sign ?? ""}
         </span>
@@ -263,16 +348,63 @@ function EquationLine({ line }: { line: Line }) {
           <span className={cn("block text-sm", line.total ? "font-semibold" : "font-medium")}>{line.label}</span>
           {line.hint && <span className="block text-xs text-muted-foreground">{line.hint}</span>}
         </span>
-      </dt>
-      <dd
+      </span>
+      <span
         className={cn(
-          "shrink-0 whitespace-nowrap tabular-nums",
+          "flex shrink-0 items-center gap-1 whitespace-nowrap tabular-nums",
           line.total ? "text-base font-bold" : "text-sm font-semibold",
           line.valueClassName,
         )}
       >
         {money(line.value)}
-      </dd>
+        {detail && (
+          <ChevronDown
+            aria-hidden="true"
+            className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")}
+          />
+        )}
+      </span>
+    </>
+  );
+
+  return (
+    <div className="border-t first:border-t-0">
+      {detail ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          title={open ? "Ocultar el detalle" : "Ver el detalle"}
+          onClick={onToggle}
+          className={cn(
+            rowClassName,
+            "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          )}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className={rowClassName}>{content}</div>
+      )}
+      {detail && open && (
+        <div id={panelId} className="border-t bg-muted/30">
+          <ul className="divide-y">
+            {detail.items.map((item, index) => (
+              <OutlookItemRow key={`${item.dueDate}-${item.description}-${index}`} item={item} />
+            ))}
+            {detail.extras.map((extra) => (
+              <ExtraLineRow key={extra.label} line={extra} />
+            ))}
+          </ul>
+          <Link
+            to={monthLink}
+            className="flex items-center justify-end gap-1 border-t px-4 py-2 text-xs font-medium text-primary hover:underline"
+          >
+            Ver en Mes
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
