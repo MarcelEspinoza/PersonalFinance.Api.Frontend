@@ -18,6 +18,7 @@ import { AssistantPage } from './pages/Assistant/AssistantPage';
 import { HelpPage } from './pages/Help/HelpPage';
 import { PlanPage } from './pages/Plan/PlanPage';
 import { TourProvider } from './components/Tour/TourProvider';
+import { ZeusPage } from './pages/Zeus/ZeusPage';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -102,6 +103,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout><SettlementsPage /></Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/zeus"
+        element={
+          <PrivateRoute>
+            <Layout><ZeusPage /></Layout>
           </PrivateRoute>
         }
       />
