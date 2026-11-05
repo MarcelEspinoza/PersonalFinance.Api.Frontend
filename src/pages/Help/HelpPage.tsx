@@ -482,7 +482,7 @@ function HelpPageContent() {
               {
                 term: "El agua",
                 meaning:
-                  "Se paga cada 2 meses. En «Configuración» → «Planificación» va como «Fijo (cada 2 meses)», por eso no aparece todos los meses.",
+                  "Se paga cada 2 meses. En «Plan de gastos» va como «Cada 2 meses», por eso no aparece todos los meses.",
               },
               {
                 term: "Disney+",

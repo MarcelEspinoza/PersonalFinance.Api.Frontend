@@ -81,6 +81,8 @@ export interface ExpensePlanVariableRow {
 
 export interface ExpensePlanMonths {
   months: ExpensePlanMonth[];
+  /** Where each month's income comes from; the rows add up to the month's income. */
+  income?: ExpensePlanFixedRow[];
   fixed: ExpensePlanFixedRow[];
   variable: ExpensePlanVariableRow[];
 }

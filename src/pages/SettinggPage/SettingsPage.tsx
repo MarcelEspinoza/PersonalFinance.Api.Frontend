@@ -2,21 +2,19 @@
   Archive,
   Landmark,
   ShieldCheck,
-  SlidersHorizontal,
   Tags,
   type LucideIcon,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
-import ExpensePlanningManager from "../../components/Settings/ExpensePlanningManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
 import { PageHeader } from "../../components/PageHeader";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { cn } from "../../lib/utils";
 
-type SettingsTab = "planning" | "banks" | "categories" | "admin";
+type SettingsTab = "banks" | "categories" | "admin";
 
 type TabDefinition = {
   id: SettingsTab;
@@ -27,13 +25,6 @@ type TabDefinition = {
 };
 
 const tabs: TabDefinition[] = [
-  {
-    id: "planning",
-    title: "Planificación mensual",
-    shortTitle: "Planificación",
-    subtitle: "Define ingresos y gastos fijos, además de estimaciones para los variables.",
-    icon: SlidersHorizontal,
-  },
   {
     id: "banks",
     title: "Cuentas bancarias",
@@ -66,6 +57,9 @@ export default function SettingsPage() {
   const activeTab = searchParams.get("tab");
   const active = availableTabs.find((tab) => tab.id === activeTab) ?? availableTabs[0];
   const ActiveIcon = active.icon;
+
+  // What repeats every month is now changed in «Plan de gastos».
+  if (activeTab === "planning") return <Navigate to="/plan" replace />;
 
   return (
     <div className="space-y-6">
@@ -120,7 +114,6 @@ export default function SettingsPage() {
           </div>
         </div>
         <CardContent className="p-5 sm:p-6">
-          {active.id === "planning" && <ExpensePlanningManager />}
           {active.id === "banks" && <BanksManager />}
           {active.id === "categories" && <CategoriesManager />}
           {active.id === "admin" && isAdmin && <ManageRoles />}

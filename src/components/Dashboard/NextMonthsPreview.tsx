@@ -57,8 +57,8 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, p
       {isEmpty ? (
         <p className="p-5 text-sm text-muted-foreground">
           Aún no hay nada planificado para estos meses. Apunta tus ingresos y gastos fijos en{" "}
-          <Link to="/settings" className="font-medium text-primary hover:underline">
-            Configuración → Planificación
+          <Link to="/plan" className="font-medium text-primary hover:underline">
+            Plan de gastos
           </Link>{" "}
           y aquí verás la previsión.
         </p>

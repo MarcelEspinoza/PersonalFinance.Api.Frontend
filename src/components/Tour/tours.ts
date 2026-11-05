@@ -78,12 +78,13 @@ export const TOURS: TourDefinition[] = [
         example: "Extracto = el archivo (CSV) con la lista de movimientos que descargas de la app de Revolut.",
       },
       {
-        target: t("nav-settings"),
+        target: t("nav-plan"),
         fallbackTarget: MOBILE_MENU,
-        title: "«Configuración»: tu plan y tus cuentas",
+        title: "«Plan de gastos»: lo que se repite",
         body:
-          "Aquí apuntas una vez lo que se repite: tus gastos fijos (alquiler, agua, internet…) y tus ingresos. " +
-          "También están tus cuentas, con su saldo inicial.",
+          "Aquí ves los próximos 6 meses: lo que entra, tus gastos fijos (alquiler, agua, internet…) y tus gastos variables con su límite. " +
+          "Para cambiar cómo se repite algo, toca «Cambiar» en su fila.\n\n" +
+          "Tus cuentas, con su saldo inicial, están en «Configuración».",
       },
       {
         target: t("nav-loans"),
@@ -353,68 +354,53 @@ export const TOURS: TourDefinition[] = [
   },
   {
     id: "planificacion",
-    name: "Planificación de gastos fijos",
-    description: "Lo que se repite: importe, día, cuenta y cada cuánto se paga.",
-    route: "/settings",
+    name: "Plan de gastos",
+    description: "Los próximos meses: de dónde sale cada número y cómo cambiar lo que se repite.",
+    route: "/plan",
+    version: 2,
     steps: [
       {
-        target: t("settings-tab-planning"),
-        click: t("settings-tab-planning"),
-        title: "Tu plan de cada mes",
+        target: t("plan-table"),
+        title: "Tu plan, mes a mes",
         body:
-          "En «Configuración» → «Planificación» apuntas una sola vez lo que se repite. Después, la app lo pone solo en cada mes.\n\n" +
-          "Ojo: no es lo mismo que la pestaña «Planificación» de «Mes». Aquí preparas el plan; allí ves cómo va cada mes.",
+          "Cada columna es un mes. Arriba están los totales: lo que entra, tus gastos fijos, tus gastos variables, lo que te queda y lo que tendrás libre a fin de mes.\n\n" +
+          "Debajo ves de dónde sale cada total, fila por fila.",
       },
       {
-        target: t("planning-kind"),
-        title: "Ingresos o gastos",
-        body: "Elige qué quieres ver: tus «Ingresos» (lo que cobras, como el sueldo) o tus «Gastos» (lo que pagas).",
-      },
-      {
-        target: t("planning-totals"),
-        title: "El total de tu plan",
-        body: "Aquí ves cuánto suman al mes tus fijos y tus variables. Un recibo que llega cada 2 meses cuenta la mitad en cada mes.",
-        example: "Si el agua cuesta 60 € cada 2 meses, aquí cuenta 30 € al mes.",
-      },
-      {
-        target: t("planning-type"),
-        title: "Fijo o variable",
+        target: t("plan-income"),
+        title: "Lo que entra",
         body:
-          "Gasto fijo = se repite siempre, con un importe parecido y un día concreto (alquiler, internet…).\n" +
-          "Variable = cambia cada mes (comida, gasolina…). Para estos pones un límite.\n\n" +
-          "Elige «Fijo (cada mes)», «Fijo (cada 2 meses)» o «Variable».",
-        example: "El agua se paga cada 2 meses: elige «Fijo (cada 2 meses)».",
+          "Tus ingresos de cada mes. Debajo de cada nombre pone de dónde sale: si se repite solo (como la nómina) o si viene de un recordatorio o de una liquidación.",
+        example: "✓ = ya cobrado: cuenta lo que llegó de verdad, no lo previsto.",
       },
       {
-        target: t("planning-amount"),
-        title: "El importe",
-        body:
-          "Escribe cuánto es. Si se paga cada 2 meses, pon lo que cuesta cada recibo. " +
-          "Si es variable, pon lo máximo que quieres gastar al mes.",
-      },
-      {
-        target: t("planning-day"),
-        title: "El día",
-        body: "El día del mes en que suele pagarse o cobrarse. Solo se usa en los fijos.",
-        example: "Si el alquiler sale el día 1, escribe 1.",
-      },
-      {
-        target: t("planning-account"),
-        title: "La cuenta",
-        body: "Elige la cuenta desde la que se paga (o a la que llega el dinero). Así la app sabe dónde buscarlo cuando importas el extracto.",
-      },
-      {
-        target: t("planning-save"),
-        title: "Guarda cada fila",
-        body: "Cada fila tiene su botón «Guardar». Púlsalo después de cambiar algo y verás «Guardado».",
-      },
-      {
-        target: t("planning-next"),
+        target: t("plan-fixed-change"),
         optional: true,
-        title: "Recibos cada 2 meses",
+        title: "Cambiar cómo se repite",
         body:
-          "En lo que se paga «cada 2 meses» se activa «Próximo recibo»: elige el mes en que llega el siguiente recibo. " +
-          "Así la app sabe qué meses toca y cuáles no.",
+          "Toca «Cambiar» y elige: «Cada mes», «Cada 2 meses», «Varía cada mes» o «No se repite solo». Luego pon el importe, el día y la cuenta.\n\n" +
+          "Se aplica desde este mes: lo ya pagado no se toca.",
+        example: "El agua llega cada 2 meses: elige «Cada 2 meses» y el mes del próximo recibo.",
+      },
+      {
+        target: t("plan-new-fixed"),
+        optional: true,
+        title: "Algo nuevo que pagas siempre",
+        body:
+          "Si empiezas a pagar algo cada mes (un gimnasio, una suscripción…), pulsa «Nuevo gasto fijo», elige qué gasto es y pon el importe, el día y la cuenta.",
+      },
+      {
+        target: t("plan-variable-limit"),
+        optional: true,
+        title: "Gastos variables y su límite",
+        body:
+          "Para lo que cambia cada mes (súper, ocio…) pones un límite, y el plan cuenta ese límite entero. Si ya apuntaste más, cuenta lo apuntado y sale en naranja.\n\n" +
+          "Toca un importe para cambiar el límite solo de ese mes: se pone en amarillo.",
+      },
+      {
+        target: t("plan-sources"),
+        title: "¿Dudas con un número?",
+        body: "Abre «¿De dónde salen estos números y cómo los cambio?»: te explica qué cuenta cada fila y cómo cambiarla.",
       },
     ],
   },
@@ -475,7 +461,7 @@ const PAGE_TOURS: Record<string, string> = {
   "/imports": "importar",
   "/ledger": "mes",
   "/monthly": "cuadre",
-  "/settings": "planificacion",
+  "/plan": "planificacion",
 };
 
 /** Recorrido que se lanza solo la primera vez que entras en una pantalla. */
@@ -485,11 +471,10 @@ export function pageTourFor(pathname: string): string | null {
 
 /** Recorrido de lo que se ve ahora mismo (en Configuración depende de la pestaña abierta). */
 export function screenTourFor(pathname: string): string | null {
-  const pageTour = pageTourFor(pathname);
-  if (pageTour === "planificacion" && (findVisible(`${t("accounts-new")}, ${t("accounts-card")}`))) {
-    return "cuentas";
+  if (normalizePath(pathname) === "/settings") {
+    return findVisible(`${t("accounts-new")}, ${t("accounts-card")}`) ? "cuentas" : null;
   }
-  return pageTour;
+  return pageTourFor(pathname);
 }
 
 function storageKey(tour: TourDefinition): string {
