@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/input";
 import { chatErrorMessage } from "../../services/chatService";
 import { LedgerService } from "../../services/ledgerService";
 import {
-  ZeusService, careProviderName, duration, timeRangeMinutes, zeusDaycarePackages,
+  ZeusService, careProviderName, careStayDescription, duration, isCareForecast, timeRangeMinutes, zeusDaycarePackages,
   type ZeusCareStay, type ZeusExpense, type ZeusSummary, type ZeusUsage,
 } from "../../services/zeusService";
 import { ConceptKind, type Account, type ChartConcept } from "../../types/ledger";
@@ -36,7 +36,8 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
   const [packageId, setPackageId] = useState("6-10");
   const [hours, setHours] = useState("60");
   const [selectedStayIds, setSelectedStayIds] = useState(() => stays?.map(stay => stay.id) ?? []);
-  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [mode, setMode] = useState<"existing" | "new" | "forecast">(
+    stays?.length && stays.every(stay => stay.date > today() && !stay.expense) ? "forecast" : "existing");
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const [expenses, setExpenses] = useState<ZeusExpense[]>([]);
   const [entryId, setEntryId] = useState("");
@@ -44,7 +45,7 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
   const [concepts, setConcepts] = useState<ChartConcept[]>([]);
   const [accountId, setAccountId] = useState("");
   const [conceptId, setConceptId] = useState("");
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() => stays?.length === 1 && stays[0].date > today() ? stays[0].date : today());
   const [amount, setAmount] = useState(() => String(stays ? Math.round(stays.reduce((sum, stay) => sum + stay.amount, 0) * 100) / 100 : 100));
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -102,21 +103,21 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
     }
     if (stays && (selectedStays.length === 0 || (mode === "existing" && selectedExpense
       ? Math.round((selectedExpense.amount - (selectedExpense.allocatedAmount ?? 0)) * 100) / 100 < careTotal
-      : Number(amount) < careTotal))) {
+      : mode !== "forecast" && Number(amount) < careTotal))) {
       setError("Selecciona estancias cuyo total esté cubierto por el importe disponible del pago.");
       return;
     }
     setBusy(true);
     try {
-      const payment = mode === "existing" ? { ledgerEntryId: entryId } : {
-        newExpense: { conceptId, accountId, date, amount: Number(amount) },
-      };
+      const purchase = { conceptId, accountId, date, amount: Number(amount) };
+      const payment = mode === "existing" ? { ledgerEntryId: entryId }
+        : mode === "forecast" ? { newForecast: { ...purchase, amount: careTotal } } : { newExpense: purchase };
       const summary = stays
         ? await ZeusService.payCare({ stayIds: selectedStayIds, ...payment })
         : await ZeusService.buy({ id, minutes: purchasedHours * 60, ...payment });
       onSaved(summary);
     } catch (err) {
-      setError(chatErrorMessage(err, "No se pudo guardar el bono."));
+      setError(chatErrorMessage(err, stays ? "No se pudo guardar el pago o la previsión." : "No se pudo guardar el bono."));
     } finally {
       setBusy(false);
     }
@@ -126,16 +127,16 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
     <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{provider ? `Registrar pago · ${careProviderName(provider)}` : "Un nuevo bono para Zeus"}</DialogTitle>
+          <DialogTitle>{provider ? `Pago o previsión · ${careProviderName(provider)}` : "Un nuevo bono para Zeus"}</DialogTitle>
           <DialogDescription>{stays
-            ? "Un pago puede cubrir una o varias estancias. Vincula el gasto existente para no contarlo dos veces."
+            ? "Elige un pago ya hecho o prevé lo que pagarás el día acordado. Una previsión no significa que ya esté pagado."
             : "Bonos de la guardería. Las horas se acumulan y no caducan; se descuentan solo las horas reales."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-5">
           <fieldset disabled={busy} className="space-y-5">
             {stays ? (
               <div className="space-y-3 rounded-lg border p-4">
-                <p className="text-sm font-medium">Estancias que cubre este pago</p>
+                <p className="text-sm font-medium">Cuidados o cargos que cubre</p>
                 {stays.map(stay => (
                   <label key={stay.id} className="flex items-start gap-3 text-sm">
                     <input type="checkbox" className="mt-1" checked={selectedStayIds.includes(stay.id)} onChange={event => {
@@ -143,7 +144,7 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
                       setSelectedStayIds(ids);
                       setAmount(String(Math.round(stays.filter(stay => ids.includes(stay.id)).reduce((sum, stay) => sum + stay.amount, 0) * 100) / 100));
                     }} />
-                    <span>{shortDate(stay.date)} {stay.date.slice(0, 4)} · {stay.kind === "night" ? `${stay.nights} noche(s)` : `${stay.startTime?.slice(0, 5)}–${stay.endTime?.slice(0, 5)}`} · <strong>{money(stay.amount)}</strong></span>
+                    <span>{shortDate(stay.date)} {stay.date.slice(0, 4)} · {careStayDescription(stay)} · <strong>{money(stay.amount)}</strong>{isCareForecast(stay) && <span className="block text-xs text-muted-foreground">Ya tiene previsión: se ajustará o descartará al sustituirla.</span>}</span>
                   </label>
                 ))}
                 <p className="border-t pt-3 text-sm">Total seleccionado: <strong>{money(careTotal)}</strong></p>
@@ -174,13 +175,16 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
               </>
             )}
             <label className={fieldClass}>
-              {stays ? "Gasto del pago" : "Compra del bono"}
-              <select aria-label={stays ? "Gasto del pago" : "Compra del bono"} className={selectClass} value={mode} onChange={event => {
-                setMode(event.target.value === "new" ? "new" : "existing");
+              {stays ? "Pago o previsión" : "Compra del bono"}
+              <select aria-label={stays ? "Pago o previsión" : "Compra del bono"} className={selectClass} value={mode} onChange={event => {
+                setMode(event.target.value === "new" ? "new" : event.target.value === "forecast" ? "forecast" : "existing");
                 setError(null);
+                setDate(event.target.value === "forecast" && selectedStays.length
+                  ? [...selectedStays].sort((a, b) => a.date.localeCompare(b.date))[0].date : today());
               }}>
                 <option value="existing">Vincular un gasto ya pagado</option>
                 <option value="new">{stays ? "Registrar un pago nuevo y su gasto" : "Registrar una compra nueva y su gasto"}</option>
+                {stays && <option value="forecast">Crear previsión para el día acordado</option>}
               </select>
             </label>
             {mode === "existing" && (
@@ -222,16 +226,19 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
               </div>
             ) : (
               <div className="space-y-4 rounded-lg border p-4">
-                <p className="text-sm text-muted-foreground">Solo si este pago todavía no está registrado: se creará un gasto pagado y descontará su importe de la cuenta.</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={fieldClass}>{stays ? "Fecha del pago" : "Fecha de compra"}
-                    <Input type="date" min="2000-01-01" max={today()} value={date} onChange={event => setDate(event.target.value)} required />
+                <p className="text-sm text-muted-foreground">{mode === "forecast"
+                  ? "Se creará un gasto previsto en Mes para esa fecha. Contará en la previsión de dinero disponible, pero no restará del saldo real ni figurará pagado."
+                  : "Solo si este pago todavía no está registrado: se creará un gasto pagado y descontará su importe de la cuenta."}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className={fieldClass}>{mode === "forecast" ? "Día previsto del pago" : stays ? "Fecha del pago" : "Fecha de compra"}
+                    <Input type="date" min="2000-01-01" max={mode === "forecast" ? "9998-12-31" : today()} value={date} onChange={event => setDate(event.target.value)} required />
                   </label>
-                  <label className={fieldClass}>{stays ? "Importe del pago (€)" : "Precio (€)"}
-                    <Input type="number" min="0.01" max="999999999" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} required />
+                  <label className={fieldClass}>{mode === "forecast" ? "Importe previsto (€)" : stays ? "Importe del pago (€)" : "Precio (€)"}
+                    <Input type="number" min="0.01" max="999999999" step="0.01" readOnly={mode === "forecast"}
+                      value={mode === "forecast" ? careTotal : amount} onChange={event => setAmount(event.target.value)} required />
                   </label>
                 </div>
-                {stays && Number(amount) >= careTotal && <p className="text-sm text-muted-foreground">
+                {stays && mode !== "forecast" && Number(amount) >= careTotal && <p className="text-sm text-muted-foreground">
                   Se asignarán {money(careTotal)} a las estancias seleccionadas y quedarán {money(Number(amount) - careTotal)} sin asignar.
                 </p>}
                 <label className={fieldClass}>Cuenta del pago
@@ -253,7 +260,7 @@ export function ZeusPurchaseDialog({ onClose, onSaved, stays }: DialogProps & { 
               <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={loading || !!loadError}>
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {stays ? mode === "new" ? "Registrar pago y crear gasto" : "Vincular pago"
+                {stays ? mode === "forecast" ? "Crear previsión sin marcar pagado" : mode === "new" ? "Registrar pago y crear gasto" : "Vincular pago"
                   : mode === "new" ? "Comprar bono y crear gasto" : "Guardar bono"}
               </Button>
             </DialogFooter>

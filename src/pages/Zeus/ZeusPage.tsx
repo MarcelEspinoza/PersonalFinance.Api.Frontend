@@ -5,11 +5,13 @@ import { PageHeader } from "../../components/PageHeader";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
+import { ConfirmEntryDialog, type ConfirmFormValues } from "../../components/Ledger/ConfirmEntryDialog";
 import { chatErrorMessage } from "../../services/chatService";
 import {
-  ZeusService, duration, type ZeusCareProvider, type ZeusCareStay,
-  type ZeusPass, type ZeusSummary, type ZeusUsage,
+  ZeusService, duration, isCareForecast, type ZeusCareProvider, type ZeusCareStay,
+  type ZeusExpense, type ZeusPass, type ZeusSummary, type ZeusUsage,
 } from "../../services/zeusService";
+import { EntryDirection, EntryStatus, type MonthlyEntry } from "../../types/ledger";
 import { money, shortDate, today } from "../../utils/civilDate";
 import { FormError, ZeusPurchaseDialog, ZeusUsageDialog } from "./ZeusForms";
 import { ZeusCareDialog, ZeusCareSection } from "./ZeusCare";
@@ -27,6 +29,8 @@ export function ZeusPage() {
   const [provider, setProvider] = useState<ZeusCareProvider>("daycare");
   const [care, setCare] = useState<{ stay: ZeusCareStay | null } | null>(null);
   const [paymentStays, setPaymentStays] = useState<ZeusCareStay[] | null>(null);
+  const [confirming, setConfirming] = useState<ZeusExpense | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +55,8 @@ export function ZeusPage() {
     setAttendance(null);
     setCare(null);
     setPaymentStays(null);
+    setConfirming(null);
+    setConfirmError(null);
     setError(null);
     setMessage(text);
   };
@@ -82,11 +88,13 @@ export function ZeusPage() {
   };
 
   const removeCare = async (stay: ZeusCareStay) => {
-    if (!window.confirm(`¿Borrar la estancia del ${shortDate(stay.date)}? Si tiene un gasto vinculado, ese gasto NO se borrará.`)) return;
+    if (!window.confirm(`¿Borrar el registro del ${shortDate(stay.date)}? ${isCareForecast(stay)
+      ? "Se ajustará su previsión, o quedará descartada si ya no cubre otros cuidados."
+      : "Si tiene un gasto ya pagado, ese gasto NO se borrará."}`)) return;
     setBusy(stay.id);
     setError(null);
     try {
-      saved(await ZeusService.removeCare(stay.id), "Estancia eliminada. Los gastos se conservan.");
+      saved(await ZeusService.removeCare(stay.id), "Registro eliminado. Su previsión se ha ajustado si correspondía; los pagos reales se conservan.");
     } catch (err) {
       setError(chatErrorMessage(err, "No se pudo borrar la estancia."));
     } finally {
@@ -95,17 +103,38 @@ export function ZeusPage() {
   };
 
   const unlinkCare = async (stay: ZeusCareStay) => {
-    if (!window.confirm("¿Desvincular el pago de esta estancia? El gasto se conserva y no se devuelve dinero a la cuenta.")) return;
+    if (!window.confirm(isCareForecast(stay)
+      ? "¿Quitar la previsión de este cuidado? Se reducirá su importe o quedará descartada si no cubre otros cuidados. No afecta al dinero real."
+      : "¿Desvincular el pago de este registro? El gasto se conserva y no se devuelve dinero a la cuenta.")) return;
     setBusy(stay.id);
     setError(null);
     try {
-      saved(await ZeusService.unlinkCarePayment(stay.id), "Pago desvinculado. El gasto sigue intacto.");
+      saved(await ZeusService.unlinkCarePayment(stay.id), "Vínculo quitado. Las previsiones se ajustan; los pagos reales se conservan.");
     } catch (err) {
       setError(chatErrorMessage(err, "No se pudo desvincular el pago."));
     } finally {
       setBusy(null);
     }
   };
+
+  const confirmCare = async (values: ConfirmFormValues) => {
+    if (!confirming) return;
+    setBusy(confirming.id);
+    setConfirmError(null);
+    try {
+      saved(await ZeusService.confirmCarePayment(confirming.id, values), "Pago confirmado. Se ha utilizado la previsión existente, sin crear otro gasto.");
+    } catch (err) {
+      setConfirmError(chatErrorMessage(err, "No se pudo confirmar el pago."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const confirmingEntry: MonthlyEntry | null = confirming ? {
+    id: confirming.id, direction: EntryDirection.Out, status: confirming.status ?? EntryStatus.Planned,
+    dueDate: confirming.date, forecastAmount: confirming.amount, remaining: confirming.amount,
+    description: confirming.description, accountName: confirming.accountName, fromRecurringRule: false,
+  } : null;
 
   const usages = summary?.usages.filter(usage => usage.date.startsWith(month)) ?? [];
   const usedThisMonth = usages.reduce((total, usage) => total + usage.minutes, 0);
@@ -259,19 +288,28 @@ export function ZeusPage() {
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4" />Mes de las estancias
-            <Input aria-label="Mes de las estancias" type="month" className="w-auto" min="2000-01" max={today().slice(0, 7)} value={month}
+            <Input aria-label="Mes de las estancias" type="month" className="w-auto" min="2000-01" max="9998-12" value={month}
               onChange={event => { if (event.target.value) setMonth(event.target.value); }} />
           </label>
           <ZeusCareSection provider={provider} stays={summary.careStays ?? []} month={month} busy={!!busy}
             onAdd={() => setCare({ stay: null })} onEdit={stay => setCare({ stay })}
-            onRemove={stay => void removeCare(stay)} onUnlink={stay => void unlinkCare(stay)} onPay={setPaymentStays} />
+            onRemove={stay => void removeCare(stay)} onUnlink={stay => void unlinkCare(stay)} onPay={setPaymentStays}
+            onConfirm={expense => { setConfirmError(null); setConfirming(expense); }} />
         </div>
       )}
       {buying && <ZeusPurchaseDialog onClose={() => setBuying(false)} onSaved={data => saved(data, "Bono guardado y vinculado a su gasto.")} />}
       {paymentStays && <ZeusPurchaseDialog stays={paymentStays} onClose={() => setPaymentStays(null)}
-        onSaved={data => saved(data, "Pago vinculado a sus estancias, sin duplicar el gasto.")} />}
+        onSaved={data => saved(data, "Pago o previsión guardado. Solo los pagos confirmados figuran como pagados.")} />}
       {care && <ZeusCareDialog provider={provider} stay={care.stay} onClose={() => setCare(null)}
-        onSaved={data => saved(data, "Estancia guardada. Puedes vincular su pago sin tocar los bonos de horas.")} />}
+        onSaved={(data, id) => {
+          saved(data, "Registro guardado. Elige pago o previsión; si cierras, quedará pendiente sin gasto.");
+          if (!care.stay && provider === "alessia") {
+            const stay = data.careStays.find(stay => stay.id === id);
+            if (stay) setPaymentStays([stay]);
+          }
+        }} />}
+      <ConfirmEntryDialog open={!!confirming} entry={confirmingEntry} busy={!!busy} error={confirmError}
+        onOpenChange={open => { if (!open && !busy) setConfirming(null); }} onSubmit={values => void confirmCare(values)} />
       {attendance && <ZeusUsageDialog usage={attendance.usage} onClose={() => setAttendance(null)}
         onSaved={data => saved(data, attendance.usage ? "Registro de horas corregido." : "Horas registradas. El saldo de sus bonos ya está actualizado.")} />}
     </div>

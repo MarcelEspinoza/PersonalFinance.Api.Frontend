@@ -1,4 +1,5 @@
 import apiClient from "../lib/apiClient";
+import { EntryStatus, type ConfirmLedgerEntryPayload } from "../types/ledger";
 
 export interface ZeusExpense {
   id: string;
@@ -8,6 +9,7 @@ export interface ZeusExpense {
   accountName: string;
   amount: number;
   allocatedAmount?: number;
+  status?: EntryStatus;
 }
 
 export interface ZeusPass {
@@ -40,7 +42,7 @@ export interface ZeusSummary {
 }
 
 export type ZeusCareProvider = "daycare" | "alessia";
-export type ZeusCareKind = "day" | "night";
+export type ZeusCareKind = "day" | "night" | "cancellation";
 
 export interface ZeusCareStay {
   id: string;
@@ -61,6 +63,21 @@ export interface PayZeusCare {
   stayIds: string[];
   ledgerEntryId?: string;
   newExpense?: BuyZeusPass["newExpense"];
+  newForecast?: BuyZeusPass["newExpense"];
+}
+
+export function isCarePaid(stay: ZeusCareStay) {
+  return !!stay.expense && (stay.expense.status ?? EntryStatus.Paid) === EntryStatus.Paid;
+}
+
+export function isCareForecast(stay: ZeusCareStay) {
+  return stay.expense?.status === EntryStatus.Planned || stay.expense?.status === EntryStatus.Pending;
+}
+
+export function careStayDescription(stay: ZeusCareStay) {
+  if (stay.kind === "cancellation") return "Cancelación sin previo aviso";
+  if (stay.kind === "night") return `${stay.nights} ${stay.nights === 1 ? "noche" : "noches"}`;
+  return `${stay.startTime?.slice(0, 5)}–${stay.endTime?.slice(0, 5)}`;
 }
 
 export const zeusDaycarePackages = [
@@ -128,4 +145,6 @@ export const ZeusService = {
   removeCare: async (id: string) => (await apiClient.delete<ZeusSummary>(`/zeus/care/${id}`)).data,
   payCare: async (payload: PayZeusCare) => (await apiClient.post<ZeusSummary>("/zeus/care/payments", payload)).data,
   unlinkCarePayment: async (id: string) => (await apiClient.delete<ZeusSummary>(`/zeus/care/${id}/payment`)).data,
+  confirmCarePayment: async (id: string, payload: ConfirmLedgerEntryPayload) =>
+    (await apiClient.post<ZeusSummary>(`/zeus/care/payments/${id}/confirm`, payload)).data,
 };
