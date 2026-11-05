@@ -122,19 +122,21 @@ function buildTasks(
   const tasks: Task[] = [];
 
   if (!outlook.isPast) {
+    const cashOutlook = outlook.withoutVariableReserve ?? outlook;
     // One row for every account that goes negative, so the same problem is not told several times.
-    const risky = outlook.accounts.filter((account) => account.shortfall > 0.01);
-    if (outlook.uncoveredShortfall > 0.01) {
+    const risky = cashOutlook.accounts.filter((account) => account.shortfall > 0.01);
+    if (cashOutlook.uncoveredShortfall > 0.01) {
       tasks.push({
         key: "uncovered",
         tone: "danger",
         icon: AlertCircle,
-        title: <>Te faltan {money(outlook.uncoveredShortfall)} en algún momento del mes</>,
+        title: <>Faltarían {money(cashOutlook.uncoveredShortfall)} para los pagos previstos</>,
         detail: (
           <>
             {risky.length > 0 && `${lowPoints(risky)}. `}
-            Ni moviendo dinero entre tus cuentas alcanza: tendrás que meter dinero, retrasar algún pago o esperar al
-            próximo cobro.
+            Con los importes y fechas previstos, el saldo conjunto no alcanza en algún momento del mes. Revisa si
+            esos pagos siguen pendientes y si alguno se hará después del próximo cobro. No incluye presupuestos
+            variables.
           </>
         ),
       });
@@ -144,12 +146,12 @@ function buildTasks(
         key: `risk-${account.accountId}`,
         tone: "danger",
         icon: AlertTriangle,
-        title: <>«{account.name}» se quedará en negativo</>,
+        title: <>«{account.name}» podría quedarse en negativo</>,
         detail: (
           <>
-            Llegará a <strong>{money(account.lowestBalance)}</strong>
+            Con los pagos previstos llegaría a <strong>{money(account.lowestBalance)}</strong>
             {account.lowestBalanceDate ? ` el ${shortDate(account.lowestBalanceDate)}` : ""}: le faltan{" "}
-            <strong>{money(account.shortfall)}</strong>.
+            <strong>{money(account.shortfall)}</strong>. Revisa las fechas y los pagos ya realizados.
           </>
         ),
       });
@@ -158,12 +160,12 @@ function buildTasks(
         key: "risk",
         tone: "danger",
         icon: AlertTriangle,
-        title: `${risky.length} cuentas se quedarán en negativo`,
-        detail: `${lowPoints(risky)}.`,
+        title: `${risky.length} cuentas podrían quedarse en negativo`,
+        detail: `${lowPoints(risky)} según los pagos previstos. Revisa las fechas y los pagos ya realizados.`,
       });
     }
 
-    outlook.suggestedTransfers
+    cashOutlook.suggestedTransfers
       .filter((transfer) => transfer.amount >= MIN_TRANSFER)
       .forEach((transfer, index) =>
         tasks.push({
@@ -180,6 +182,17 @@ function buildTasks(
             : `Así «${transfer.toAccountName}» no se quedará en negativo.`,
         }),
       );
+
+    if (outlook.variableExpenseReserve > 0.01) {
+      tasks.push({
+        key: "variable-reserve",
+        tone: "muted",
+        icon: ListChecks,
+        title: <>{money(outlook.variableExpenseReserve)} reservados para gastos variables</>,
+        detail:
+          "Es un presupuesto, no un pago que salga hoy. Reduce «Libre a fin de mes», pero no provoca los avisos de saldo insuficiente para pagos previstos.",
+      });
+    }
   }
 
   alerts
@@ -245,7 +258,7 @@ function lowPoints(accounts: MonthOutlook["accounts"]): string {
   return joinWithAnd(
     accounts.map(
       (account, index) =>
-        `«${account.name}» ${index === 0 ? "llegará a " : "a "}${money(account.lowestBalance)}` +
+        `«${account.name}» ${index === 0 ? "bajaría a " : "a "}${money(account.lowestBalance)}` +
         (account.lowestBalanceDate ? ` el ${shortDate(account.lowestBalanceDate)}` : ""),
     ),
   );

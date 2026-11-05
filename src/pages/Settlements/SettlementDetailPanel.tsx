@@ -64,6 +64,10 @@ export function SettlementDetailPanel({
   const [paymentCandidates, setPaymentCandidates] = useState<SettlementCandidate[] | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [paymentId, setPaymentId] = useState('');
+  const [linkLineId, setLinkLineId] = useState('');
+  const [lineCandidates, setLineCandidates] = useState<SettlementCandidate[]>([]);
+  const [lineEntryId, setLineEntryId] = useState('');
+  const [loadingLineEntries, setLoadingLineEntries] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -80,7 +84,25 @@ export function SettlementDetailPanel({
   useEffect(() => {
     setPaymentCandidates(null);
     setPaymentId('');
+    setLinkLineId('');
+    setLineCandidates([]);
+    setLineEntryId('');
   }, [detail.id]);
+
+  const loadLineEntries = async (lineId: string) => {
+    setLinkLineId(lineId);
+    setLineEntryId('');
+    setLineCandidates([]);
+    setLoadingLineEntries(true);
+    setError(null);
+    try {
+      setLineCandidates(await settlementService.getLineEntryCandidates(detail.id));
+    } catch {
+      setError('No he podido cargar los movimientos para vincular.');
+    } finally {
+      setLoadingLineEntries(false);
+    }
+  };
 
   const loadPayments = async () => {
     setLoadingPayments(true);
@@ -128,6 +150,8 @@ export function SettlementDetailPanel({
       await onChange(await action());
       setPaymentCandidates(null);
       setPaymentId('');
+      setLinkLineId('');
+      setLineEntryId('');
       await loadCandidates();
       await loadLoanOptions();
     } catch (e) {
@@ -170,7 +194,7 @@ export function SettlementDetailPanel({
           {(detail.totals.paymentsSent ?? 0) > 0 && (
             <Total label="Ya le pagué" value={detail.totals.paymentsSent ?? 0} />
           )}
-          <Total label="Pendiente" value={detail.totals.pending} strong />
+          <Total label={detail.status === 'Closed' ? 'Neto al cerrar' : 'Pendiente'} value={detail.totals.pending} strong />
         </dl>
 
         <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
@@ -208,7 +232,7 @@ export function SettlementDetailPanel({
                 onClick={() => {
                   if (
                     window.confirm(
-                      '¿Ya está pagada (en efectivo, por otra cuenta…)? Saldrá de la previsión. Las transferencias del banco la marcan sola al llegar a 0.',
+                      '¿Ya está pagada (en efectivo, por otra cuenta…)? Saldrá de la previsión. Solo se saldarán los movimientos vinculados: las líneas escritas a mano sin vínculo no cierran sus previstos en «Mes». Revisa «Vincular movimiento» antes de continuar.',
                     )
                   ) {
                     void run(() => settlementService.markPaid(detail.id));
@@ -412,6 +436,12 @@ export function SettlementDetailPanel({
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h3 className="mb-3 text-sm font-semibold text-slate-700">Líneas</h3>
+        {detail.lines.some(line => !line.ledgerEntryId) && (
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Hay líneas manuales sin movimiento vinculado. Si ya existen en «Mes», usa «Vincular movimiento»:
+            no añade otro importe y evita que su previsto siga pendiente al cerrar la liquidación.
+          </p>
+        )}
         {detail.lines.length === 0 ? (
           <p className="text-sm text-slate-500">
             Todavía no hay nada. Marca movimientos abajo o añade una línea a mano.
@@ -429,7 +459,7 @@ export function SettlementDetailPanel({
                   </p>
                   <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
                     {lines.map((line) => (
-                      <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                      <li key={line.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                         <span className="min-w-0 flex-1 truncate text-sm text-slate-700" title={line.description}>
                           {line.description}
                           {line.fullAmount != null && (
@@ -440,12 +470,28 @@ export function SettlementDetailPanel({
                           {line.allocatesPendingEntry && (
                             <span className="ml-2 text-xs text-teal-700">
                               {detail.status === 'Closed'
-                                ? kind === 'Charge' ? 'Cobrado por liquidación' : 'Pagado por liquidación'
+                                ? 'Saldado por compensación'
                                 : 'Incluido en el neto'}
                             </span>
                           )}
                         </span>
                         <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-slate-800">{euro(line.amount)}</span>
+                        <button
+                          type="button"
+                          disabled={busy || loadingLineEntries}
+                          onClick={() => {
+                            if (line.ledgerEntryId) {
+                              if (window.confirm('¿Desvincular el movimiento? No cambia el neto, pero su parte dejará de estar compensada por esta liquidación.')) {
+                                void run(() => settlementService.linkLineEntry(detail.id, line.id, null));
+                              }
+                            } else {
+                              void loadLineEntries(line.id);
+                            }
+                          }}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          {line.ledgerEntryId ? 'Desvincular movimiento' : 'Vincular movimiento'}
+                        </button>
                         {editable && (
                           <button
                             type="button"
@@ -455,6 +501,52 @@ export function SettlementDetailPanel({
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
+                        )}
+                        {linkLineId === line.id && (
+                          <div className="w-full space-y-2 border-t border-slate-100 pt-2 text-sm">
+                            <p className="text-xs text-slate-600">
+                              Vincula esta línea sin añadir importes ni cambiar el neto.
+                              {detail.status === 'Closed' && ' La parte pendiente quedará saldada por compensación, sin otro movimiento bancario.'}
+                            </p>
+                            {loadingLineEntries ? (
+                              <p>Cargando movimientos…</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                <select
+                                  aria-label="Movimiento de la línea"
+                                  value={lineEntryId}
+                                  onChange={(event) => setLineEntryId(event.target.value)}
+                                  className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1"
+                                >
+                                  <option value="">Elige un movimiento</option>
+                                  {lineCandidates.filter(candidate =>
+                                    candidate.amount >= line.amount &&
+                                    (kind === 'Payment' ? candidate.isPaid && candidate.direction === 'In'
+                                      : kind === 'PaymentSent' ? candidate.isPaid && candidate.direction === 'Out' : true),
+                                  ).map(candidate => (
+                                    <option key={candidate.ledgerEntryId} value={candidate.ledgerEntryId}>
+                                      {day(candidate.date)} · {candidate.description} · {euro(candidate.amount)} · {candidate.isPaid ? 'Real' : 'Pendiente'}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={busy || !lineEntryId}
+                                  onClick={() => {
+                                    if (window.confirm(`¿Vincular el movimiento a «${line.description}»? El neto y el estado de la liquidación no cambiarán.`)) {
+                                      void run(() => settlementService.linkLineEntry(detail.id, line.id, lineEntryId));
+                                    }
+                                  }}
+                                  className="rounded bg-teal-600 px-3 py-1 text-white disabled:opacity-50"
+                                >
+                                  Confirmar vínculo
+                                </button>
+                                <button type="button" onClick={() => setLinkLineId('')} className="px-2 py-1">
+                                  Cancelar
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </li>
                     ))}

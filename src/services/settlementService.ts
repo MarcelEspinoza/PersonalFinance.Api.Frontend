@@ -183,6 +183,16 @@ export const settlementService = {
     return data;
   },
 
+  async getLineEntryCandidates(id: string): Promise<SettlementCandidate[]> {
+    const { data } = await apiClient.get<SettlementCandidate[]>(`${base}/${id}/line-entry-candidates`);
+    return data;
+  },
+
+  async linkLineEntry(id: string, lineId: string, ledgerEntryId: string | null): Promise<SettlementDetail> {
+    const { data } = await apiClient.put<SettlementDetail>(`${base}/${id}/lines/${lineId}/entry`, { ledgerEntryId });
+    return data;
+  },
+
   async linkPayment(id: string, ledgerEntryId: string): Promise<SettlementDetail> {
     const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/payments`, { ledgerEntryId });
     return data;

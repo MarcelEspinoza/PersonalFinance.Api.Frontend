@@ -16,6 +16,7 @@ export interface ProposedAction {
     | "update_income"
     | "update_ledger_entry"
     | "skip_ledger_entry"
+    | "link_settlement_line"
     | "create_category"
     | "create_budget"
     | "record_loan_payment"
@@ -42,6 +43,9 @@ export interface ProposedAction {
   month?: number | null;
   conceptId?: string | null;
   accountId?: string | null;
+  settlementId?: string | null;
+  settlementLineId?: string | null;
+  ledgerEntryId?: string | null;
   normalizedDescription?: string | null;
   /** create_reminder: `name` is the title, `date` the due date, `amount` (0 = none) and `notes`. */
   repeat?: ReminderRepeat | null;
