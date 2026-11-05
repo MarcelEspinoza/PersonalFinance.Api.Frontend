@@ -61,6 +61,9 @@ export function SettlementDetailPanel({
     Awaited<ReturnType<typeof settlementService.getLoanOptions>>
   >([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [paymentCandidates, setPaymentCandidates] = useState<SettlementCandidate[] | null>(null);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentId, setPaymentId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -73,6 +76,23 @@ export function SettlementDetailPanel({
   useEffect(() => {
     setSendDate(detail.expectedDate ?? inDays(7));
   }, [detail.id, detail.expectedDate]);
+
+  useEffect(() => {
+    setPaymentCandidates(null);
+    setPaymentId('');
+  }, [detail.id]);
+
+  const loadPayments = async () => {
+    setLoadingPayments(true);
+    setError(null);
+    try {
+      setPaymentCandidates(await settlementService.getPaymentCandidates(detail.id));
+    } catch {
+      setError('No he podido cargar los cobros y pagos del banco.');
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
 
   const loadCandidates = useCallback(async () => {
     setLoadingCandidates(true);
@@ -106,6 +126,8 @@ export function SettlementDetailPanel({
     setError(null);
     try {
       await onChange(await action());
+      setPaymentCandidates(null);
+      setPaymentId('');
       await loadCandidates();
       await loadLoanOptions();
     } catch (e) {
@@ -174,6 +196,14 @@ export function SettlementDetailPanel({
               </label>
               <button
                 type="button"
+                disabled={busy || loadingPayments}
+                onClick={() => void loadPayments()}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              >
+                {loadingPayments ? 'Cargando movimientos…' : 'Vincular movimiento del banco'}
+              </button>
+              <button
+                type="button"
                 disabled={busy}
                 onClick={() => {
                   if (
@@ -191,9 +221,52 @@ export function SettlementDetailPanel({
               </button>
             </div>
           )}
+          {paymentCandidates !== null && detail.status !== 'Closed' && (
+            <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+              <p>
+                Elige la transferencia que salda esta liquidación. No se crea otro movimiento en el banco.
+              </p>
+              {paymentCandidates.length === 0 ? (
+                <p>No hay movimientos disponibles en esta dirección. Primero importa o confirma el movimiento del banco.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    aria-label="Transferencia de esta liquidación"
+                    value={paymentId}
+                    onChange={(event) => setPaymentId(event.target.value)}
+                    disabled={busy}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2"
+                  >
+                    <option value="">Elige un movimiento</option>
+                    {paymentCandidates.map((candidate) => (
+                      <option key={candidate.ledgerEntryId} value={candidate.ledgerEntryId}>
+                        {day(candidate.date)} · {candidate.description} · {euro(candidate.amount)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={busy || !paymentId}
+                    onClick={() => {
+                      const selected = paymentCandidates.find((candidate) => candidate.ledgerEntryId === paymentId);
+                      if (selected && window.confirm(
+                        `¿Vincular ${euro(selected.amount)} a esta liquidación? Al completar el neto, sus importes incluidos quedarán saldados.`,
+                      )) {
+                        void run(() => settlementService.linkPayment(detail.id, paymentId));
+                      }
+                    }}
+                    className="rounded-lg bg-teal-600 px-3 py-2 text-white hover:bg-teal-700 disabled:opacity-50"
+                  >
+                    Vincular
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <p className="mt-2 text-xs text-slate-500">
             Si en «Personas» pusiste cómo sale {detail.counterpartyName} en el banco, sus
-            transferencias se apuntan solas aquí al importar el extracto.
+            transferencias se vinculan solas cuando coinciden con el neto exacto. Si hay dudas, puedes elegir el movimiento.
+            Al saldar el neto se saldan también las partes pendientes incluidas, sin volver a contar los movimientos ya pagados.
           </p>
         </div>
 
@@ -362,6 +435,13 @@ export function SettlementDetailPanel({
                           {line.fullAmount != null && (
                             <span className="ml-1 text-xs text-slate-400">
                               ({euro(line.fullAmount)} total)
+                            </span>
+                          )}
+                          {line.allocatesPendingEntry && (
+                            <span className="ml-2 text-xs text-teal-700">
+                              {detail.status === 'Closed'
+                                ? kind === 'Charge' ? 'Cobrado por liquidación' : 'Pagado por liquidación'
+                                : 'Incluido en el neto'}
                             </span>
                           )}
                         </span>
@@ -610,6 +690,7 @@ function CandidateList({
                 <p className="truncate text-sm text-slate-700" title={c.description}>{c.description}</p>
                 <p className="text-xs text-slate-400">
                   {day(c.date)} · {c.conceptName}
+                  {c.isPaid === false && ' · Pendiente: la parte incluida se saldará con el neto'}
                 </p>
               </div>
               <span

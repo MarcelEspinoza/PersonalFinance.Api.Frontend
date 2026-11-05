@@ -1,6 +1,6 @@
 import { Check, HandCoins, MinusCircle, Pencil, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { Button } from "../ui/button";
-import { EntryStatus, type MonthlyEntry } from "../../types/ledger";
+import { EntryDirection, EntryStatus, type MonthlyEntry } from "../../types/ledger";
 import { money, shortDate } from "../../utils/civilDate";
 import { LEDGER_LG_CELL, LEDGER_XL_CELL } from "./ledgerColumns";
 
@@ -49,7 +49,18 @@ export function EntryRow({
   onDelete,
   onAssign,
 }: Props) {
-  const status = STATUS_STYLES[entry.status] ?? STATUS_STYLES[EntryStatus.Planned];
+  const allocated = entry.settlementAllocatedAmount ?? 0;
+  const settled = entry.settlementSettledAmount ?? 0;
+  const fullyAllocated = allocated > 0 && entry.remaining <= 0;
+  const settledInFull = settled >= entry.forecastAmount && settled > 0;
+  const status = settledInFull
+    ? {
+        label: entry.direction === EntryDirection.In ? "Cobrado por liquidación" : "Pagado por liquidación",
+        className: STATUS_STYLES[EntryStatus.Paid].className,
+      }
+    : fullyAllocated && entry.status !== EntryStatus.Paid
+      ? { label: "En liquidación", className: STATUS_STYLES[EntryStatus.Planned].className }
+      : STATUS_STYLES[entry.status] ?? STATUS_STYLES[EntryStatus.Planned];
   const skipped = entry.status === EntryStatus.Skipped;
   const confirmed = entry.status === EntryStatus.Paid;
   const disabled = locked || busy;
@@ -93,6 +104,12 @@ export function EntryRow({
             Nota: {entry.notes}
           </p>
         )}
+        {allocated > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {settled > 0 ? `${money(settled)} saldados por liquidación` : `${money(allocated)} incluidos en liquidación`}
+            {entry.remaining > 0 && ` · ${money(entry.remaining)} aún pendientes`}
+          </p>
+        )}
       </td>
 
       <td className={`${LEDGER_LG_CELL} whitespace-nowrap px-2 py-2 text-muted-foreground`}>
@@ -110,7 +127,7 @@ export function EntryRow({
       </td>
 
       <td className="whitespace-nowrap px-2 py-2 text-right font-medium tabular-nums sm:px-3">
-        {confirmed ? money(entry.actualAmount) : <span className="text-muted-foreground">—</span>}
+        {entry.actualAmount != null || settled > 0 ? money((entry.actualAmount ?? 0) + settled) : <span className="text-muted-foreground">—</span>}
       </td>
 
       <td className={`${LEDGER_XL_CELL} whitespace-nowrap px-3 py-2 text-right tabular-nums text-muted-foreground`}>
@@ -119,7 +136,7 @@ export function EntryRow({
 
       <td className="py-2 pl-1 pr-2">
         <div className="flex flex-wrap items-center justify-end gap-0.5">
-          {!skipped && !confirmed && (
+          {!skipped && !confirmed && !fullyAllocated && (
             <Button
               variant="ghost"
               size="icon"
@@ -138,14 +155,14 @@ export function EntryRow({
               size="icon"
               title="Deshacer confirmación"
               data-tour="entry-unconfirm"
-              disabled={disabled}
+              disabled={disabled || allocated > 0}
               onClick={() => onUnconfirm(entry)}
             >
               <Undo2 />
             </Button>
           )}
 
-          {!confirmed &&
+          {!confirmed && allocated === 0 &&
             (skipped ? (
               <Button
                 variant="ghost"
@@ -175,7 +192,7 @@ export function EntryRow({
               variant="ghost"
               size="icon"
               title="Es de mamá o de Vane"
-              disabled={busy}
+              disabled={busy || fullyAllocated}
               onClick={() => onAssign(entry)}
             >
               <HandCoins />
@@ -187,7 +204,7 @@ export function EntryRow({
             size="icon"
             title="Editar"
             data-tour="entry-edit"
-            disabled={disabled}
+            disabled={disabled || allocated > 0}
             onClick={() => onEdit(entry)}
           >
             <Pencil />
@@ -201,7 +218,7 @@ export function EntryRow({
                 ? "Los asientos recurrentes no se borran: usa descartar"
                 : "Borrar"
             }
-            disabled={disabled || entry.fromRecurringRule}
+            disabled={disabled || entry.fromRecurringRule || allocated > 0}
             onClick={() => onDelete(entry)}
           >
             <Trash2 className="text-destructive" />

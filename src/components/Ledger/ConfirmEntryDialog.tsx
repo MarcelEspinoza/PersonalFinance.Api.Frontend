@@ -35,7 +35,7 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
     if (!open || !entry) return;
 
     // El importe previsto es la mejor conjetura: lo normal es confirmarlo tal cual.
-    setAmount(String(entry.forecastAmount));
+    setAmount(String((entry.settlementAllocatedAmount ?? 0) > 0 ? entry.remaining : entry.forecastAmount));
     setValueDate(today());
   }, [open, entry]);
 

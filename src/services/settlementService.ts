@@ -21,6 +21,7 @@ export interface SettlementLine {
   fullAmount?: number | null;
   ledgerEntryId: string | null;
   sortOrder: number;
+  allocatesPendingEntry?: boolean;
 }
 
 export interface SettlementTotals {
@@ -93,6 +94,7 @@ export interface SettlementCandidate {
   amount: number;
   direction: "In" | "Out";
   alreadyAdded: boolean;
+  isPaid?: boolean;
 }
 
 const base = "/settlements";
@@ -173,6 +175,16 @@ export const settlementService = {
 
   async getCandidates(id: string): Promise<SettlementCandidate[]> {
     const { data } = await apiClient.get<SettlementCandidate[]>(`${base}/${id}/candidates`);
+    return data;
+  },
+
+  async getPaymentCandidates(id: string): Promise<SettlementCandidate[]> {
+    const { data } = await apiClient.get<SettlementCandidate[]>(`${base}/${id}/payment-candidates`);
+    return data;
+  },
+
+  async linkPayment(id: string, ledgerEntryId: string): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/payments`, { ledgerEntryId });
     return data;
   },
 

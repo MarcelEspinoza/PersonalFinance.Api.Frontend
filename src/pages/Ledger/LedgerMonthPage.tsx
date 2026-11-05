@@ -443,8 +443,13 @@ export function LedgerMonthPage() {
         <AssignEntryDialog
           entryId={assignTarget.id}
           entryDescription={assignTarget.description ?? "Movimiento"}
-          entryAmount={assignTarget.actualAmount ?? assignTarget.forecastAmount}
-          onClose={() => setAssignTarget(null)}
+          entryAmount={assignTarget.actualAmount ?? assignTarget.remaining}
+          entryDirection={assignTarget.direction}
+          entryStatus={assignTarget.status}
+          onClose={() => {
+            setAssignTarget(null);
+            void load(year, month, true);
+          }}
         />
       )}
     </div>

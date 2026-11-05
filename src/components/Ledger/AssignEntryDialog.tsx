@@ -5,6 +5,7 @@ import {
   type SettlementLineKind,
   type SettlementPerson,
 } from '../../services/settlementService';
+import { EntryDirection, EntryStatus } from '../../types/ledger';
 
 /**
  * Manda un movimiento del libro a la liquidación abierta de una persona. Si no
@@ -14,18 +15,27 @@ export function AssignEntryDialog({
   entryId,
   entryDescription,
   entryAmount,
+  entryDirection,
+  entryStatus,
   onClose,
 }: {
   entryId: string;
   entryDescription: string;
   entryAmount: number;
+  entryDirection: EntryDirection;
+  entryStatus: EntryStatus;
   onClose: () => void;
 }) {
   const [people, setPeople] = useState<SettlementPerson[]>([]);
   const [personId, setPersonId] = useState('');
   const [split, setSplit] = useState<'full' | 'half' | 'custom'>('full');
   const [customAmount, setCustomAmount] = useState('');
-  const [kind, setKind] = useState<SettlementLineKind>('Charge');
+  const pending = entryStatus !== EntryStatus.Paid;
+  const [kind, setKind] = useState<SettlementLineKind>(
+    pending
+      ? entryDirection === EntryDirection.In ? 'Charge' : 'Deduction'
+      : entryDirection === EntryDirection.In ? 'Payment' : 'Charge',
+  );
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -119,12 +129,13 @@ export function AssignEntryDialog({
                 <span className="mb-1 block text-slate-600">Concepto</span>
                 <select
                   value={kind}
+                  disabled={pending}
                   onChange={(e) => setKind(e.target.value as SettlementLineKind)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 >
                   <option value="Charge">Se lo cobro</option>
                   <option value="Deduction">Me lo descuenta</option>
-                  <option value="Payment">Ya me lo pagó</option>
+                  {!pending && <option value="Payment">Ya me lo pagó</option>}
                 </select>
               </label>
 

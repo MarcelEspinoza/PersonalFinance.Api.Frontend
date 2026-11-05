@@ -52,6 +52,8 @@ export interface MonthlyEntry {
   valueDate?: CivilDate | null;
   forecastAmount: number;
   actualAmount?: number | null;
+  settlementAllocatedAmount?: number;
+  settlementSettledAmount?: number;
   remaining: number;
   description?: string | null;
   /** Nota libre: por qué se pagó así, a quién se le debe, etc. */
