@@ -15,6 +15,7 @@ type Column = {
   income: number;
   expense: number;
   result: number;
+  passingAdjustment: number;
   /** Free money at the end of the month, adding up what is left from the months before. */
   free: number;
   incomeNote?: string;
@@ -37,7 +38,13 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, p
   const columns = buildColumns(months.slice(0, COLUMNS), startFree, includeVariableReserve, pastTotals ?? null);
   // From a month that is over, adding up the months after it would not match what really happened since.
   const showFree = !pastTotals;
-  const isEmpty = columns.every((column) => Math.abs(column.income) < 0.005 && Math.abs(column.expense) < 0.005);
+  const showPassing = showFree && columns.some((column) => Math.abs(column.passingAdjustment) >= 0.005);
+  const hasLaterPassing = showFree && columns.slice(1).some((column) => Math.abs(column.passingAdjustment) >= 0.005);
+  const isEmpty = columns.every(
+    (column) =>
+      Math.abs(column.income) < 0.005 &&
+      Math.abs(column.expense) < 0.005,
+  ) && !hasLaterPassing;
   const firstShort = showFree ? columns.find((column) => column.free < -0.5) : undefined;
   const losingMonths = columns.filter((column) => column.result < -0.5).map((column) => monthName(column.month));
 
@@ -117,6 +124,15 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, p
                   value={(column) => column.result}
                   signed
                 />
+                {showPassing && (
+                  <SummaryRow
+                    label="Dinero de paso"
+                    hint="dinero de otros que pasa por tus cuentas"
+                    columns={columns}
+                    value={(column) => column.passingAdjustment}
+                    signed
+                  />
+                )}
                 {showFree && (
                   <SummaryRow
                     label="Libre a fin de mes"
@@ -171,7 +187,8 @@ function buildColumns(
       year: month.year,
       month: month.monthNumber,
       ...totals,
-      free: index === 0 ? startFree : columns[index - 1].free + totals.result,
+      passingAdjustment: month.passingAdjustment ?? 0,
+      free: index === 0 ? startFree : columns[index - 1].free + totals.result + (month.passingAdjustment ?? 0),
       incomeNote: past ? undefined : incomeNote(month),
       expenseNote: past ? undefined : expenseNote(month, includeVariableReserve),
     });

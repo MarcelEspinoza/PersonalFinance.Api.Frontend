@@ -13,6 +13,7 @@ export interface MonthlyData {
   projectionSource: string;
   pendingIncome: number;
   pendingExpense: number;
+  passingAdjustment?: number;
   /** Part of `expense` kept for what is left of the variable expense limits. */
   variableExpenseReserve: number;
   /** Part of `expense` that comes from pending reminders with an amount that are pagos. */
