@@ -49,6 +49,24 @@ const forecastText = (detail: SettlementDetail) => {
   return `No cuenta en la previsión: ${forecast.reason ?? 'no queda nada pendiente'}.`;
 };
 
+export const balanceText = (name: string, pending: number, closed: boolean) => {
+  const amount = euro(Math.abs(pending));
+  if (Math.abs(pending) < 0.005) return closed ? `Saldada con ${name}` : `${name} y tú están a mano`;
+  if (closed) return pending > 0 ? `${name} te pagó ${amount}` : `Le pagaste ${amount} a ${name}`;
+  return pending > 0 ? `${name} te debe ${amount}` : `Le debes ${amount} a ${name}`;
+};
+
+export const balanceTone = (pending: number) =>
+  Math.abs(pending) < 0.005 ? 'text-slate-700' : pending > 0 ? 'text-emerald-700' : 'text-rose-700';
+
+const settingsSummary = (detail: SettlementDetail) => {
+  const parts: string[] = [];
+  if (detail.linkedLoan) parts.push(`préstamo: ${euro(detail.linkedLoan.outstandingAmount)}`);
+  if (Math.abs(detail.carriedOverAmount) >= 0.005) parts.push(`pendiente anterior: ${euro(detail.carriedOverAmount)}`);
+  if (detail.closingNote) parts.push('con frase final');
+  return parts.length > 0 ? `(${parts.join(' · ')})` : '(sin ajustes)';
+};
+
 export function SettlementDetailPanel({
   detail,
   onChange,
@@ -177,10 +195,12 @@ export function SettlementDetailPanel({
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">{detail.title}</h2>
-            <p className="text-sm text-slate-500">
-              {detail.counterpartyName} · {day(detail.periodStart)} a {day(detail.periodEnd)}
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {detail.title} · {day(detail.periodStart)} a {day(detail.periodEnd)}
             </p>
+            <h2 className={`mt-1 text-2xl font-semibold ${balanceTone(detail.totals.pending)}`}>
+              {balanceText(detail.counterpartyName, detail.totals.pending, detail.status === 'Closed')}
+            </h2>
           </div>
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
             {status.text}
@@ -287,12 +307,19 @@ export function SettlementDetailPanel({
               )}
             </div>
           )}
-          <p className="mt-2 text-xs text-slate-500">
-            Si en «Personas» pusiste cómo sale {detail.counterpartyName} en el banco, sus
-            transferencias se vinculan solas cuando coinciden con el neto exacto. Si hay dudas, puedes elegir el movimiento.
-            Al saldar el neto se saldan también las partes pendientes incluidas, sin volver a contar los movimientos ya pagados.
-          </p>
+          {detail.status !== 'Closed' && (
+            <p className="mt-2 text-xs text-slate-500">
+              Si la transferencia de {detail.counterpartyName} coincide con el importe exacto, se vincula sola.
+            </p>
+          )}
         </div>
+      </section>
+
+      <details className="group rounded-xl border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer select-none text-sm font-semibold text-slate-700">
+          Ajustes: préstamo, pendiente anterior y frase final
+          <span className="ml-2 text-xs font-normal text-slate-500">{settingsSummary(detail)}</span>
+        </summary>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm">
@@ -335,10 +362,8 @@ export function SettlementDetailPanel({
           El saldo del préstamo asociado se calcula solo; usa este campo únicamente para
           otros importes pendientes que no estén registrados en Préstamos.
         </p>
-      </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
           <label className="min-w-[16rem] flex-1 text-sm">
             <span className="mb-1 block font-medium text-slate-700">
               Préstamo recibido de {detail.counterpartyName}
@@ -426,7 +451,7 @@ export function SettlementDetailPanel({
               : 'El mensaje enviado conserva el saldo capturado entonces. Los cambios actuales del préstamo no modifican ese histórico.'}
           </p>
         )}
-      </section>
+      </details>
 
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
