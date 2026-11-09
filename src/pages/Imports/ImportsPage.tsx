@@ -470,6 +470,7 @@ export function ImportsPage() {
     setError(null);
     try {
       const result = await LedgerService.applyImport(review.id);
+      setPendingImports((current) => current.filter((batch) => batch.id !== review.id));
       const settlementText = result.settlementPayments
         ? ` ${result.settlementPayments} transferencias apuntadas en Liquidaciones.`
         : "";
@@ -521,24 +522,30 @@ export function ImportsPage() {
     setError(null);
   };
 
+  const discardPendingImport = async (batch: Pick<PendingImport, "id" | "fileName">) => {
+    if (!window.confirm(`¿Descartar la importación de "${batch.fileName ?? "Extracto sin nombre"}"? Quedará marcada como descartada y se eliminará su borrador, sin modificar los movimientos ya guardados.`)) return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.discardImport(batch.id);
+      setPendingImports((current) => current.filter((item) => item.id !== batch.id));
+      if (review?.id === batch.id) resetImport();
+      setMessage("Importación descartada. Ya no aparecerá entre las pendientes.");
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido descartar esta importación."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const discardImport = async () => {
     if (!review) return;
     if (review.status === "Applied") {
       resetImport();
       return;
     }
-    if (!window.confirm(`¿Cancelar la importación de "${review.fileName}"? Solo se eliminará este lote sin aplicar.`)) return;
-
-    setBusy(true);
-    setError(null);
-    try {
-      await LedgerService.discardImport(review.id);
-      resetImport();
-    } catch (err) {
-      setError(ledgerErrorMessage(err, "No se ha podido cancelar esta importación."));
-    } finally {
-      setBusy(false);
-    }
+    await discardPendingImport(review);
   };
 
   const [chatMessages, setChatMessages] = useState<ImportChatEntry[]>([]);
@@ -1072,10 +1079,16 @@ export function ImportsPage() {
                     {batch.accountName ?? "Sin cuenta"} · {batch.pendingRows} filas pendientes · {formatCivilDate(batch.createdAt)}
                   </p>
                 </div>
-                <Button type="button" variant="outline" disabled={busy || importWorking}
-                  onClick={() => void resumeImport(batch.id)}>
-                  Continuar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="ghost" disabled={busy || importWorking}
+                    onClick={() => void discardPendingImport(batch)}>
+                    <X className="mr-1 h-4 w-4" /> Descartar
+                  </Button>
+                  <Button type="button" variant="outline" disabled={busy || importWorking}
+                    onClick={() => void resumeImport(batch.id)}>
+                    Continuar
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
