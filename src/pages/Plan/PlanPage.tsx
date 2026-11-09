@@ -50,7 +50,7 @@ const TWO_DECIMAL_EUROS = new Intl.NumberFormat("es-ES", {
 
 const breakdownAmount = (value: number, signed: boolean) => {
   const rounded = Math.round(value * 100) / 100 || 0;
-  const sign = signed && rounded !== 0 ? (rounded < 0 ? "−" : "+") : "";
+  const sign = rounded < 0 ? "−" : signed && rounded > 0 ? "+" : "";
   return `${sign}${TWO_DECIMAL_EUROS.format(Math.abs(rounded))} €`;
 };
 
@@ -453,7 +453,7 @@ export function PlanPage() {
                 {free && (
                   <SummaryRow
                     label="Libre a fin de mes"
-                    hint="parte del dinero real en tus cuentas y resta el dinero de paso por entregar"
+                    hint="saldo real de tus cuentas, más lo que falta cobrar y menos lo que falta pagar"
                     months={months}
                     values={free}
                     total
@@ -762,15 +762,14 @@ function PlanBreakdownRows({
   breakdown: PlanBreakdown;
 }) {
   const previous = previousMonth(month.year, month.month);
-  const passingLabel =
-    breakdown.passingAdjustment > 0.005
-      ? "Dinero de paso recibido que aún no entregas"
-      : "Dinero de paso por entregar";
   const rows: { label: string; value: number; total?: boolean }[] = [
-    { label: "Te queda este mes", value: breakdown.currentMonthBalance },
-    { label: `${capitalize(monthName(previous.month))} terminó en`, value: breakdown.openingBalance },
+    { label: "Resultado del mes (ingresos − gastos)", value: breakdown.currentMonthBalance },
+    { label: `Saldo con el que terminó ${monthName(previous.month)}`, value: breakdown.openingBalance },
     ...(Math.abs(breakdown.passingAdjustment) > 0.005
-      ? [{ label: passingLabel, value: breakdown.passingAdjustment }]
+      ? [{
+          label: "Traspasos, préstamos y reembolsos (no son ingresos ni gastos)",
+          value: breakdown.passingAdjustment,
+        }]
       : []),
     { label: "Libre a fin de mes", value: breakdown.freeMoney, total: true },
   ];
@@ -779,7 +778,7 @@ function PlanBreakdownRows({
     <>
       <tr>
         <th scope="row" className={cn(stickyCell, "border-t px-3 py-1.5 text-left text-xs font-medium text-muted-foreground")}>
-          ¿Por qué?
+          ¿De dónde sale el libre?
         </th>
         <td colSpan={months.length} className="border-t bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground" />
       </tr>
@@ -802,6 +801,7 @@ function PlanBreakdownRows({
                 "border-t border-dashed px-3 py-1.5 text-right text-xs tabular-nums",
                 item.isCurrent && "bg-primary/5",
                 row.total && "font-semibold text-foreground",
+                row.total && row.value < -0.005 && "text-negative",
               )}
             >
               {item.isCurrent && (
