@@ -286,6 +286,10 @@ export interface ImportRow {
   /** Planned entry this row will be deducted from when the batch is applied. */
   plannedEntryId?: string | null;
   plannedAllocations?: ImportPlannedAllocation[];
+  /** Pasanaco quota this income row pays; it is marked as paid when the batch is applied. */
+  pasanacoParticipantId?: string | null;
+  pasanacoQuotaMonth?: CivilDate | null;
+  pasanacoQuotaLabel?: string | null;
 }
 
 export interface ImportPlannedAllocation {
@@ -401,7 +405,8 @@ export type ImportChatActionType =
   | "unlink_planned"
   | "skip_planned"
   | "update_planned"
-  | "create_reminder";
+  | "create_reminder"
+  | "pay_pasanaco_quota";
 
 /** Cambio que propone el asistente; no se aplica hasta que el usuario lo confirma. */
 export interface ImportChatProposedAction {
@@ -435,6 +440,9 @@ export interface ImportChatProposedAction {
   notes?: string | null;
   /** create_reminder: true = a cobro (money comes in); false or missing = a pago. */
   isIncome?: boolean | null;
+  /** pay_pasanaco_quota: participant and month ("yyyy-MM") of the quota. */
+  pasanacoParticipantId?: string | null;
+  pasanacoMonth?: string | null;
 }
 
 export interface ImportChatResponse {

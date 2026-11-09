@@ -280,6 +280,18 @@ export const LedgerService = {
   unshareImportRow: async (batchId: string, rowId: string): Promise<void> => {
     await apiClient.delete(`/imports/${batchId}/rows/${rowId}/shared-expense`);
   },
+
+  setImportRowPasanacoQuota: async (
+    batchId: string,
+    rowId: string,
+    input: { participantId: string; month: string },
+  ): Promise<void> => {
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/pasanaco-quota`, input);
+  },
+
+  clearImportRowPasanacoQuota: async (batchId: string, rowId: string): Promise<void> => {
+    await apiClient.delete(`/imports/${batchId}/rows/${rowId}/pasanaco-quota`);
+  },
 };
 
 /** Saca el mensaje que manda el middleware del backend, sin filtrar ruido técnico. */

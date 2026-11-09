@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  Coins,
   Info,
   Layers3,
   List,
@@ -120,6 +121,7 @@ const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
   skip_planned: MinusCircle,
   update_planned: Pencil,
   create_reminder: Bell,
+  pay_pasanaco_quota: Coins,
 };
 
 /** "open"/"minimized" only differ on small screens, where the panel is a bottom sheet. */
@@ -674,6 +676,20 @@ export function ImportsPage() {
     }
   };
 
+  const clearPasanacoQuota = async (row: ImportRow) => {
+    if (!review) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.clearImportRowPasanacoQuota(review.id, row.id);
+      await reloadReview(review.id);
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido quitar la cuota del pasanaco."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const setChatActionState = (entryIndex: number, actionIndex: number, state: ChatActionState, error?: string) =>
     setChatMessages((current) =>
       current.map((entry, index) =>
@@ -782,6 +798,15 @@ export function ImportsPage() {
           emailEnabled: true,
           notes: action.notes ?? null,
           source: "ai",
+        });
+        return;
+      }
+      case "pay_pasanaco_quota": {
+        if (rowIds.length !== 1 || !action.pasanacoParticipantId || !action.pasanacoMonth) {
+          throw new ChatActionError("La propuesta no indica el movimiento, el participante y el mes de la cuota.");
+        }
+        await LedgerService.setImportRowPasanacoQuota(batchId, rowIds[0], {
+          participantId: action.pasanacoParticipantId, month: action.pasanacoMonth,
         });
         return;
       }
@@ -942,6 +967,12 @@ export function ImportsPage() {
         lines.push("El aviso también llegará por correo.", notes ? `Notas: ${notes}` : null);
         break;
       }
+      case "pay_pasanaco_quota":
+        lines.push(
+          "Al aplicar el lote, la cuota quedará pagada en Pasanaco con la fecha del movimiento.",
+          "No se crea otro ingreso: el cobro del banco es el que cuenta.",
+        );
+        break;
     }
     return lines.filter((line): line is string => Boolean(line));
   };
@@ -1424,6 +1455,26 @@ export function ImportsPage() {
                                 <CalendarClock className="h-3.5 w-3.5" /> Descontar de un previsto…
                               </Button>
                             ) : null}
+                            {row.pasanacoParticipantId && (
+                              <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-positive/30 bg-positive-soft/40 py-0.5 pl-2 pr-1 text-xs text-positive">
+                                <Coins className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                <span className="min-w-0 break-words pr-1">
+                                  {reviewOpen ? "Paga la " : "Pagó la "}{row.pasanacoQuotaLabel ?? "cuota del pasanaco"}
+                                </span>
+                                {reviewOpen && row.status === "Pending" && (
+                                  <button
+                                    type="button"
+                                    className="shrink-0 rounded-full p-0.5 hover:bg-positive/15 disabled:opacity-50"
+                                    title="Quitar la cuota del pasanaco"
+                                    aria-label="Quitar la cuota del pasanaco"
+                                    disabled={busy}
+                                    onClick={() => void clearPasanacoQuota(row)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
