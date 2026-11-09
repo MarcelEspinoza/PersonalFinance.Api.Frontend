@@ -46,7 +46,7 @@ const toneIcon: Record<Tone, string> = {
   danger: "bg-negative-soft text-negative",
   warning: "bg-warning-soft text-warning",
   action: "bg-primary/10 text-primary",
-  reminder: "bg-rose-500/10 text-rose-600",
+  reminder: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
   muted: "bg-muted text-muted-foreground",
 };
 

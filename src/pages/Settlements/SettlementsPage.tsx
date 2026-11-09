@@ -141,7 +141,7 @@ export function SettlementsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-6 text-slate-500">
+      <div className="flex items-center gap-2 p-6 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         Cargando liquidaciones...
       </div>
@@ -149,27 +149,27 @@ export function SettlementsPage() {
   }
 
   const createForm = (
-    <section className="rounded-xl border border-teal-200 bg-white p-4">
+    <section className="rounded-xl border border-teal-200 dark:border-teal-800 bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700">Nueva liquidación</h2>
+        <h2 className="text-sm font-semibold text-foreground">Nueva liquidación</h2>
         {list.length > 0 && (
-          <button type="button" onClick={() => setShowCreate(false)} aria-label="Cerrar" className="rounded p-1 text-slate-400 hover:bg-slate-100">
+          <button type="button" onClick={() => setShowCreate(false)} aria-label="Cerrar" className="rounded p-1 text-muted-foreground/70 hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
       {people.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Todavía no tienes personas dadas de alta. Añade a mamá y a Vane desde «Personas y teléfonos».
         </p>
       ) : (
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Con</span>
+            <span className="mb-1 block text-muted-foreground">Con</span>
             <select
               value={form.counterpartyId}
               onChange={(e) => setForm({ ...form, counterpartyId: e.target.value })}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+              className="rounded-lg border border-input px-3 py-2"
             >
               {people.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -179,21 +179,21 @@ export function SettlementsPage() {
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Desde</span>
+            <span className="mb-1 block text-muted-foreground">Desde</span>
             <input
               type="date"
               value={form.periodStart}
               onChange={(e) => setForm({ ...form, periodStart: e.target.value })}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+              className="rounded-lg border border-input px-3 py-2"
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Hasta</span>
+            <span className="mb-1 block text-muted-foreground">Hasta</span>
             <input
               type="date"
               value={form.periodEnd}
               onChange={(e) => setForm({ ...form, periodEnd: e.target.value })}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+              className="rounded-lg border border-input px-3 py-2"
             />
           </label>
           <button
@@ -214,12 +214,12 @@ export function SettlementsPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="rounded-xl bg-teal-100 p-2 text-teal-700">
+          <span className="rounded-xl bg-teal-100 dark:bg-teal-900/60 p-2 text-teal-700 dark:text-teal-300">
             <HandCoins className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-xl font-semibold text-slate-800">Liquidaciones</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-xl font-semibold text-foreground">Liquidaciones</h1>
+            <p className="text-sm text-muted-foreground">
               Quién te debe, a quién le debes y el resumen para mandar por WhatsApp.
             </p>
           </div>
@@ -228,7 +228,7 @@ export function SettlementsPage() {
           <button
             type="button"
             onClick={() => setShowPeople(true)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-input px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
           >
             Personas y teléfonos
           </button>
@@ -244,7 +244,7 @@ export function SettlementsPage() {
       </header>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
           {error}
         </div>
       )}
@@ -253,8 +253,8 @@ export function SettlementsPage() {
 
       {list.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-[300px,1fr]">
-          <aside className="self-start rounded-xl border border-slate-200 bg-white lg:sticky lg:top-4">
-            <div className="flex border-b border-slate-100 p-1">
+          <aside className="self-start rounded-xl border border-border bg-card lg:sticky lg:top-4">
+            <div className="flex border-b border-border p-1">
               {([
                 ['open', `Pendientes (${grouped.open.length})`],
                 ['paid', `Pagadas (${grouped.paid.length})`],
@@ -264,7 +264,7 @@ export function SettlementsPage() {
                   type="button"
                   onClick={() => setTab(key)}
                   className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${
-                    tab === key ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-50'
+                    tab === key ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300' : 'text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
                   {label}
@@ -272,11 +272,11 @@ export function SettlementsPage() {
               ))}
             </div>
             {visible.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-500">
+              <p className="px-4 py-6 text-sm text-muted-foreground">
                 {tab === 'open' ? 'No tienes liquidaciones pendientes.' : 'Todavía no hay liquidaciones pagadas.'}
               </p>
             ) : (
-              <ul className="max-h-[60vh] divide-y divide-slate-100 overflow-y-auto">
+              <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto">
                 {visible.map((item) => (
                   <SettlementItem
                     key={item.id}
@@ -300,7 +300,7 @@ export function SettlementsPage() {
                 }}
               />
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+              <div className="rounded-xl border border-dashed border-input p-8 text-center text-sm text-muted-foreground">
                 Elige una liquidación de la lista o crea una nueva.
               </div>
             )}
@@ -326,9 +326,9 @@ export function SettlementsPage() {
 }
 
 const statusChip: Record<SettlementSummary['status'], { text: string; className: string }> = {
-  Draft: { text: 'Borrador', className: 'bg-amber-100 text-amber-700' },
-  Sent: { text: 'Enviada', className: 'bg-sky-100 text-sky-700' },
-  Closed: { text: 'Pagada', className: 'bg-emerald-100 text-emerald-700' },
+  Draft: { text: 'Borrador', className: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300' },
+  Sent: { text: 'Enviada', className: 'bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300' },
+  Closed: { text: 'Pagada', className: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400' },
 };
 
 function SettlementItem({
@@ -345,18 +345,18 @@ function SettlementItem({
   const chip = statusChip[item.status] ?? statusChip.Sent;
   const closed = item.status === 'Closed';
   return (
-    <li className={`group flex items-start gap-2 px-4 py-3 ${selected ? 'bg-teal-50' : 'hover:bg-slate-50'}`}>
+    <li className={`group flex items-start gap-2 px-4 py-3 ${selected ? 'bg-teal-50 dark:bg-teal-950/60' : 'hover:bg-muted/50'}`}>
       <button type="button" onClick={() => onOpen(item.id)} className="min-w-0 flex-1 text-left">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-sm font-semibold text-slate-800" title={item.counterpartyName}>
+          <p className="truncate text-sm font-semibold text-foreground" title={item.counterpartyName}>
             {item.counterpartyName}
           </p>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${chip.className}`}>{chip.text}</span>
         </div>
-        <p className={`mt-0.5 text-sm font-medium tabular-nums ${closed ? 'text-slate-500' : balanceTone(item.pending)}`}>
+        <p className={`mt-0.5 text-sm font-medium tabular-nums ${closed ? 'text-muted-foreground' : balanceTone(item.pending)}`}>
           {balanceText(item.counterpartyName, item.pending, closed)}
         </p>
-        <p className="truncate text-xs text-slate-400" title={item.title}>
+        <p className="truncate text-xs text-muted-foreground/70" title={item.title}>
           {item.title} · {item.lineCount} {item.lineCount === 1 ? 'línea' : 'líneas'}
         </p>
       </button>
@@ -365,7 +365,7 @@ function SettlementItem({
         onClick={() => onRemove(item.id)}
         title="Borrar"
         aria-label={`Borrar ${item.title}`}
-        className="rounded p-1 text-slate-300 opacity-0 hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100"
+        className="rounded p-1 text-muted-foreground/50 opacity-0 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 focus:opacity-100 group-hover:opacity-100"
       >
         <Trash2 className="h-4 w-4" />
       </button>

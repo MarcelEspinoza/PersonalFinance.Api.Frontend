@@ -551,7 +551,7 @@ function EmptyState({ filter, onCreate }: { filter: ReminderStatusFilter; onCrea
   return (
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
           <BellRing className="h-6 w-6" aria-hidden="true" />
         </span>
         <h2 className="text-lg font-semibold">

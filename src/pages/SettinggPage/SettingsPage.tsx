@@ -1,6 +1,7 @@
 ﻿import {
   Archive,
   Landmark,
+  Palette,
   ShieldCheck,
   Tags,
   type LucideIcon,
@@ -9,12 +10,13 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import BanksManager from "../../components/Settings/BanksManager";
 import CategoriesManager from "../../components/Settings/CategoriesManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
+import ThemePicker from "../../components/Settings/ThemePicker";
 import { PageHeader } from "../../components/PageHeader";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { cn } from "../../lib/utils";
 
-type SettingsTab = "banks" | "categories" | "admin";
+type SettingsTab = "banks" | "categories" | "appearance" | "admin";
 
 type TabDefinition = {
   id: SettingsTab;
@@ -38,6 +40,13 @@ const tabs: TabDefinition[] = [
     shortTitle: "Categorías",
     subtitle: "Gestiona las categorías de gastos e ingresos.",
     icon: Tags,
+  },
+  {
+    id: "appearance",
+    title: "Apariencia",
+    shortTitle: "Apariencia",
+    subtitle: "Elige si quieres ver la app en modo claro u oscuro.",
+    icon: Palette,
   },
   {
     id: "admin",
@@ -116,6 +125,7 @@ export default function SettingsPage() {
         <CardContent className="p-5 sm:p-6">
           {active.id === "banks" && <BanksManager />}
           {active.id === "categories" && <CategoriesManager />}
+          {active.id === "appearance" && <ThemePicker />}
           {active.id === "admin" && isAdmin && <ManageRoles />}
         </CardContent>
       </Card>

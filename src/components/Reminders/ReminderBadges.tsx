@@ -7,7 +7,7 @@ const BADGE = "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-
 const URGENCY_CLASS: Record<ReminderUrgency, string> = {
   overdue: "bg-negative-soft text-negative",
   today: "bg-warning-soft text-warning",
-  soon: "bg-sky-500/10 text-sky-700",
+  soon: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
 };
 
 export function UrgencyBadge({ urgency, className }: { urgency: ReminderUrgency; className?: string }) {
@@ -35,7 +35,7 @@ export function DoneBadge({ className }: { className?: string }) {
 /** Marks a money line that comes from a reminder, not from an entry of «Mes». */
 export function ReminderTag({ className }: { className?: string }) {
   return (
-    <span className={cn(BADGE, "bg-rose-500/10 text-rose-600", className)}>
+    <span className={cn(BADGE, "bg-rose-500/10 text-rose-600 dark:text-rose-400", className)}>
       <BellRing className="h-3 w-3" aria-hidden="true" />
       Recordatorio
     </span>

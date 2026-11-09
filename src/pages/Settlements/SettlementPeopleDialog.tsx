@@ -90,23 +90,23 @@ export function SettlementPeopleDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-800">Personas y teléfonos</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+      <div className="w-full max-w-lg rounded-xl bg-card shadow-xl">
+        <header className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-foreground">Personas y teléfonos</h2>
+          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground/70 hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         </header>
 
         <div className="max-h-96 space-y-3 overflow-y-auto p-4">
           {error && (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
               {error}
             </p>
           )}
 
           {people.length > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               En «Cómo sale en el banco» copia su nombre tal cual aparece en el extracto. Al
               importar el banco, sus transferencias se apuntan solas en su liquidación.
             </p>
@@ -115,41 +115,41 @@ export function SettlementPeopleDialog({
           {people.map((person) => {
             const draft = drafts[person.id] ?? fromPerson(person);
             return (
-              <div key={person.id} className="space-y-2 rounded-lg border border-slate-100 p-3">
+              <div key={person.id} className="space-y-2 rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="flex-1 text-sm">
-                    <span className="mb-1 block text-slate-600">Nombre</span>
+                    <span className="mb-1 block text-muted-foreground">Nombre</span>
                     <input
                       value={draft.name}
                       onChange={(e) => patch(person, { name: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                      className="w-full rounded-lg border border-input px-3 py-2"
                     />
                   </label>
                   <label className="flex-1 text-sm">
-                    <span className="mb-1 block text-slate-600">Teléfono</span>
+                    <span className="mb-1 block text-muted-foreground">Teléfono</span>
                     <input
                       value={draft.phone}
                       placeholder="+34 600 00 00 00"
                       onChange={(e) => patch(person, { phone: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                      className="w-full rounded-lg border border-input px-3 py-2"
                     />
                   </label>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="flex-1 text-sm">
-                    <span className="mb-1 block text-slate-600">Cómo sale en el banco</span>
+                    <span className="mb-1 block text-muted-foreground">Cómo sale en el banco</span>
                     <input
                       value={draft.bank}
                       placeholder="Ej.: JENNY MABEL ESPINOZA"
                       onChange={(e) => patch(person, { bank: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                      className="w-full rounded-lg border border-input px-3 py-2"
                     />
                   </label>
                   <button
                     type="button"
                     onClick={() => save(person.id)}
                     disabled={busy}
-                    className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-900 disabled:opacity-50"
+                    className="rounded-lg bg-slate-800 dark:bg-slate-600 px-3 py-2 text-sm text-white hover:bg-slate-900 dark:hover:bg-slate-500 disabled:opacity-50"
                   >
                     Guardar
                   </button>
@@ -158,35 +158,35 @@ export function SettlementPeopleDialog({
             );
           })}
 
-          <div className="border-t border-slate-100 pt-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="border-t border-border pt-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Añadir persona
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <label className="flex-1 text-sm">
-                <span className="mb-1 block text-slate-600">Nombre</span>
+                <span className="mb-1 block text-muted-foreground">Nombre</span>
                 <input
                   value={newPerson.name}
                   onChange={(e) => setNewPerson({ ...newPerson, name: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-input px-3 py-2"
                 />
               </label>
               <label className="flex-1 text-sm">
-                <span className="mb-1 block text-slate-600">Teléfono</span>
+                <span className="mb-1 block text-muted-foreground">Teléfono</span>
                 <input
                   value={newPerson.phone}
                   placeholder="+34 600 00 00 00"
                   onChange={(e) => setNewPerson({ ...newPerson, phone: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-input px-3 py-2"
                 />
               </label>
               <label className="w-full text-sm">
-                <span className="mb-1 block text-slate-600">Cómo sale en el banco (opcional)</span>
+                <span className="mb-1 block text-muted-foreground">Cómo sale en el banco (opcional)</span>
                 <input
                   value={newPerson.bank}
                   placeholder="Ej.: JENNY MABEL ESPINOZA"
                   onChange={(e) => setNewPerson({ ...newPerson, bank: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-input px-3 py-2"
                 />
               </label>
               <button

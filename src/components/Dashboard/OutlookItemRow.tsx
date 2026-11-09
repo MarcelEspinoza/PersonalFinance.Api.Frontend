@@ -79,7 +79,7 @@ function ItemSource({ item }: { item: OutlookItem }) {
         <Link
           to="/settlements"
           title="Ver tus liquidaciones"
-          className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 transition-opacity hover:opacity-80 dark:bg-violet-950/60 dark:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Liquidación
         </Link>

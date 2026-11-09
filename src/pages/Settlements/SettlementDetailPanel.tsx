@@ -24,9 +24,9 @@ const kindLabels: Record<SettlementLineKind, string> = {
 };
 
 const statusLabels: Record<SettlementDetail['status'], { text: string; className: string }> = {
-  Draft: { text: 'Borrador', className: 'bg-amber-100 text-amber-700' },
-  Sent: { text: 'Enviada', className: 'bg-emerald-100 text-emerald-700' },
-  Closed: { text: 'Pagada', className: 'bg-slate-200 text-slate-700' },
+  Draft: { text: 'Borrador', className: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300' },
+  Sent: { text: 'Enviada', className: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400' },
+  Closed: { text: 'Pagada', className: 'bg-accent text-foreground' },
 };
 
 /** yyyy-MM-dd de hoy + n días, en hora local. */
@@ -57,7 +57,7 @@ export const balanceText = (name: string, pending: number, closed: boolean) => {
 };
 
 export const balanceTone = (pending: number) =>
-  Math.abs(pending) < 0.005 ? 'text-slate-700' : pending > 0 ? 'text-emerald-700' : 'text-rose-700';
+  Math.abs(pending) < 0.005 ? 'text-foreground' : pending > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
 
 const settingsSummary = (detail: SettlementDetail) => {
   const parts: string[] = [];
@@ -192,10 +192,10 @@ export function SettlementDetailPanel({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {detail.title} · {day(detail.periodStart)} a {day(detail.periodEnd)}
             </p>
             <h2 className={`mt-1 text-2xl font-semibold ${balanceTone(detail.totals.pending)}`}>
@@ -217,12 +217,12 @@ export function SettlementDetailPanel({
           <Total label={detail.status === 'Closed' ? 'Neto al cerrar' : 'Pendiente'} value={detail.totals.pending} strong />
         </dl>
 
-        <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <div className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">
           <p>{forecastText(detail)}</p>
           {detail.status !== 'Closed' && (
             <div className="mt-2 flex flex-wrap items-end gap-3">
               <label className="text-sm">
-                <span className="mb-1 block text-xs text-slate-600">Día en que esperas el dinero</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Día en que esperas el dinero</span>
                 <input
                   key={detail.expectedDate ?? 'sin-fecha'}
                   type="date"
@@ -235,14 +235,14 @@ export function SettlementDetailPanel({
                       );
                     }
                   }}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5"
+                  className="rounded-lg border border-input bg-card px-3 py-1.5"
                 />
               </label>
               <button
                 type="button"
                 disabled={busy || loadingPayments}
                 onClick={() => void loadPayments()}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:opacity-50"
               >
                 {loadingPayments ? 'Cargando movimientos…' : 'Vincular movimiento del banco'}
               </button>
@@ -258,7 +258,7 @@ export function SettlementDetailPanel({
                     void run(() => settlementService.markPaid(detail.id));
                   }
                 }}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:opacity-50"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Marcar como pagada
@@ -266,7 +266,7 @@ export function SettlementDetailPanel({
             </div>
           )}
           {paymentCandidates !== null && detail.status !== 'Closed' && (
-            <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+            <div className="mt-3 space-y-2 border-t border-border pt-3">
               <p>
                 Elige la transferencia que salda esta liquidación. No se crea otro movimiento en el banco.
               </p>
@@ -279,7 +279,7 @@ export function SettlementDetailPanel({
                     value={paymentId}
                     onChange={(event) => setPaymentId(event.target.value)}
                     disabled={busy}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2"
+                    className="min-w-0 flex-1 rounded-lg border border-input bg-card px-3 py-2"
                   >
                     <option value="">Elige un movimiento</option>
                     {paymentCandidates.map((candidate) => (
@@ -308,22 +308,22 @@ export function SettlementDetailPanel({
             </div>
           )}
           {detail.status !== 'Closed' && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               Si la transferencia de {detail.counterpartyName} coincide con el importe exacto, se vincula sola.
             </p>
           )}
         </div>
       </section>
 
-      <details className="group rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer select-none text-sm font-semibold text-slate-700">
+      <details className="group rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer select-none text-sm font-semibold text-foreground">
           Ajustes: préstamo, pendiente anterior y frase final
-          <span className="ml-2 text-xs font-normal text-slate-500">{settingsSummary(detail)}</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{settingsSummary(detail)}</span>
         </summary>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">
+            <span className="mb-1 block text-muted-foreground">
               Pendiente anterior (sin contar préstamo asociado)
             </span>
             <input
@@ -339,11 +339,11 @@ export function SettlementDetailPanel({
                   );
                 }
               }}
-              className="w-48 rounded-lg border border-slate-300 px-3 py-2"
+              className="w-48 rounded-lg border border-input px-3 py-2"
             />
           </label>
           <label className="min-w-[16rem] flex-1 text-sm">
-            <span className="mb-1 block text-slate-600">Frase final</span>
+            <span className="mb-1 block text-muted-foreground">Frase final</span>
             <input
               defaultValue={detail.closingNote ?? ''}
               disabled={!editable || busy}
@@ -354,18 +354,18 @@ export function SettlementDetailPanel({
                   );
                 }
               }}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="w-full rounded-lg border border-input px-3 py-2"
             />
           </label>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           El saldo del préstamo asociado se calcula solo; usa este campo únicamente para
           otros importes pendientes que no estén registrados en Préstamos.
         </p>
 
-        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
           <label className="min-w-[16rem] flex-1 text-sm">
-            <span className="mb-1 block font-medium text-slate-700">
+            <span className="mb-1 block font-medium text-foreground">
               Préstamo recibido de {detail.counterpartyName}
             </span>
             <select
@@ -376,7 +376,7 @@ export function SettlementDetailPanel({
                   settlementService.linkLoan(detail.id, e.target.value || null),
                 )
               }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="w-full rounded-lg border border-input px-3 py-2"
             >
               <option value="">Sin préstamo asociado</option>
               {loanOptions.map((loan) => (
@@ -388,7 +388,7 @@ export function SettlementDetailPanel({
             </select>
           </label>
           {detail.linkedLoan && (
-            <div className="flex-1 text-sm text-slate-600">
+            <div className="flex-1 text-sm text-muted-foreground">
               <p>
                 Saldo vivo:{' '}
                 <strong>{euro(detail.linkedLoan.outstandingAmount)}</strong>
@@ -396,7 +396,7 @@ export function SettlementDetailPanel({
                 {detail.linkedLoan.status.toLowerCase() === 'cancelled' && ' · cancelado'}
               </p>
               {!editable && (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Saldo que quedó reflejado en este envío:{' '}
                   {euro(detail.linkedLoan.amountInSettlement)}
                 </p>
@@ -417,7 +417,7 @@ export function SettlementDetailPanel({
                         );
                       }
                     }}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-lg border border-input px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 disabled:opacity-50"
                   >
                     Marcar como saldado
                   </button>
@@ -435,7 +435,7 @@ export function SettlementDetailPanel({
                         );
                       }
                     }}
-                    className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                    className="rounded-lg border border-rose-200 dark:border-rose-900 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-50"
                   >
                     Cancelar deuda
                   </button>
@@ -445,7 +445,7 @@ export function SettlementDetailPanel({
           )}
         </div>
         {detail.linkedLoan && detail.linkedLoan.outstandingAmount > 0 && (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             {editable
               ? 'El saldo vivo se resta automáticamente del total. Al registrar un pago en Préstamos, la próxima liquidación recogerá el saldo restante; no vuelvas a añadir ese pago manualmente.'
               : 'El mensaje enviado conserva el saldo capturado entonces. Los cambios actuales del préstamo no modifican ese histórico.'}
@@ -454,21 +454,21 @@ export function SettlementDetailPanel({
       </details>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
           {error}
         </div>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">Líneas</h3>
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Líneas</h3>
         {detail.lines.some(line => !line.ledgerEntryId) && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="mb-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
             Hay líneas manuales sin movimiento vinculado. Si ya existen en «Mes», usa «Vincular movimiento»:
             no añade otro importe y evita que su previsto siga pendiente al cerrar la liquidación.
           </p>
         )}
         {detail.lines.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Todavía no hay nada. Marca movimientos abajo o añade una línea a mano.
           </p>
         ) : (
@@ -479,28 +479,28 @@ export function SettlementDetailPanel({
 
               return (
                 <div key={kind}>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {kindLabels[kind]}
                   </p>
-                  <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
+                  <ul className="divide-y divide-border rounded-lg border border-border">
                     {lines.map((line) => (
                       <li key={line.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-700" title={line.description}>
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={line.description}>
                           {line.description}
                           {line.fullAmount != null && (
-                            <span className="ml-1 text-xs text-slate-400">
+                            <span className="ml-1 text-xs text-muted-foreground/70">
                               ({euro(line.fullAmount)} total)
                             </span>
                           )}
                           {line.allocatesPendingEntry && (
-                            <span className="ml-2 text-xs text-teal-700">
+                            <span className="ml-2 text-xs text-teal-700 dark:text-teal-300">
                               {detail.status === 'Closed'
                                 ? 'Saldado por compensación'
                                 : 'Incluido en el neto'}
                             </span>
                           )}
                         </span>
-                        <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-slate-800">{euro(line.amount)}</span>
+                        <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-foreground">{euro(line.amount)}</span>
                         <button
                           type="button"
                           disabled={busy || loadingLineEntries}
@@ -513,7 +513,7 @@ export function SettlementDetailPanel({
                               void loadLineEntries(line.id);
                             }
                           }}
-                          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          className="rounded border border-input px-2 py-1 text-xs text-foreground hover:bg-muted/50 disabled:opacity-50"
                         >
                           {line.ledgerEntryId ? 'Desvincular movimiento' : 'Vincular movimiento'}
                         </button>
@@ -522,14 +522,14 @@ export function SettlementDetailPanel({
                             type="button"
                             disabled={busy}
                             onClick={() => run(() => settlementService.deleteLine(detail.id, line.id))}
-                            className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                            className="rounded p-1 text-muted-foreground/70 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                         {linkLineId === line.id && (
-                          <div className="w-full space-y-2 border-t border-slate-100 pt-2 text-sm">
-                            <p className="text-xs text-slate-600">
+                          <div className="w-full space-y-2 border-t border-border pt-2 text-sm">
+                            <p className="text-xs text-muted-foreground">
                               Vincula esta línea sin añadir importes ni cambiar el neto.
                               {detail.status === 'Closed' && ' La parte pendiente quedará saldada por compensación, sin otro movimiento bancario.'}
                             </p>
@@ -541,7 +541,7 @@ export function SettlementDetailPanel({
                                   aria-label="Movimiento de la línea"
                                   value={lineEntryId}
                                   onChange={(event) => setLineEntryId(event.target.value)}
-                                  className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1"
+                                  className="min-w-0 flex-1 rounded border border-input px-2 py-1"
                                 >
                                   <option value="">Elige un movimiento</option>
                                   {lineCandidates.filter(candidate =>
@@ -586,10 +586,10 @@ export function SettlementDetailPanel({
       </section>
 
       {editable && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <section className="rounded-xl border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Movimientos del periodo</h3>
-            {loadingCandidates && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+            <h3 className="text-sm font-semibold text-foreground">Movimientos del periodo</h3>
+            {loadingCandidates && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/70" />}
           </div>
           <CandidateList
             candidates={candidates}
@@ -599,9 +599,9 @@ export function SettlementDetailPanel({
         </section>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">Mensaje</h3>
-        <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Mensaje</h3>
+        <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-sm text-foreground">
           {detail.message}
         </pre>
 
@@ -609,7 +609,7 @@ export function SettlementDetailPanel({
           <button
             type="button"
             onClick={copy}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-2 text-sm text-foreground hover:bg-muted/50"
           >
             <Copy className="h-4 w-4" />
             {copied ? 'Copiado' : 'Copiar'}
@@ -617,12 +617,12 @@ export function SettlementDetailPanel({
 
           {editable && detail.whatsAppUrl && (
             <label className="text-sm">
-              <span className="mb-1 block text-xs text-slate-600">¿Cuándo esperas el dinero?</span>
+              <span className="mb-1 block text-xs text-muted-foreground">¿Cuándo esperas el dinero?</span>
               <input
                 type="date"
                 value={sendDate}
                 onChange={(e) => setSendDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5"
+                className="rounded-lg border border-input px-3 py-1.5"
               />
             </label>
           )}
@@ -641,7 +641,7 @@ export function SettlementDetailPanel({
               Abrir en WhatsApp
             </a>
           ) : (
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-muted-foreground">
               Ponle el teléfono a {detail.counterpartyName} para poder abrir WhatsApp.
             </span>
           )}
@@ -651,14 +651,14 @@ export function SettlementDetailPanel({
               type="button"
               disabled={busy}
               onClick={() => run(() => settlementService.reopen(detail.id))}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-2 text-sm text-foreground hover:bg-muted/50"
             >
               <RotateCcw className="h-4 w-4" />
               Reabrir
             </button>
           )}
         </div>
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-muted-foreground/70">
           WhatsApp se abre con el mensaje ya escrito. El último clic de «Enviar» lo das tú.
         </p>
       </section>
@@ -668,9 +668,9 @@ export function SettlementDetailPanel({
 
 function Total({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className={`text-sm ${strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+    <div className="rounded-lg bg-muted/50 px-3 py-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`text-sm ${strong ? 'font-semibold text-foreground' : 'text-foreground'}`}>
         {euro(value)}
       </dd>
     </div>
@@ -710,13 +710,13 @@ function ManualLineForm({
   };
 
   return (
-    <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+    <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-4">
       <label className="text-sm">
-        <span className="mb-1 block text-slate-600">Tipo</span>
+        <span className="mb-1 block text-muted-foreground">Tipo</span>
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value as SettlementLineKind)}
-          className="rounded-lg border border-slate-300 px-3 py-2"
+          className="rounded-lg border border-input px-3 py-2"
         >
           <option value="Charge">Gasto</option>
           <option value="Deduction">A restar</option>
@@ -725,39 +725,39 @@ function ManualLineForm({
         </select>
       </label>
       <label className="min-w-[12rem] flex-1 text-sm">
-        <span className="mb-1 block text-slate-600">Concepto</span>
+        <span className="mb-1 block text-muted-foreground">Concepto</span>
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          className="w-full rounded-lg border border-input px-3 py-2"
         />
       </label>
       <label className="text-sm">
-        <span className="mb-1 block text-slate-600">Importe</span>
+        <span className="mb-1 block text-muted-foreground">Importe</span>
         <input
           type="number"
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-28 rounded-lg border border-slate-300 px-3 py-2"
+          className="w-28 rounded-lg border border-input px-3 py-2"
         />
       </label>
       <label className="text-sm">
-        <span className="mb-1 block text-slate-600">Total (opcional)</span>
+        <span className="mb-1 block text-muted-foreground">Total (opcional)</span>
         <input
           type="number"
           step="0.01"
           value={fullAmount}
           placeholder="si va a medias"
           onChange={(e) => setFullAmount(e.target.value)}
-          className="w-32 rounded-lg border border-slate-300 px-3 py-2"
+          className="w-32 rounded-lg border border-input px-3 py-2"
         />
       </label>
       <button
         type="button"
         onClick={submit}
         disabled={disabled}
-        className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-900 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-lg bg-slate-800 dark:bg-slate-600 px-3 py-2 text-sm text-white hover:bg-slate-900 dark:hover:bg-slate-500 disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />
         Añadir
@@ -785,7 +785,7 @@ function CandidateList({
   );
 
   if (candidates.length === 0) {
-    return <p className="text-sm text-slate-500">No hay movimientos en estas fechas.</p>;
+    return <p className="text-sm text-muted-foreground">No hay movimientos en estas fechas.</p>;
   }
 
   return (
@@ -794,25 +794,25 @@ function CandidateList({
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         placeholder="Buscar concepto..."
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-input px-3 py-2 text-sm"
       />
 
       {pending.length === 0 ? (
-        <p className="text-sm text-slate-500">Ya has repasado todos los movimientos.</p>
+        <p className="text-sm text-muted-foreground">Ya has repasado todos los movimientos.</p>
       ) : (
-        <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-100">
+        <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-lg border border-border">
           {pending.map((c) => (
             <li key={c.ledgerEntryId} className="flex flex-wrap items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-slate-700" title={c.description}>{c.description}</p>
-                <p className="text-xs text-slate-400">
+                <p className="truncate text-sm text-foreground" title={c.description}>{c.description}</p>
+                <p className="text-xs text-muted-foreground/70">
                   {day(c.date)} · {c.conceptName}
                   {c.isPaid === false && ' · Pendiente: la parte incluida se saldará con el neto'}
                 </p>
               </div>
               <span
                 className={`whitespace-nowrap text-sm font-medium tabular-nums ${
-                  c.direction === 'In' ? 'text-emerald-600' : 'text-slate-800'
+                  c.direction === 'In' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'
                 }`}
               >
                 {euro(c.amount)}
@@ -821,7 +821,7 @@ function CandidateList({
                 type="button"
                 disabled={disabled}
                 onClick={() => onAdd({ ledgerEntryId: c.ledgerEntryId })}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg border border-input px-2 py-1 text-xs text-foreground hover:bg-muted/50 disabled:opacity-50"
               >
                 Entero
               </button>
@@ -829,7 +829,7 @@ function CandidateList({
                 type="button"
                 disabled={disabled}
                 onClick={() => onAdd({ ledgerEntryId: c.ledgerEntryId, sharePercent: 50 })}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg border border-input px-2 py-1 text-xs text-foreground hover:bg-muted/50 disabled:opacity-50"
               >
                 A medias
               </button>

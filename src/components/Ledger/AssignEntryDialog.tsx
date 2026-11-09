@@ -84,37 +84,37 @@ export function AssignEntryDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-800">Imputar a una liquidación</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+      <div className="w-full max-w-md rounded-xl bg-card shadow-xl">
+        <header className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-foreground">Imputar a una liquidación</h2>
+          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground/70 hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         </header>
 
         <div className="space-y-3 p-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             {entryDescription} · <strong>{entryAmount.toFixed(2)} €</strong>
           </p>
 
           {error && (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
               {error}
             </p>
           )}
 
           {done ? (
-            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
               {done}
             </p>
           ) : (
             <>
               <label className="block text-sm">
-                <span className="mb-1 block text-slate-600">Persona</span>
+                <span className="mb-1 block text-muted-foreground">Persona</span>
                 <select
                   value={personId}
                   onChange={(e) => setPersonId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-input px-3 py-2"
                 >
                   {people.length === 0 && <option value="">No hay personas dadas de alta</option>}
                   {people.map((p) => (
@@ -126,12 +126,12 @@ export function AssignEntryDialog({
               </label>
 
               <label className="block text-sm">
-                <span className="mb-1 block text-slate-600">Concepto</span>
+                <span className="mb-1 block text-muted-foreground">Concepto</span>
                 <select
                   value={kind}
                   disabled={pending}
                   onChange={(e) => setKind(e.target.value as SettlementLineKind)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-input px-3 py-2"
                 >
                   <option value="Charge">Se lo cobro</option>
                   <option value="Deduction">Me lo descuenta</option>
@@ -140,7 +140,7 @@ export function AssignEntryDialog({
               </label>
 
               <div className="text-sm">
-                <span className="mb-1 block text-slate-600">Reparto</span>
+                <span className="mb-1 block text-muted-foreground">Reparto</span>
                 <div className="flex flex-wrap gap-2">
                   {(
                     [
@@ -155,8 +155,8 @@ export function AssignEntryDialog({
                       onClick={() => setSplit(value)}
                       className={`rounded-lg border px-3 py-1.5 text-sm ${
                         split === value
-                          ? 'border-teal-600 bg-teal-50 text-teal-700'
-                          : 'border-slate-300 text-slate-700'
+                          ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300'
+                          : 'border-input text-foreground'
                       }`}
                     >
                       {label}
@@ -167,13 +167,13 @@ export function AssignEntryDialog({
 
               {split === 'custom' && (
                 <label className="block text-sm">
-                  <span className="mb-1 block text-slate-600">Importe que le toca</span>
+                  <span className="mb-1 block text-muted-foreground">Importe que le toca</span>
                   <input
                     type="number"
                     step="0.01"
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-input px-3 py-2"
                   />
                 </label>
               )}
@@ -181,11 +181,11 @@ export function AssignEntryDialog({
           )}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+        <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-input px-3 py-2 text-sm text-foreground hover:bg-muted/50"
           >
             {done ? 'Cerrar' : 'Cancelar'}
           </button>
