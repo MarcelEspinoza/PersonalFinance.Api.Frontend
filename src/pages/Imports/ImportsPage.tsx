@@ -18,6 +18,7 @@ import {
   Tags,
   Undo2,
   Upload,
+  Users,
   X,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -26,6 +27,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ImportAssistantPanel } from "../../components/Imports/ImportAssistantPanel";
 import { PlannedEntryPickerDialog } from "../../components/Imports/PlannedEntryPickerDialog";
+import { SharedExpenseDialog } from "../../components/Imports/SharedExpenseDialog";
 import {
   directionForAmount,
   formatAmount,
@@ -112,6 +114,7 @@ const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
   create_concept: Plus,
   link_planned: CalendarClock,
   allocate_planned: Layers3,
+  share_expense: Users,
   unlink_planned: Undo2,
   skip_planned: MinusCircle,
   update_planned: Pencil,
@@ -176,6 +179,7 @@ export function ImportsPage() {
   const [saveConceptRule, setSaveConceptRule] = useState(true);
   const [creatingConcept, setCreatingConcept] = useState(false);
   const [splitRow, setSplitRow] = useState<ImportRow | null>(null);
+  const [sharedExpenseRow, setSharedExpenseRow] = useState<ImportRow | null>(null);
   const [splitParts, setSplitParts] = useState<Array<{ conceptId: string; amount: string }>>([]);
   const [savingSplit, setSavingSplit] = useState(false);
   const importWorking =
@@ -431,7 +435,10 @@ export function ImportsPage() {
         : linkedRows === 1
           ? " 1 movimiento se descontará de su previsto."
           : ` ${linkedRows} movimientos se descontarán de sus previstos.`;
-    if (!window.confirm(`¿Aplicar las filas con concepto al libro contable?${linkedText}`)) return;
+    const sharedRows = review.rows.filter((row) => row.status === "Pending" &&
+      row.allocations.some((part) => part.counterpartyId)).length;
+    const sharedText = sharedRows > 0 ? ` Se registrarán ${sharedRows} gastos compartidos y sus importes por cobrar en Liquidaciones.` : "";
+    if (!window.confirm(`¿Aplicar las filas con concepto al libro contable?${linkedText}${sharedText}`)) return;
 
     setBusy(true);
     setError(null);
@@ -477,6 +484,7 @@ export function ImportsPage() {
     setReview(null);
     setPlannedCandidates([]);
     setPlannedPickerRow(null);
+    setSharedExpenseRow(null);
     setFile(null);
     setChatMessages([]);
     setChatInput("");
@@ -693,6 +701,15 @@ export function ImportsPage() {
         await LedgerService.setRowPlannedAllocations(batchId, rowIds[0], action.plannedAllocations);
         return;
       }
+      case "share_expense": {
+        if (rowIds.length !== 1 || !action.counterpartyId || !action.conceptId || action.amount == null) {
+          throw new ChatActionError("La propuesta no indica la persona, la categoría y la parte que te deben.");
+        }
+        await LedgerService.shareImportRow(batchId, rowIds[0], {
+          counterpartyId: action.counterpartyId, conceptId: action.conceptId, amount: action.amount,
+        });
+        return;
+      }
       case "unlink_planned": {
         if (rowIds.length === 0) throw new ChatActionError("La propuesta no indica los movimientos.");
         for (const rowId of rowIds) {
@@ -853,6 +870,13 @@ export function ImportsPage() {
             candidate ? ` · vence el ${formatCivilDate(candidate.dueDate)}` : ""}`);
         }
         lines.push("Se conserva un solo movimiento bancario; no se descarta ningún previsto.");
+        break;
+      case "share_expense":
+        lines.push(
+          `${action.counterpartyName ?? "La otra persona"} te debe ${money(action.amount ?? 0)}.`,
+          "El reparto se prepara ahora y la deuda se registra al aplicar el lote. El banco conserva el pago completo.",
+          "Solo tu parte cuenta como gasto. La devolución no es un ingreso nuevo.",
+        );
         break;
       case "unlink_planned": {
         const names = Array.from(
@@ -1236,9 +1260,14 @@ export function ImportsPage() {
                   {(reviewMode === "unassigned" ? unassignedRows : review.rows).map((row) => {
                     const selected = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
                     const splitSummary = row.allocations?.map((part) => {
+                      if (part.counterpartyId) {
+                        const person = review.people?.find((person) => person.id === part.counterpartyId);
+                        return `${person?.name ?? "La otra persona"} te debe ${money(part.amount)}`;
+                      }
                       const conceptName = review.concepts.find((concept) => concept.id === part.conceptId)?.name ?? "Concepto";
                       return `${conceptName}: ${part.amount.toFixed(2)}`;
                     }).join(" · ");
+                    const isSharedExpense = row.allocations?.some((part) => part.counterpartyId);
                     const reviewOpen = review.status !== "Applied";
                     const linkedPlannedName = plannedNameFor(row.plannedEntryId);
                     const hasPlannedLinks = plannedAllocationsFor(row).length > 0;
@@ -1333,6 +1362,14 @@ export function ImportsPage() {
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1 whitespace-nowrap">
+                            {row.amount < 0 && (
+                              <Button type="button" variant="outline" size="sm"
+                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks}
+                                title={hasPlannedLinks ? "Quita el vínculo con los previstos antes de compartir el gasto" : "Separar tu gasto de lo que te deben"}
+                                onClick={() => setSharedExpenseRow(row)}>
+                                <Users className="h-3.5 w-3.5" /> {isSharedExpense ? "Editar reparto" : "Compartir"}
+                              </Button>
+                            )}
                             {reviewOpen && (
                               <Button
                                 type="button"
@@ -1350,7 +1387,7 @@ export function ImportsPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
+                              disabled={busy || savingSplit || isSharedExpense || row.status !== "Pending" || review.status === "Applied"}
                               onClick={() => openSplitRow(row)}
                             >
                               <Layers3 className="h-3.5 w-3.5" /> {splitSummary ? "Editar partes" : "Dividir"}
@@ -1359,7 +1396,7 @@ export function ImportsPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={busy || savingSplit || row.status !== "Pending" || review.status === "Applied"}
+                              disabled={busy || savingSplit || isSharedExpense || row.status !== "Pending" || review.status === "Applied"}
                               onClick={() => void openCreateConcept(row)}
                             >
                               <Plus className="h-3.5 w-3.5" /> Crear categoría
@@ -1374,6 +1411,26 @@ export function ImportsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {sharedExpenseRow && review && (
+        <SharedExpenseDialog
+          key={sharedExpenseRow.id}
+          row={sharedExpenseRow}
+          people={review.people ?? []}
+          concepts={review.concepts}
+          onClose={() => setSharedExpenseRow(null)}
+          onSave={async (input) => {
+            await LedgerService.shareImportRow(review.id, sharedExpenseRow.id, input);
+            await reloadReview(review.id);
+            setSharedExpenseRow(null);
+          }}
+          onRemove={async () => {
+            await LedgerService.unshareImportRow(review.id, sharedExpenseRow.id);
+            await reloadReview(review.id);
+            setSharedExpenseRow(null);
+          }}
+        />
       )}
 
       <PlannedEntryPickerDialog

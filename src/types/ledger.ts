@@ -319,6 +319,18 @@ export interface PlannedCandidate {
 export interface ImportRowAllocation {
   conceptId: string;
   amount: number;
+  counterpartyId?: string | null;
+}
+
+export interface ShareImportRowInput {
+  conceptId: string;
+  counterpartyId: string;
+  amount: number;
+}
+
+export interface ImportPersonOption {
+  id: string;
+  name: string;
 }
 
 export interface SplitImportRowInput {
@@ -332,6 +344,7 @@ export interface ImportReview {
   status: string;
   rows: ImportRow[];
   concepts: ImportConceptOption[];
+  people?: ImportPersonOption[];
   analysis?: ImportAnalysis | null;
 }
 
@@ -375,6 +388,7 @@ export type ImportChatActionType =
   | "create_concept"
   | "link_planned"
   | "allocate_planned"
+  | "share_expense"
   | "unlink_planned"
   | "skip_planned"
   | "update_planned"
@@ -388,6 +402,8 @@ export interface ImportChatProposedAction {
   /** set_row_concept: categoría existente que se asignará. */
   conceptId?: string | null;
   conceptName?: string | null;
+  counterpartyId?: string | null;
+  counterpartyName?: string | null;
   /** create_concept: categoría nueva que se creará dentro de un grupo. */
   name?: string | null;
   groupId?: string | null;

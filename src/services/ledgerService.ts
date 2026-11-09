@@ -12,6 +12,7 @@ import type {
   ImportChatMessage,
   ImportChatResponse,
   SplitImportRowInput,
+  ShareImportRowInput,
   ImportReview,
   ImportRow,
   ImportPlannedAllocation,
@@ -264,6 +265,14 @@ export const LedgerService = {
       history,
     });
     return data;
+  },
+
+  shareImportRow: async (batchId: string, rowId: string, input: ShareImportRowInput): Promise<void> => {
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/shared-expense`, input);
+  },
+
+  unshareImportRow: async (batchId: string, rowId: string): Promise<void> => {
+    await apiClient.delete(`/imports/${batchId}/rows/${rowId}/shared-expense`);
   },
 };
 

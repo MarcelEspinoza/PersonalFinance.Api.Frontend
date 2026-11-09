@@ -229,6 +229,13 @@ const REMINDER_TOPICS: GlossaryItem[] = [
       "Si el recordatorio lleva importe, eliges si es un pago (sale dinero) o un cobro (entra dinero: te pagan o te devuelven). La previsión del mes lo cuenta como gasto o como ingreso. Si ese dinero ya está anotado en «Mes» o en una liquidación, déjalo sin importe para no contarlo dos veces.",
   },
   {
+    term: "Compartir un gasto",
+    meaning:
+      "Si pagaste también la parte de otra persona, pulsa Compartir durante la revisión del extracto. Indica quién te debe dinero, cuánto te devolverá y la categoría de tu parte. Al aplicar el lote, el banco conserva el pago completo, solo tu parte cuenta como gasto y el adelanto queda en Liquidaciones, sin exigir una fecha de devolución.",
+    example:
+      "Pagas 30 € en un bar: 15 € son tuyos y 15 € de tu mamá. Tu gasto es 15 €, el banco baja 30 € y tu mamá te debe 15 €. Cuando vinculas su devolución, se cancela la deuda sin contarla como un ingreso nuevo.",
+  },
+  {
     term: "Con la IA",
     meaning:
       "El asistente también puede proponerte recordatorios. Escríbele, por ejemplo, «recuérdame pagar el seguro de la casa el 30 de septiembre». Te muestra la propuesta y solo se crea cuando tú pulsas «Confirmar». En la lista salen con la etiqueta «IA».",
