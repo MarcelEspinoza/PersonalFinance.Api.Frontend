@@ -670,7 +670,7 @@ function PlanSources({ open, onToggle }: { open: boolean; onToggle: () => void }
               </li>
               <li>
                 En un gasto variable, toca el importe de un mes para ponerle un límite solo a ese mes. Sale en{" "}
-                <span className="rounded bg-amber-100 px-1 text-amber-900">amarillo</span>.
+                <span className="rounded bg-amber-100 dark:bg-amber-950/60 px-1 text-amber-900 dark:text-amber-200">amarillo</span>.
               </li>
               <li>
                 ¿Algo nuevo que pagas o cobras siempre igual? Usa{" "}
@@ -922,27 +922,23 @@ function AmountRow({
       <ConceptCell name={row.name} groupName={row.groupName} source={source} />
       {row.cells.map((cell, index) => {
         const month = months[index];
-        const overdue = !cell.paid && (month?.isCurrent || month?.isClosed);
+        const blank = Math.abs(cell.amount) < 0.005;
+        const overdue = !blank && !cell.paid && (month?.isCurrent || month?.isClosed);
+        const paid = !blank && cell.paid;
         return (
           <td
             key={index}
             className={cn(
               "border-t px-3 py-2 text-right align-top tabular-nums",
-              month?.isCurrent && "bg-primary/5",
+              paid ? "bg-positive-soft/80 text-positive" : overdue ? "bg-warning-soft/80 text-warning" : month?.isCurrent && "bg-primary/5",
             )}
+            title={paid ? doneLabel : overdue ? "Pendiente" : undefined}
           >
-            {Math.abs(cell.amount) < 0.005 ? (
+            {blank ? (
               <span className="text-muted-foreground/50">—</span>
             ) : (
               <>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1",
-                    cell.paid && "font-medium text-positive",
-                    overdue && "font-medium text-warning",
-                  )}
-                  title={cell.paid ? doneLabel : overdue ? "Pendiente" : undefined}
-                >
+                <span className={cn("inline-flex items-center gap-1", (paid || overdue) && "font-medium")}>
                   {cell.paid && <Check className="h-3.5 w-3.5" aria-label={doneLabel} />}
                   {euros(cell.amount)}
                 </span>
@@ -1005,8 +1001,8 @@ function VariableCell({
             title={variableTitle(cell, month)}
             className={cn(
               "rounded px-1.5 py-0.5 tabular-nums transition enabled:hover:bg-accent disabled:cursor-default",
-              cell.isOverride && "bg-amber-100 font-medium",
-              over ? "font-medium text-orange-600" : cell.isOverride && "text-amber-900",
+              cell.isOverride && "bg-amber-100 dark:bg-amber-950/60 font-medium",
+              over ? "font-medium text-orange-600" : cell.isOverride && "text-amber-900 dark:text-amber-200",
             )}
           >
             {empty ? <span className="text-muted-foreground/50">—</span> : euros(cell.counted)}
