@@ -29,7 +29,7 @@ export function PasanacoPage() {
       setSelectedId((current) =>
         current && data.some((item) => item.id === current)
           ? current
-          : data[0]?.id ?? null
+          : data.find((item) => !item.isCompleted)?.id ?? data[0]?.id ?? null
       );
       return data;
     } catch (err) {
@@ -79,9 +79,7 @@ export function PasanacoPage() {
 
     try {
       await pasanacoService.remove(id);
-      // eliminado ok
-      setPasanacos((prev) => prev.filter((p) => p.id !== id));
-      if (selectedId === id) setSelectedId(null);
+      await loadPasanacos();
     } catch (err: any) {
       // si 400 con related summary -> mostrar confirm y permitir force
       const status = err?.response?.status;
@@ -92,8 +90,7 @@ export function PasanacoPage() {
         if (!confirm(text)) return;
         try {
           await pasanacoService.remove(id, true); // force=true
-          setPasanacos((prev) => prev.filter((p) => p.id !== id));
-          if (selectedId === id) setSelectedId(null);
+          await loadPasanacos();
         } catch (err2: any) {
           console.error("Error borrando con force:", err2);
           alert(err2?.response?.data || "No se pudo forzar el borrado");
@@ -122,65 +119,37 @@ export function PasanacoPage() {
   }, [selectedId]);
 
   const selected = pasanacos.find((p) => p.id === selectedId);
-  const activePasanacos = pasanacos.filter((p) => !p.isCompleted);
-  const completedPasanacos = pasanacos.filter((p) => p.isCompleted);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Pasanaco"
-        description="Gestiona participantes, turnos y pagos sin perder de vista el estado de la ronda."
+        description="Quién cobra este mes, quién ya pagó y cuánto falta por cobrar."
         actions={<PasanacoModal onCreated={loadPasanacos} />}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">En curso</h2>
-            <p className="text-sm text-muted-foreground">{activePasanacos.length} pasanacos activos</p>
-          </div>
-          <PasanacoList
-            pasanacos={activePasanacos}
-            selectedPasanaco={selectedId}
-            loading={loading}
-            onSelect={setSelectedId}
-            onDelete={handleDelete}
-          />
-          {completedPasanacos.length > 0 && (
-            <div className="space-y-3 pt-4">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight">Histórico</h2>
-                <p className="text-xs text-muted-foreground">{completedPasanacos.length} finalizados</p>
-              </div>
-              <PasanacoList
-                pasanacos={completedPasanacos}
-                selectedPasanaco={selectedId}
-                loading={loading}
-                onSelect={setSelectedId}
-                onDelete={handleDelete}
-                historical
-              />
-            </div>
-          )}
-        </div>
+      <PasanacoList
+        pasanacos={pasanacos}
+        selectedId={selectedId}
+        loading={loading}
+        onSelect={setSelectedId}
+      />
 
-        <div>
-          {selected ? (
-            <PasanacoDetail
-              pasanaco={selected}
-              participants={participants}
-              payments={payments}
-              onRefresh={refreshAll}
-            />
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-muted-foreground">
-                Selecciona un pasanaco para ver detalles.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+      {selected ? (
+        <PasanacoDetail
+          pasanaco={selected}
+          participants={participants}
+          payments={payments}
+          onRefresh={refreshAll}
+          onDelete={() => void handleDelete(selected.id)}
+        />
+      ) : pasanacos.length > 0 ? (
+        <Card>
+          <CardContent className="p-6 text-muted-foreground">
+            Elige un pasanaco de la lista de arriba.
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { Banknote, Check, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Banknote, Check, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import {
   Dialog,
@@ -11,61 +11,42 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import pasanacoService, { Participant, PasanacoPayment } from "../../services/pasanacoService";
-import { getCurrentGameMonth } from "./PasanacoPage";
+import { euros } from "../../utils/civilDate";
+import { apiErrorText, monthLabel } from "./pasanacoFormat";
 
-interface ParticipantWithPayment extends Participant {
+export interface ParticipantWithPayment extends Participant {
   payment?: PasanacoPayment | null;
 }
 
 interface Props {
   participants: ParticipantWithPayment[];
-  payments: PasanacoPayment[];
   onRefresh: () => void;
-  startMonth: number;
-  startYear: number;
-  totalRounds: number;
   pasanacoId: string;
   monthlyAmount: number;
   quotaMonth: number;
   quotaYear: number;
+  currentRound: number;
   readOnly?: boolean;
 }
 
-function formatMonthYear(month: number, year: number) {
-  try {
-    const d = new Date(year, month - 1, 1);
-    const monthName = d.toLocaleString("es-ES", { month: "long" });
-    return `${monthName}/${year}`;
-  } catch {
-    return `${month}/${year}`;
-  }
-}
-
-export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount, quotaMonth, quotaYear, readOnly = false }: Props) {
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyAmount, quotaMonth, quotaYear, currentRound, readOnly = false }: Props) {
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [loanParticipant, setLoanParticipant] = useState<ParticipantWithPayment | null>(null);
   const [loanAmount, setLoanAmount] = useState(String(monthlyAmount ?? ""));
   const [loanBusy, setLoanBusy] = useState(false);
   const [loanError, setLoanError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!highlightedId) return;
-    const t = setTimeout(() => setHighlightedId(null), 1200);
-    return () => clearTimeout(t);
-  }, [highlightedId]);
+  if (participants.length === 0) {
+    return (
+      <section className="rounded-xl border bg-card p-4 text-sm text-muted-foreground shadow-sm">
+        Todavía no hay participantes. Añádelos en «Más opciones», abajo.
+      </section>
+    );
+  }
 
-  if (!participants || participants.length === 0) return <div className="text-sm text-muted-foreground">No hay participantes</div>;
-
-  const handleDelete = async (participantId: string) => {
-    if (!confirm("¿Eliminar participante?")) return;
-    try {
-      await pasanacoService.deleteParticipant(pasanacoId, participantId);
-      await onRefresh();
-    } catch (err) {
-      console.error("Error borrando participante", err);
-      alert("No se pudo eliminar participante");
-    }
-  };
+  const pending = participants.filter((p) => !p.payment?.paid);
+  const paid = participants.filter((p) => p.payment?.paid);
+  const quotaLabel = monthLabel(quotaMonth, quotaYear).toLowerCase();
 
   const openLoanDialog = (participant: ParticipantWithPayment) => {
     setLoanParticipant(participant);
@@ -77,105 +58,129 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
     if (!loanParticipant) return;
     const amount = Number(loanAmount.replace(",", "."));
     if (isNaN(amount) || amount <= 0) {
-      setLoanError("Introduce un importe válido mayor que cero.");
+      setLoanError("Escribe un importe mayor que cero.");
       return;
     }
 
     setLoanBusy(true);
     setLoanError(null);
     try {
-      await pasanacoService.createLoanForParticipant(
-        pasanacoId,
-        loanParticipant.id,
-        { amount, note: `Préstamo por pasanaco ${pasanacoId}` },
-      );
+      await pasanacoService.createLoanForParticipant(pasanacoId, loanParticipant.id, {
+        amount,
+        note: `Préstamo por pasanaco ${pasanacoId}`,
+      });
       setLoanParticipant(null);
       await onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error creando préstamo", err);
-      setLoanError(err?.response?.data || "No se pudo crear el préstamo");
+      setLoanError(apiErrorText(err, "No se pudo crear el préstamo"));
     } finally {
       setLoanBusy(false);
     }
   };
 
   const handleMarkPaid = async (participant: ParticipantWithPayment) => {
-    const payment = participant.payment ?? payments.find((x) => x.participantId === participant.id) ?? null;
-    if (payment?.paid) {
-      return alert("El pago ya está marcado como pagado.");
-    }
-    if (!confirm(`¿${participant.name} ya te pagó su cuota de ${formatMonthYear(quotaMonth, quotaYear)} (${monthlyAmount} €)?\n\nSirve también si te la dio en efectivo. No se crea ningún ingreso aparte.`)) return;
+    if (!confirm(`¿${participant.name} ya te pagó su cuota de ${quotaLabel} (${euros(monthlyAmount)})?\n\nSirve también si te la dio en efectivo. No se crea ningún ingreso aparte.`)) return;
 
+    setBusyId(participant.id);
     try {
       await pasanacoService.markQuotaPaid(pasanacoId, participant.id, quotaMonth, quotaYear);
-      // destacar visualmente
-      setHighlightedId(participant.id);
-      // recargar datos
       await onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error marcando pago como pagado", err);
-      alert(err?.response?.data || "No se pudo marcar el pago como pagado");
+      alert(apiErrorText(err, "No se pudo marcar el pago como pagado"));
+    } finally {
+      setBusyId(null);
     }
   };
 
+  const nameCell = (p: ParticipantWithPayment) => (
+    <div className="min-w-0 flex-1">
+      <div className="truncate text-sm font-medium" title={p.name}>{p.name}</div>
+      {p.assignedNumber === currentRound && <div className="text-xs text-primary">Cobra este mes</div>}
+    </div>
+  );
+
+  const numberBadge = (p: ParticipantWithPayment, tone: string) => (
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${tone}`}>
+      #{p.assignedNumber}
+    </span>
+  );
+
   return (
     <>
-      <ul className="grid max-h-[60vh] gap-3 overflow-auto pr-1 xl:grid-cols-2">
-        {participants.map((p) => {
-          const payment = p.payment ?? payments.find((x) => x.participantId === p.id) ?? null;
-          const { month, year } = getCurrentGameMonth(startMonth, startYear, p.assignedNumber);
-          const displayMonth = isNaN(month) ? "—" : formatMonthYear(month, year);
-
-          const isHighlighted = highlightedId === p.id;
-
-          return (
-            <li
-              key={p.id}
-              className={`rounded-xl border p-4 transition ${isHighlighted ? "border-positive/30 bg-positive-soft animate-pulse" : p.hasReceived ? "bg-muted/60 opacity-60" : "bg-card hover:border-primary/20"}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-semibold ${p.hasReceived ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
-                  #{p.assignedNumber}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-card-foreground" title={p.name}>{p.name}</div>
-                  <div className="text-xs text-muted-foreground">Mes: {displayMonth}{p.hasReceived ? " · Ya cobró el bote" : ""}</div>
-                </div>
-              </div>
-                <div className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : "bg-warning-soft text-warning"}`}>
-                  {payment?.paid ? "Pagado" : "Pendiente"}
-                </div>
-              </div>
-
-              {!readOnly && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
-                  <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
-                    <Banknote /> Crear préstamo
-                  </Button>
-                  {!payment?.paid && (
-                    <Button type="button" size="sm" onClick={() => void handleMarkPaid(p)}>
-                      <Check /> Marcar pagado
-                    </Button>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-xl border bg-card shadow-sm">
+          <header className="flex items-center justify-between border-b px-4 py-3">
+            <h3 className="font-semibold">Faltan por pagar</h3>
+            <span className="rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning">
+              {pending.length} · {euros(pending.length * monthlyAmount)}
+            </span>
+          </header>
+          {pending.length === 0 ? (
+            <p className="flex items-center gap-2 px-4 py-6 text-sm text-positive">
+              <CheckCircle2 className="h-4 w-4" /> Todos pagaron la cuota de {quotaLabel}.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {pending.map((p) => (
+                <li key={p.id} className="flex items-center gap-3 px-4 py-2">
+                  {numberBadge(p, "bg-warning-soft text-warning")}
+                  {nameCell(p)}
+                  {!readOnly && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Le presto la cuota (crear préstamo)"
+                        aria-label={`Prestar la cuota a ${p.name}`}
+                        onClick={() => openLoanDialog(p)}
+                      >
+                        <Banknote />
+                      </Button>
+                      <Button type="button" size="sm" disabled={busyId === p.id} onClick={() => void handleMarkPaid(p)}>
+                        <Check /> Ya pagó
+                      </Button>
+                    </>
                   )}
-                  <Button type="button" variant="ghost" size="icon" className="ml-auto text-negative" onClick={() => void handleDelete(p.id)} aria-label={`Eliminar ${p.name}`}>
-                    <Trash2 />
-                  </Button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-xl border bg-card shadow-sm">
+          <header className="flex items-center justify-between border-b px-4 py-3">
+            <h3 className="font-semibold">Ya pagaron</h3>
+            <span className="rounded-full bg-positive-soft px-2.5 py-0.5 text-xs font-medium text-positive">
+              {paid.length} · {euros(paid.length * monthlyAmount)}
+            </span>
+          </header>
+          {paid.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">Nadie ha pagado todavía la cuota de {quotaLabel}.</p>
+          ) : (
+            <ul className="divide-y">
+              {paid.map((p) => (
+                <li key={p.id} className="flex items-center gap-3 px-4 py-2">
+                  {numberBadge(p, "bg-positive-soft text-positive")}
+                  {nameCell(p)}
+                  <Check className="h-4 w-4 shrink-0 text-positive" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       <Dialog open={loanParticipant !== null} onOpenChange={(open) => !open && setLoanParticipant(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Crear préstamo</DialogTitle>
+            <DialogTitle>Prestar la cuota</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Registra el importe prestado a <span className="font-medium text-foreground">{loanParticipant?.name}</span>.
+              Apunta cuánto le prestas a <span className="font-medium text-foreground">{loanParticipant?.name}</span> para pagar su cuota. Quedará en Préstamos como dinero que te debe.
             </p>
             <div className="space-y-2">
               <Label htmlFor="participant-loan-amount">Importe</Label>
