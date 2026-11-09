@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Archive, ArrowLeft, ArrowRight, Check, RotateCcw, Trash2, UserMinus } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, RotateCcw, Trash2, UserMinus } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Participant,
@@ -9,7 +9,8 @@ import {
 } from "../../services/pasanacoService";
 import { euros } from "../../utils/civilDate";
 import { ParticipantsList } from "./ParticipantsList";
-import { apiErrorText, monthLabel, shortMonthLabel } from "./pasanacoFormat";
+import { apiErrorText, monthLabel } from "./pasanacoFormat";
+import { TurnsCalendar, type CalendarTurn } from "./TurnsCalendar";
 
 interface Props {
   pasanaco: Pasanaco;
@@ -221,6 +222,19 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
         )}
       </section>
 
+      <TurnsCalendar
+        turns={Array.from({ length: totalAllowed }, (_, i) => i + 1).map((n): CalendarTurn => {
+          const turn = getCurrentGameMonth(pasanaco.startMonth, pasanaco.startYear, n);
+          return {
+            number: n,
+            name: enriched.find((p) => p.assignedNumber === n)?.name,
+            month: turn.month,
+            year: turn.year,
+            status: readOnly || n < round ? "done" : n === round ? "current" : "upcoming",
+          };
+        })}
+      />
+
       <ParticipantsList
         participants={enriched}
         onRefresh={onRefresh}
@@ -231,38 +245,6 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
         currentRound={round}
         readOnly={readOnly}
       />
-
-      <section className="rounded-xl border bg-card p-4 shadow-sm">
-        <h3 className="font-semibold">Turnos</h3>
-        <p className="text-sm text-muted-foreground">Quién cobra el bote cada mes.</p>
-        <ol className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {Array.from({ length: totalAllowed }, (_, i) => i + 1).map((n) => {
-            const person = enriched.find((p) => p.assignedNumber === n);
-            const turn = getCurrentGameMonth(pasanaco.startMonth, pasanaco.startYear, n);
-            const done = readOnly || n < round;
-            const current = !readOnly && n === round;
-            return (
-              <li
-                key={n}
-                className={`rounded-lg border p-2 text-xs ${
-                  current ? "border-primary bg-primary/10" : done ? "bg-muted/60 text-muted-foreground" : "bg-card"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">#{n}</span>
-                  <span className="capitalize">{shortMonthLabel(turn.month, turn.year)}</span>
-                </div>
-                <div className={`mt-1 truncate text-sm font-medium ${done ? "" : "text-foreground"}`} title={person?.name}>
-                  {person?.name ?? "Sin asignar"}
-                </div>
-                <div className={`mt-0.5 flex items-center gap-1 ${current ? "font-medium text-primary" : ""}`}>
-                  {done ? <><Check className="h-3 w-3" /> Ya cobró</> : current ? "Cobra ahora" : "Por cobrar"}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
 
       {!readOnly && (
         <details className="rounded-xl border bg-card p-4 shadow-sm" open={missingParticipants > 0}>
