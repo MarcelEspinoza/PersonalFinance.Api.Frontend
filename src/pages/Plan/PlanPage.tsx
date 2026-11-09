@@ -313,7 +313,8 @@ export function PlanPage() {
     );
   }
 
-  const income = data.income ?? [];
+  const income = mergeInstallments(data.income ?? []);
+  const fixedRows = mergeInstallments(data.fixed);
   const budgeted = data.variable.filter(hasPlan);
   const unbudgeted = data.variable.filter((row) => !hasPlan(row));
   const variableRows = showUnbudgeted ? [...budgeted, ...unbudgeted] : budgeted;
@@ -490,7 +491,7 @@ export function PlanPage() {
                 {data.fixed.length === 0 ? (
                   <EmptyRow columnCount={columnCount}>No hay gastos fijos en estos meses.</EmptyRow>
                 ) : (
-                  data.fixed.map((row) => (
+                  fixedRows.map((row) => (
                     <AmountRow
                       key={row.conceptId}
                       row={row}
@@ -864,13 +865,54 @@ function ConceptCell({ name, groupName, source }: { name: string; groupName?: st
   );
 }
 
+type PlanAmountCell = ExpensePlanFixedRow["cells"][number] & { installment?: string };
+type PlanAmountRow = Omit<ExpensePlanFixedRow, "cells"> & { cells: PlanAmountCell[] };
+
+const INSTALLMENT_NAME = /^(.*?)\s*(\d+)\s*\/\s*(\d+)\s*(.*)$/;
+
+function mergeInstallments(rows: ExpensePlanFixedRow[]): PlanAmountRow[] {
+  const result: PlanAmountRow[] = [];
+  const merged = new Map<string, PlanAmountRow>();
+  for (const row of rows) {
+    const match = row.groupName === REMINDER_GROUP ? INSTALLMENT_NAME.exec(row.name) : null;
+    if (!match) {
+      result.push(row);
+      continue;
+    }
+    const [, before, part, total, after] = match;
+    const base = [before, after].filter(Boolean).join(" ");
+    const key = `${base.toLowerCase()}|${total}`;
+    const cells: PlanAmountCell[] = row.cells.map((cell) =>
+      Math.abs(cell.amount) < 0.005 ? { ...cell } : { ...cell, installment: `${part}/${total}` },
+    );
+    const existing = merged.get(key);
+    if (!existing) {
+      const created: PlanAmountRow = { ...row, name: `${base} (en ${total} cuotas)`, cells };
+      merged.set(key, created);
+      result.push(created);
+      continue;
+    }
+    existing.cells = existing.cells.map((cell, index) => {
+      const next = cells[index];
+      if (!next || Math.abs(next.amount) < 0.005) return cell;
+      if (Math.abs(cell.amount) < 0.005) return next;
+      return {
+        amount: cell.amount + next.amount,
+        paid: cell.paid && next.paid,
+        installment: `${cell.installment} + ${next.installment}`,
+      };
+    });
+  }
+  return result;
+}
+
 function AmountRow({
   row,
   months,
   source,
   doneLabel,
 }: {
-  row: ExpensePlanFixedRow;
+  row: PlanAmountRow;
   months: ExpensePlanMonth[];
   source: ReactNode;
   doneLabel: string;
@@ -878,24 +920,40 @@ function AmountRow({
   return (
     <tr>
       <ConceptCell name={row.name} groupName={row.groupName} source={source} />
-      {row.cells.map((cell, index) => (
-        <td
-          key={index}
-          className={cn(
-            "border-t px-3 py-2 text-right align-top tabular-nums",
-            months[index]?.isCurrent && "bg-primary/5",
-          )}
-        >
-          {Math.abs(cell.amount) < 0.005 ? (
-            <span className="text-muted-foreground/50">—</span>
-          ) : (
-            <span className="inline-flex items-center gap-1">
-              {cell.paid && <Check className="h-3.5 w-3.5 text-positive" aria-label={doneLabel} />}
-              {euros(cell.amount)}
-            </span>
-          )}
-        </td>
-      ))}
+      {row.cells.map((cell, index) => {
+        const month = months[index];
+        const overdue = !cell.paid && (month?.isCurrent || month?.isClosed);
+        return (
+          <td
+            key={index}
+            className={cn(
+              "border-t px-3 py-2 text-right align-top tabular-nums",
+              month?.isCurrent && "bg-primary/5",
+            )}
+          >
+            {Math.abs(cell.amount) < 0.005 ? (
+              <span className="text-muted-foreground/50">—</span>
+            ) : (
+              <>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1",
+                    cell.paid && "font-medium text-positive",
+                    overdue && "font-medium text-warning",
+                  )}
+                  title={cell.paid ? doneLabel : overdue ? "Pendiente" : undefined}
+                >
+                  {cell.paid && <Check className="h-3.5 w-3.5" aria-label={doneLabel} />}
+                  {euros(cell.amount)}
+                </span>
+                {cell.installment && (
+                  <div className="text-[11px] text-muted-foreground">cuota {cell.installment}</div>
+                )}
+              </>
+            )}
+          </td>
+        );
+      })}
     </tr>
   );
 }
