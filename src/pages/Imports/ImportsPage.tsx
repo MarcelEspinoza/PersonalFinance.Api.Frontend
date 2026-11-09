@@ -55,6 +55,7 @@ import type {
   ImportRow,
   ImportPlannedAllocation,
   PlannedCandidate,
+  PendingImport,
   UpdateLedgerEntryPayload,
 } from "../../types/ledger";
 import { useImportProgress } from "../../contexts/ImportProgressContext";
@@ -157,6 +158,7 @@ export function ImportsPage() {
   const [accountId, setAccountId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [review, setReview] = useState<ImportReview | null>(null);
+  const [pendingImports, setPendingImports] = useState<PendingImport[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,11 +192,15 @@ export function ImportsPage() {
   const loadAccounts = async () => {
     setLoading(true);
     try {
-      const loaded = await LedgerService.getAccounts();
+      const [loaded, pending] = await Promise.all([
+        LedgerService.getAccounts(),
+        LedgerService.getPendingImports(),
+      ]);
       setAccounts(loaded);
+      setPendingImports(pending);
       setAccountId((current) => current || loaded[0]?.id || "");
     } catch (err) {
-      setError(ledgerErrorMessage(err, "No se han podido cargar las cuentas."));
+      setError(ledgerErrorMessage(err, "No se han podido cargar las cuentas y las importaciones pendientes."));
     } finally {
       setLoading(false);
     }
@@ -208,6 +214,26 @@ export function ImportsPage() {
     const data = await fetchReviewData(batchId, withCandidates);
     setReview(data.review);
     setPlannedCandidates(data.candidates);
+  };
+
+  const resumeImport = async (batchId: string) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const data = await fetchReviewData(batchId);
+      setReview(data.review);
+      setPlannedCandidates(data.candidates);
+      setAccountId(data.review.accountId);
+      setFile(null);
+      setChatMessages([]);
+      setAssistantView("closed");
+      setMessage("Has retomado el mismo lote con sus cambios guardados. El chat y las propuestas pendientes de otra pestaña no se transfieren: conserva esa pestaña como referencia.");
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido retomar la importación."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -1027,6 +1053,34 @@ export function ImportsPage() {
 
       {error && <div className="flex gap-2 rounded-md border border-negative/25 bg-negative-soft p-3 text-sm text-negative"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
       {message && <div className="flex gap-2 rounded-md border border-positive/25 bg-positive-soft p-3 text-sm text-positive"><CheckCircle2 className="h-4 w-4 shrink-0" />{message}</div>}
+
+      {!review && pendingImports.length > 0 && (
+        <div className="space-y-3 rounded-lg border bg-card p-5">
+          <div>
+            <h2 className="font-semibold">Continuar una importación pendiente</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Recupera el mismo lote y los cambios que ya confirmaste, sin volver a subir el CSV.
+              El chat de otra pestaña no se copia; mantenla abierta como referencia.
+            </p>
+          </div>
+          <ul className="max-h-80 space-y-2 overflow-y-auto">
+            {pendingImports.map((batch) => (
+              <li key={batch.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-medium">{batch.fileName ?? "Extracto sin nombre"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {batch.accountName ?? "Sin cuenta"} · {batch.pendingRows} filas pendientes · {formatCivilDate(batch.createdAt)}
+                  </p>
+                </div>
+                <Button type="button" variant="outline" disabled={busy || importWorking}
+                  onClick={() => void resumeImport(batch.id)}>
+                  Continuar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!review && (
         <div className="rounded-lg border bg-card p-5 space-y-4">

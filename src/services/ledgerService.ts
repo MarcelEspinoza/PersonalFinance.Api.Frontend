@@ -14,6 +14,7 @@ import type {
   SplitImportRowInput,
   ShareImportRowInput,
   ImportReview,
+  PendingImport,
   ImportRow,
   ImportPlannedAllocation,
   MonthlyEntry,
@@ -157,6 +158,11 @@ export const LedgerService = {
 
   getImportReview: async (batchId: string): Promise<ImportReview> => {
     const { data } = await apiClient.get<ImportReview>(`/imports/${batchId}`);
+    return data;
+  },
+
+  getPendingImports: async (): Promise<PendingImport[]> => {
+    const { data } = await apiClient.get<PendingImport[]>("/imports");
     return data;
   },
 

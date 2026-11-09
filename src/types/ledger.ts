@@ -337,6 +337,15 @@ export interface SplitImportRowInput {
   allocations: ImportRowAllocation[];
 }
 
+export interface PendingImport {
+  id: string;
+  fileName?: string | null;
+  accountId?: string | null;
+  accountName?: string | null;
+  pendingRows: number;
+  createdAt: string;
+}
+
 export interface ImportReview {
   id: string;
   accountId: string;
