@@ -32,6 +32,7 @@ import {
   formatCivilDate,
   normalizeReminderRepeat,
   plannedEntryLabel,
+  plannedAllocationsFor,
   remainingIncludingRows,
   remainingText,
   truncateText,
@@ -50,6 +51,7 @@ import type {
   ImportFinding,
   ImportReview,
   ImportRow,
+  ImportPlannedAllocation,
   PlannedCandidate,
   UpdateLedgerEntryPayload,
 } from "../../types/ledger";
@@ -109,6 +111,7 @@ const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
   set_row_concept: Tags,
   create_concept: Plus,
   link_planned: CalendarClock,
+  allocate_planned: Layers3,
   unlink_planned: Undo2,
   skip_planned: MinusCircle,
   update_planned: Pencil,
@@ -421,7 +424,7 @@ export function ImportsPage() {
 
   const apply = async () => {
     if (!review) return;
-    const linkedRows = review.rows.filter((row) => row.plannedEntryId).length;
+    const linkedRows = review.rows.filter((row) => plannedAllocationsFor(row).length > 0).length;
     const linkedText =
       linkedRows === 0
         ? ""
@@ -576,18 +579,23 @@ export function ImportsPage() {
     setPlannedPickerError(null);
   };
 
-  const savePlannedLink = async (plannedEntryId: string | null) => {
+  const savePlannedLink = async (plannedEntryId: string | null, allocations?: ImportPlannedAllocation[]) => {
     if (!review || !plannedPickerRow) return;
     const batchId = review.id;
     setPlannedPickerSaving(true);
     setPlannedPickerError(null);
     try {
-      await LedgerService.setRowPlannedEntry(batchId, plannedPickerRow.id, plannedEntryId);
+      if (allocations) {
+        await LedgerService.setRowPlannedAllocations(batchId, plannedPickerRow.id, allocations);
+      } else {
+        await LedgerService.setRowPlannedEntry(batchId, plannedPickerRow.id, plannedEntryId);
+      }
     } catch (err) {
       setPlannedPickerError(
         ledgerErrorMessage(
           err,
-          plannedEntryId ? "No se ha podido vincular el movimiento al previsto." : "No se ha podido quitar el vínculo.",
+          allocations ? "No se ha podido guardar el reparto." :
+            plannedEntryId ? "No se ha podido vincular el movimiento al previsto." : "No se ha podido quitar el vínculo.",
         ),
       );
       setPlannedPickerSaving(false);
@@ -676,6 +684,13 @@ export function ImportsPage() {
         for (const rowId of rowIds) {
           await LedgerService.setRowPlannedEntry(batchId, rowId, action.plannedEntryId);
         }
+        return;
+      }
+      case "allocate_planned": {
+        if (rowIds.length !== 1 || !action.plannedAllocations?.length) {
+          throw new ChatActionError("La propuesta no indica el movimiento y los importes del reparto.");
+        }
+        await LedgerService.setRowPlannedAllocations(batchId, rowIds[0], action.plannedAllocations);
         return;
       }
       case "unlink_planned": {
@@ -831,9 +846,18 @@ export function ImportsPage() {
           );
         }
         break;
+      case "allocate_planned":
+        for (const part of action.plannedAllocations ?? []) {
+          const candidate = plannedById.get(part.plannedEntryId);
+          lines.push(`${money(part.amount)} para «${candidate ? plannedEntryLabel(candidate) : "Previsto"}»${
+            candidate ? ` · vence el ${formatCivilDate(candidate.dueDate)}` : ""}`);
+        }
+        lines.push("Se conserva un solo movimiento bancario; no se descarta ningún previsto.");
+        break;
       case "unlink_planned": {
         const names = Array.from(
-          new Set(rows.map((row) => plannedNameFor(row.plannedEntryId)).filter((name): name is string => Boolean(name))),
+          new Set(rows.flatMap(plannedAllocationsFor).map((part) => plannedNameFor(part.plannedEntryId))
+            .filter((name): name is string => Boolean(name))),
         );
         if (names.length > 0) {
           lines.push(`Ahora se descuenta${rows.length === 1 ? "" : "n"} de ${names.map((name) => `«${name}»`).join(", ")}.`);
@@ -1217,11 +1241,19 @@ export function ImportsPage() {
                     }).join(" · ");
                     const reviewOpen = review.status !== "Applied";
                     const linkedPlannedName = plannedNameFor(row.plannedEntryId);
-                    const linkedPlannedText = linkedPlannedName ? `«${linkedPlannedName}»` : "un previsto";
+                    const hasPlannedLinks = plannedAllocationsFor(row).length > 0;
+                    const linkedPlannedText = row.plannedAllocations?.length
+                      ? row.plannedAllocations.map((part) => {
+                          const candidate = plannedById.get(part.plannedEntryId);
+                          const dueDate = candidate?.dueDate ?? part.dueDate;
+                          return `${money(part.amount)} de «${candidate ? plannedEntryLabel(candidate) : part.plannedEntryName ?? "Previsto"}»${
+                            dueDate ? ` (${formatCivilDate(dueDate)})` : ""}`;
+                        }).join(" · ")
+                      : linkedPlannedName ? `«${linkedPlannedName}»` : "un previsto";
                     const canLinkPlanned =
                       reviewOpen &&
                       row.status === "Pending" &&
-                      !row.plannedEntryId &&
+                      !hasPlannedLinks &&
                       plannedDirections.has(directionForAmount(row.amount));
                     return (
                       <tr key={row.id} className="border-t">
@@ -1247,19 +1279,19 @@ export function ImportsPage() {
                                 {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
                               </select>
                             )}
-                            {row.plannedEntryId ? (
+                            {hasPlannedLinks ? (
                               <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
                                 <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                                 {reviewOpen ? (
                                   <>
                                     <button
                                       type="button"
-                                      className="min-w-0 truncate text-left hover:underline disabled:opacity-50"
-                                      title="Cambiar el previsto del que se descuenta"
+                                      className="min-w-0 break-words text-left hover:underline disabled:opacity-50"
+                                      title="Editar los previstos y el reparto"
                                       disabled={busy}
                                       onClick={() => openPlannedPicker(row)}
                                     >
-                                      Descuenta de {linkedPlannedText}
+                                      {row.plannedAllocations?.length ? "Reparto: " : "Descuenta de "}{linkedPlannedText}
                                     </button>
                                     <button
                                       type="button"
@@ -1273,7 +1305,9 @@ export function ImportsPage() {
                                     </button>
                                   </>
                                 ) : (
-                                  <span className="min-w-0 truncate pr-1">Descontado de {linkedPlannedText}</span>
+                                  <span className="min-w-0 break-words pr-1">
+                                    {row.plannedAllocations?.length ? "Repartido: " : "Descontado de "}{linkedPlannedText}
+                                  </span>
                                 )}
                               </div>
                             ) : canLinkPlanned && splitSummary ? (
@@ -1348,6 +1382,7 @@ export function ImportsPage() {
         saving={plannedPickerSaving}
         error={plannedPickerError}
         onPick={pickPlannedEntry}
+        onSave={(allocations) => void savePlannedLink(null, allocations)}
         onUnlink={() => void savePlannedLink(null)}
         onClose={closePlannedPicker}
       />

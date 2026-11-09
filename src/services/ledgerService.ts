@@ -14,6 +14,7 @@ import type {
   SplitImportRowInput,
   ImportReview,
   ImportRow,
+  ImportPlannedAllocation,
   MonthlyEntry,
   MonthlySummary,
   PlannedCandidate,
@@ -243,6 +244,14 @@ export const LedgerService = {
   /** Links a row to a planned entry (null unlinks it). The response body is ignored: reload the review. */
   setRowPlannedEntry: async (batchId: string, rowId: string, plannedEntryId: string | null): Promise<void> => {
     await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-entry`, { plannedEntryId });
+  },
+
+  setRowPlannedAllocations: async (
+    batchId: string,
+    rowId: string,
+    allocations: ImportPlannedAllocation[],
+  ): Promise<void> => {
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-allocations`, { allocations });
   },
 
   chatImport: async (

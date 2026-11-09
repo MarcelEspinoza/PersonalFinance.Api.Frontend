@@ -249,9 +249,9 @@ const IMPORT_NEWS: GlossaryItem[] = [
   {
     term: "Descontar de un previsto",
     meaning:
-      "Sirve cuando varios pagos salen de un mismo previsto. En cada pago usa «Descontar de un previsto» y elige el previsto. Al aplicar el lote, los pagos se restan de él: si entre todos llegan a lo previsto o lo superan, el previsto se cierra; si no, queda pendiente lo que falta.",
+      "Puedes descontar varios pagos de un mismo previsto o usar «Repartir el pago» para cubrir varios previstos de la misma categoría con un solo movimiento. Indica cuánto corresponde a cada uno: el reparto debe sumar exactamente el pago. Al aplicar el lote, cada previsto se reduce o queda cubierto sin duplicar el movimiento bancario.",
     example:
-      "Tienes el previsto «Viajes y alojamiento» de 600 € y en el extracto vienen el hotel (250 €) y el vuelo (200 €). Los descuentas de «Viajes y alojamiento» y quedan 150 € pendientes. Si después pagas un tren de 180 €, ya superas los 600 € y el previsto se cierra.",
+      "Un Bizum de 35 € paga dos previsiones de cuidados de Zeus: asignas 25 € a una y 10 € a la otra. Queda un solo pago de 35 €, ambas previsiones quedan cubiertas y las estancias conservan su historial.",
   },
   {
     term: "Con la IA",

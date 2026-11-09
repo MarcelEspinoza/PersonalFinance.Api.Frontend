@@ -1,14 +1,16 @@
 import { CalendarClock, Check, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { cn } from "../../lib/utils";
-import type { ImportRow, PlannedCandidate } from "../../types/ledger";
+import type { ImportPlannedAllocation, ImportRow, PlannedCandidate } from "../../types/ledger";
 import { money } from "../../utils/civilDate";
 import {
   candidatesForRow,
   formatAmount,
   formatCivilDate,
   plannedEntryLabel,
+  plannedAllocationsFor,
   remainingIncludingRows,
   remainingText,
   truncateText,
@@ -21,6 +23,7 @@ interface PlannedEntryPickerDialogProps {
   saving: boolean;
   error: string | null;
   onPick: (candidate: PlannedCandidate) => void;
+  onSave: (allocations: ImportPlannedAllocation[]) => void;
   onUnlink: () => void;
   onClose: () => void;
 }
@@ -31,11 +34,38 @@ export function PlannedEntryPickerDialog({
   saving,
   error,
   onPick,
+  onSave,
   onUnlink,
   onClose,
 }: PlannedEntryPickerDialogProps) {
+  const [multiple, setMultiple] = useState(false);
+  const [parts, setParts] = useState<ImportPlannedAllocation[]>([]);
+  useEffect(() => {
+    setMultiple(Boolean(row?.plannedAllocations?.length));
+    setParts(row?.plannedAllocations ?? []);
+  }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
   const linkedId = row?.plannedEntryId ?? null;
+  const current = row ? plannedAllocationsFor(row) : [];
+  const cents = (amount: number) => Math.round(amount * 100);
+  const total = parts.reduce((sum, part) => sum + cents(part.amount), 0);
+  const bankTotal = cents(Math.abs(row?.amount ?? 0));
+  const selectedCategory = options.find((candidate) => candidate.id === parts[0]?.plannedEntryId)?.conceptId;
+  const available = (candidate: PlannedCandidate) => cents(candidate.remainingAfterLinks) +
+    current.filter((part) => part.plannedEntryId === candidate.id).reduce((sum, part) => sum + cents(part.amount), 0);
+  const valid = parts.length > 0 && total === bankTotal && parts.every((part) => {
+    const candidate = options.find((option) => option.id === part.plannedEntryId);
+    return candidate && candidate.conceptId === selectedCategory && Number.isFinite(part.amount) &&
+      part.amount > 0 && cents(part.amount) / 100 === part.amount && cents(part.amount) <= available(candidate);
+  });
+  const toggle = (candidate: PlannedCandidate) => {
+    setParts((previous) => previous.some((part) => part.plannedEntryId === candidate.id)
+      ? previous.filter((part) => part.plannedEntryId !== candidate.id)
+      : [...previous, {
+          plannedEntryId: candidate.id,
+          amount: Math.max(0, Math.min(available(candidate), bankTotal - total)) / 100,
+        }]);
+  };
 
   return (
     <Dialog
@@ -46,10 +76,10 @@ export function PlannedEntryPickerDialog({
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Descontar de un previsto</DialogTitle>
+          <DialogTitle>Descontar de previstos</DialogTitle>
           <DialogDescription>
-            Al aplicar el lote, este movimiento se restará del previsto que elijas. Si lo cubre por completo, el
-            previsto se cierra; si no, queda pendiente lo que falte.
+            Puedes descontar todo de un previsto o repartir el pago entre varios de la misma categoría.
+            Se registra un solo movimiento bancario y cada previsto conserva su historial.
           </DialogDescription>
         </DialogHeader>
         {row && (
@@ -58,6 +88,22 @@ export function PlannedEntryPickerDialog({
               {formatCivilDate(row.valueDate)} · {truncateText(row.rawDescription, 80)} ·{" "}
               <span className="font-medium tabular-nums">{formatAmount(row.amount, row.currency)}</span>
             </p>
+            <div className="flex gap-2">
+              <Button type="button" variant={multiple ? "outline" : "default"} disabled={saving} onClick={() => setMultiple(false)}>
+                Un previsto
+              </Button>
+              <Button type="button" variant={multiple ? "default" : "outline"} disabled={saving} onClick={() => setMultiple(true)}>
+                Repartir el pago
+              </Button>
+            </div>
+            {multiple && (
+              <p className="text-sm" aria-live="polite">
+                Repartido {money(total / 100)} de {money(bankTotal / 100)}.
+                {total !== bankTotal && ` ${total < bankTotal ? "Faltan" : "Sobran"} ${money(Math.abs(bankTotal - total) / 100)}.`}
+                {" "}Selecciona los previstos e indica cuánto corresponde a cada uno.
+                {" "}Usa importes positivos de hasta dos decimales, sin superar lo disponible.
+              </p>
+            )}
             {options.length === 0 ? (
               <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                 No hay previstos abiertos de {row.amount < 0 ? "gasto" : "ingreso"} cerca de las fechas de este
@@ -67,6 +113,8 @@ export function PlannedEntryPickerDialog({
               <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
                 {options.map((candidate) => {
                   const linked = candidate.id === linkedId;
+                  const part = parts.find((allocation) => allocation.plannedEntryId === candidate.id);
+                  const incompatible = parts.length > 0 && candidate.conceptId !== selectedCategory;
                   const label = plannedEntryLabel(candidate);
                   const after = remainingIncludingRows(candidate, [row]);
                   const otherRows = candidate.linkedRowIds.filter((rowId) => rowId !== row.id).length;
@@ -77,6 +125,34 @@ export function PlannedEntryPickerDialog({
                   ].filter(Boolean);
                   return (
                     <li key={candidate.id}>
+                      {multiple ? (
+                        <div className={cn("rounded-md border p-3 text-sm", part && "border-primary bg-primary/5")}>
+                          <label className="flex items-start gap-2">
+                            <input type="checkbox" checked={Boolean(part)} disabled={saving || (!part && (incompatible || available(candidate) <= 0))}
+                              className="mt-1" onChange={() => toggle(candidate)} />
+                            <span className="min-w-0">
+                              <span className="font-medium">{label}</span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">{details.join(" · ")}</span>
+                              <span className="mt-1 block text-xs">Disponible {money(available(candidate) / 100)}</span>
+                              {incompatible && <span className="block text-xs text-muted-foreground">Es de otra categoría.</span>}
+                            </span>
+                          </label>
+                          {part && (
+                            <label className="mt-2 flex items-center gap-2">
+                              Importe
+                              <input type="number" min="0.01" max={available(candidate) / 100} step="0.01"
+                                value={part.amount || ""} disabled={saving}
+                                className="h-8 w-28 rounded-md border bg-background px-2 tabular-nums"
+                                onChange={(event) => {
+                                  const amount = Number(event.target.value);
+                                  setParts((previous) => previous.map((allocation) =>
+                                    allocation.plannedEntryId === candidate.id ? { ...allocation, amount } : allocation));
+                                }} />
+                              €
+                            </label>
+                          )}
+                        </div>
+                      ) : (
                       <button
                         type="button"
                         disabled={saving}
@@ -120,6 +196,7 @@ export function PlannedEntryPickerDialog({
                           </div>
                         </div>
                       </button>
+                      )}
                     </li>
                   );
                 })}
@@ -134,7 +211,7 @@ export function PlannedEntryPickerDialog({
               <Loader2 className="h-3 w-3 animate-spin" /> Guardando…
             </span>
           )}
-          {linkedId && (
+          {(linkedId || current.length > 0) && (
             <Button type="button" variant="outline" onClick={onUnlink} disabled={saving}>
               Quitar vínculo
             </Button>
@@ -142,6 +219,11 @@ export function PlannedEntryPickerDialog({
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
+          {multiple && (
+            <Button type="button" onClick={() => onSave(parts)} disabled={saving || !valid}>
+              Guardar reparto
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

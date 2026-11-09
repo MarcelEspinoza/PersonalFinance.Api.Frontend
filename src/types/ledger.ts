@@ -285,6 +285,14 @@ export interface ImportRow {
   allocations: ImportRowAllocation[];
   /** Planned entry this row will be deducted from when the batch is applied. */
   plannedEntryId?: string | null;
+  plannedAllocations?: ImportPlannedAllocation[];
+}
+
+export interface ImportPlannedAllocation {
+  plannedEntryId: string;
+  amount: number;
+  plannedEntryName?: string | null;
+  dueDate?: CivilDate | null;
 }
 
 /**
@@ -366,6 +374,7 @@ export type ImportChatActionType =
   | "set_row_concept"
   | "create_concept"
   | "link_planned"
+  | "allocate_planned"
   | "unlink_planned"
   | "skip_planned"
   | "update_planned"
@@ -389,6 +398,7 @@ export interface ImportChatProposedAction {
   /** link_planned, skip_planned and update_planned: the planned entry involved. */
   plannedEntryId?: string | null;
   plannedEntryName?: string | null;
+  plannedAllocations?: ImportPlannedAllocation[];
   /** update_planned: new forecast amount. create_reminder: optional amount. */
   amount?: number | null;
   /** update_planned: new due date. create_reminder: reminder date. */

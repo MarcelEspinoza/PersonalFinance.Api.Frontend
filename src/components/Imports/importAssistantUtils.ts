@@ -1,5 +1,5 @@
 import { EntryDirection } from "../../types/ledger";
-import type { CivilDate, ImportRow, PlannedCandidate } from "../../types/ledger";
+import type { CivilDate, ImportPlannedAllocation, ImportRow, PlannedCandidate } from "../../types/ledger";
 import type { ReminderRepeat } from "../../types/reminder";
 import { money } from "../../utils/civilDate";
 
@@ -49,13 +49,19 @@ export function candidatesForRow(candidates: PlannedCandidate[], row: ImportRow)
     );
 }
 
+export function plannedAllocationsFor(row: ImportRow): ImportPlannedAllocation[] {
+  if (row.plannedAllocations?.length) return row.plannedAllocations;
+  return row.plannedEntryId ? [{ plannedEntryId: row.plannedEntryId, amount: Math.abs(row.amount) }] : [];
+}
+
 /**
  * What would remain of the planned entry once these rows are deducted too.
  * Rows already linked to it are counted in remainingAfterLinks, so they are not subtracted twice.
  */
 export function remainingIncludingRows(candidate: PlannedCandidate, rows: ImportRow[]): number {
   const extra = rows
-    .filter((row) => row.plannedEntryId !== candidate.id && !candidate.linkedRowIds.includes(row.id))
+    .filter((row) => !plannedAllocationsFor(row).some((link) => link.plannedEntryId === candidate.id) &&
+      !candidate.linkedRowIds.includes(row.id))
     .reduce((sum, row) => sum + Math.abs(row.amount), 0);
   return candidate.remainingAfterLinks - extra;
 }
