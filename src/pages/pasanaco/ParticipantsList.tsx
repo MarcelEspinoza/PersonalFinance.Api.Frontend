@@ -132,16 +132,16 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
           return (
             <li
               key={p.id}
-              className={`rounded-xl border p-4 transition ${isHighlighted ? "border-positive/30 bg-positive-soft animate-pulse" : "bg-card hover:border-primary/20"}`}
+              className={`rounded-xl border p-4 transition ${isHighlighted ? "border-positive/30 bg-positive-soft animate-pulse" : p.hasReceived ? "bg-muted/60 opacity-60" : "bg-card hover:border-primary/20"}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-semibold ${p.hasReceived ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
                   #{p.assignedNumber}
                 </div>
                 <div className="min-w-0">
                   <div className="truncate font-medium text-card-foreground" title={p.name}>{p.name}</div>
-                  <div className="text-xs text-muted-foreground">Mes: {displayMonth}</div>
+                  <div className="text-xs text-muted-foreground">Mes: {displayMonth}{p.hasReceived ? " · Ya cobró el bote" : ""}</div>
                 </div>
               </div>
                 <div className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : payment ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>

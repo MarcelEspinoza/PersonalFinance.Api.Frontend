@@ -991,7 +991,8 @@ export function ImportsPage() {
         if (!setup) break;
         for (const participant of [...setup.participants].sort((a, b) => a.assignedNumber - b.assignedNumber)) {
           lines.push(`${participant.assignedNumber} · ${participant.name} · ${
-            pasanacoRoundMonth(setup.startYear, setup.startMonth, participant.assignedNumber)}`);
+            pasanacoRoundMonth(setup.startYear, setup.startMonth, participant.assignedNumber)}${
+            participant.assignedNumber < setup.currentRound ? " · ya cobró" : ""}`);
         }
         lines.push(
           "Solo se crea el pasanaco con sus números. No se crean préstamos, gastos ni ingresos.",
