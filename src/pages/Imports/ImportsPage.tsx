@@ -14,6 +14,7 @@ import {
   MessageCircle,
   MinusCircle,
   Pencil,
+  PiggyBank,
   Plus,
   ShieldCheck,
   Tags,
@@ -43,6 +44,7 @@ import {
 import { cn } from "../../lib/utils";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { ReminderService } from "../../services/reminderService";
+import { pasanacoService } from "../../services/pasanacoService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
 import type {
   Account,
@@ -122,7 +124,11 @@ const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
   update_planned: Pencil,
   create_reminder: Bell,
   pay_pasanaco_quota: Coins,
+  create_pasanaco: PiggyBank,
 };
+
+const pasanacoRoundMonth = (startYear: number, startMonth: number, round: number) =>
+  new Date(startYear, startMonth - 1 + round - 1, 1).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
 
 /** "open"/"minimized" only differ on small screens, where the panel is a bottom sheet. */
 type AssistantView = "closed" | "open" | "minimized";
@@ -810,6 +816,13 @@ export function ImportsPage() {
         });
         return;
       }
+      case "create_pasanaco": {
+        if (!action.pasanaco?.participants?.length) {
+          throw new ChatActionError("La propuesta no indica los datos del pasanaco.");
+        }
+        await pasanacoService.createWithParticipants(action.pasanaco);
+        return;
+      }
       default:
         throw new ChatActionError("Este tipo de cambio no está disponible.");
     }
@@ -973,6 +986,19 @@ export function ImportsPage() {
           "No se crea otro ingreso: el cobro del banco es el que cuenta.",
         );
         break;
+      case "create_pasanaco": {
+        const setup = action.pasanaco;
+        if (!setup) break;
+        for (const participant of [...setup.participants].sort((a, b) => a.assignedNumber - b.assignedNumber)) {
+          lines.push(`${participant.assignedNumber} · ${participant.name} · ${
+            pasanacoRoundMonth(setup.startYear, setup.startMonth, participant.assignedNumber)}`);
+        }
+        lines.push(
+          "Solo se crea el pasanaco con sus números. No se crean préstamos, gastos ni ingresos.",
+          "Después escríbeme otra vez para marcar la cuota del movimiento.",
+        );
+        break;
+      }
     }
     return lines.filter((line): line is string => Boolean(line));
   };

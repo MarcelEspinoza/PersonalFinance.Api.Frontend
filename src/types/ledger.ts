@@ -406,7 +406,8 @@ export type ImportChatActionType =
   | "skip_planned"
   | "update_planned"
   | "create_reminder"
-  | "pay_pasanaco_quota";
+  | "pay_pasanaco_quota"
+  | "create_pasanaco";
 
 /** Cambio que propone el asistente; no se aplica hasta que el usuario lo confirma. */
 export interface ImportChatProposedAction {
@@ -443,6 +444,15 @@ export interface ImportChatProposedAction {
   /** pay_pasanaco_quota: participant and month ("yyyy-MM") of the quota. */
   pasanacoParticipantId?: string | null;
   pasanacoMonth?: string | null;
+  /** create_pasanaco: the pasanaco and its numbers in turn order. */
+  pasanaco?: {
+    name: string;
+    monthlyAmount: number;
+    startMonth: number;
+    startYear: number;
+    currentRound: number;
+    participants: { name: string; assignedNumber: number }[];
+  } | null;
 }
 
 export interface ImportChatResponse {

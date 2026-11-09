@@ -20,6 +20,15 @@ export interface Participant {
   hasReceived: boolean;
 }
 
+export interface PasanacoSetup {
+  name: string;
+  monthlyAmount: number;
+  startMonth: number;
+  startYear: number;
+  currentRound: number;
+  participants: { name: string; assignedNumber: number }[];
+}
+
 export interface PasanacoPayment {
   id: string;
   pasanacoId: string;
@@ -37,6 +46,7 @@ export const pasanacoService = {
   getAll: () => apiClient.get<Pasanaco[]>("/pasanacos"),
   getById: (id: string) => apiClient.get<Pasanaco>(`/pasanacos/${id}`),
   create: (data: Partial<Pasanaco>) => apiClient.post("/pasanacos", data),
+  createWithParticipants: (data: PasanacoSetup) => apiClient.post<Pasanaco>("/pasanacos/with-participants", data),
   update: (id: string, data: Partial<Pasanaco>) =>
     apiClient.put(`/pasanacos/${id}`, data),
   complete: (id: string) => apiClient.post(`/pasanacos/${id}/complete`),
