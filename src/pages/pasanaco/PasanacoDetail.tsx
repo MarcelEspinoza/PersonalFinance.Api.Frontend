@@ -291,6 +291,8 @@ export function PasanacoDetail({
           totalRounds={pasanaco.totalParticipants}
           pasanacoId={pasanaco.id}
           monthlyAmount={pasanaco.monthlyAmount}
+          quotaMonth={month}
+          quotaYear={year}
           readOnly={pasanaco.isCompleted}
         />
       </div>

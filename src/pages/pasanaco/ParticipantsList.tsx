@@ -26,6 +26,8 @@ interface Props {
   totalRounds: number;
   pasanacoId: string;
   monthlyAmount: number;
+  quotaMonth: number;
+  quotaYear: number;
   readOnly?: boolean;
 }
 
@@ -39,7 +41,7 @@ function formatMonthYear(month: number, year: number) {
   }
 }
 
-export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount, readOnly = false }: Props) {
+export function ParticipantsList({ participants, payments, onRefresh, startMonth, startYear, totalRounds, pasanacoId, monthlyAmount, quotaMonth, quotaYear, readOnly = false }: Props) {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [loanParticipant, setLoanParticipant] = useState<ParticipantWithPayment | null>(null);
   const [loanAmount, setLoanAmount] = useState(String(monthlyAmount ?? ""));
@@ -99,16 +101,13 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
 
   const handleMarkPaid = async (participant: ParticipantWithPayment) => {
     const payment = participant.payment ?? payments.find((x) => x.participantId === participant.id) ?? null;
-    if (!payment) {
-      return alert("No existe un pago para este participante en este mes.");
-    }
-    if (payment.paid) {
+    if (payment?.paid) {
       return alert("El pago ya está marcado como pagado.");
     }
-    if (!confirm(`Marcar como pagado el pago de ${participant.name}?`)) return;
+    if (!confirm(`¿${participant.name} ya te pagó su cuota de ${formatMonthYear(quotaMonth, quotaYear)} (${monthlyAmount} €)?\n\nSirve también si te la dio en efectivo. No se crea ningún ingreso aparte.`)) return;
 
     try {
-      await pasanacoService.markPaymentAsPaid(payment.id);
+      await pasanacoService.markQuotaPaid(pasanacoId, participant.id, quotaMonth, quotaYear);
       // destacar visualmente
       setHighlightedId(participant.id);
       // recargar datos
@@ -144,8 +143,8 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                   <div className="text-xs text-muted-foreground">Mes: {displayMonth}{p.hasReceived ? " · Ya cobró el bote" : ""}</div>
                 </div>
               </div>
-                <div className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : payment ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
-                  {payment?.paid ? "Pagado" : payment ? "Pendiente" : "Sin pago"}
+                <div className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${payment?.paid ? "bg-positive-soft text-positive" : "bg-warning-soft text-warning"}`}>
+                  {payment?.paid ? "Pagado" : "Pendiente"}
                 </div>
               </div>
 
@@ -154,7 +153,7 @@ export function ParticipantsList({ participants, payments, onRefresh, startMonth
                   <Button type="button" variant="outline" size="sm" onClick={() => openLoanDialog(p)}>
                     <Banknote /> Crear préstamo
                   </Button>
-                  {payment && !payment.paid && (
+                  {!payment?.paid && (
                     <Button type="button" size="sm" onClick={() => void handleMarkPaid(p)}>
                       <Check /> Marcar pagado
                     </Button>
