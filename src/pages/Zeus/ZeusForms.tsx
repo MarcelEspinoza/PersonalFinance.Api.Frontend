@@ -310,8 +310,9 @@ export function ZeusUsageDialog({ usage, onClose, onSaved }: DialogProps & { usa
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="space-y-5">
             <label className={fieldClass}>Día de uso
-              <Input type="date" min="2000-01-01" max={today()} value={date} onChange={event => setDate(event.target.value)} required />
+              <Input type="date" min="2000-01-01" max="9998-12-31" value={date} onChange={event => setDate(event.target.value)} required />
             </label>
+            {date > today() && <p className="text-sm text-muted-foreground">Es un día futuro: quedará como previsto. Las horas se apartan ya de sus bonos, pero no cuentan como usadas hasta que llegue ese día.</p>}
             <div className="grid grid-cols-2 gap-3">
               <label className={fieldClass}>Hora de entrada
                 <Input type="time" step="60" value={startTime} onChange={event => setStartTime(event.target.value)} required />

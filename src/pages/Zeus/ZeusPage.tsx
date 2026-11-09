@@ -137,7 +137,10 @@ export function ZeusPage() {
   } : null;
 
   const usages = summary?.usages.filter(usage => usage.date.startsWith(month)) ?? [];
-  const usedThisMonth = usages.reduce((total, usage) => total + usage.minutes, 0);
+  const usedThisMonth = usages.filter(usage => !usage.isPlanned).reduce((total, usage) => total + usage.minutes, 0);
+  const plannedThisMonth = usages.filter(usage => usage.isPlanned).reduce((total, usage) => total + usage.minutes, 0);
+  const plannedMinutes = summary?.plannedMinutes ?? 0;
+  const freeMinutes = (summary?.availableMinutes ?? 0) - plannedMinutes;
   const activePasses = summary?.passes.filter(pass => pass.remainingMinutes > 0) ?? [];
   const currentPass = [...activePasses].reverse()[0];
 
@@ -162,12 +165,17 @@ export function ZeusPage() {
                 <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium"><PawPrint className="h-4 w-4" />El rincón de Zeus</p>
                 <p className="text-sm text-teal-100">Horas que le quedan en la guardería</p>
                 <p className="mt-1 text-5xl font-semibold tracking-tight tabular-nums sm:text-6xl">{duration(summary.availableMinutes)}</p>
+                {plannedMinutes > 0 && (
+                  <p className="mt-2 text-sm text-teal-50">
+                    <strong>{duration(freeMinutes)}</strong> cuando pasen los días previstos ({duration(plannedMinutes)} previstas)
+                  </p>
+                )}
                 <p className="mt-3 max-w-sm text-sm text-teal-50">
                   {summary.passes.length === 0 ? "Empieza con su primer bono. Después, solo anota las horas de cada día."
                     : `${activePasses.length} ${activePasses.length === 1 ? "bono con horas" : "bonos con horas"} · Sin caducidad`}
                 </p>
               </div>
-              <Button onClick={() => setAttendance({ usage: null })} disabled={summary.availableMinutes === 0 || !!busy}
+              <Button onClick={() => setAttendance({ usage: null })} disabled={freeMinutes <= 0 || !!busy}
                 className="bg-white text-teal-900 hover:bg-teal-50">
                 <Clock className="mr-2 h-4 w-4" />Registrar horas
               </Button>
@@ -211,7 +219,9 @@ export function ZeusPage() {
                     <div>
                       <div className="mb-2 flex justify-between gap-2 text-sm">
                         <span><strong>{duration(pass.remainingMinutes)}</strong> disponibles</span>
-                        <span className="text-muted-foreground">{duration(pass.usedMinutes)} usadas</span>
+                        <span className="text-muted-foreground">
+                          {duration(pass.usedMinutes)} usadas{(pass.plannedMinutes ?? 0) > 0 && ` · ${duration(pass.plannedMinutes ?? 0)} previstas`}
+                        </span>
                       </div>
                       <div role="progressbar" aria-label={`Horas disponibles del bono del ${shortDate(pass.purchasedOn)}`}
                         aria-valuemin={0} aria-valuemax={pass.minutes} aria-valuenow={pass.remainingMinutes}
@@ -224,8 +234,8 @@ export function ZeusPage() {
                         to={`/ledger?year=${pass.expense.date.slice(0, 4)}&month=${Number(pass.expense.date.slice(5, 7))}`}>
                         Ver gasto · {pass.expense.accountName}<ArrowUpRight className="h-3 w-3" />
                       </Link>
-                      <Button variant="ghost" size="sm" disabled={!!busy || pass.usedMinutes > 0}
-                        title={pass.usedMinutes > 0 ? "Corrige primero las horas utilizadas para retirar el bono." : "Retirar el bono sin borrar el gasto"}
+                      <Button variant="ghost" size="sm" disabled={!!busy || pass.usedMinutes + (pass.plannedMinutes ?? 0) > 0}
+                        title={pass.usedMinutes + (pass.plannedMinutes ?? 0) > 0 ? "Corrige primero las horas utilizadas o previstas para retirar el bono." : "Retirar el bono sin borrar el gasto"}
                         onClick={() => void removePass(pass)}>
                         <Trash2 className="mr-1.5 h-3.5 w-3.5" />Retirar
                       </Button>
@@ -241,14 +251,16 @@ export function ZeusPage() {
               <h2 id="zeus-history-title" className="text-lg font-semibold">Sus días</h2>
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CalendarDays className="h-4 w-4" /><span className="sr-only">Mes del historial</span>
-                <Input type="month" className="w-auto" min="2000-01" max={today().slice(0, 7)} value={month}
+                <Input type="month" className="w-auto" min="2000-01" max="9998-12" value={month}
                   onChange={event => { if (event.target.value) setMonth(event.target.value); }} />
               </label>
             </div>
             <Card className="overflow-hidden">
               <div className="flex flex-wrap justify-between gap-2 border-b bg-muted/30 px-5 py-3 text-sm">
                 <span>{new Set(usages.map(usage => usage.date)).size} días registrados este mes</span>
-                <strong>{duration(usedThisMonth)} utilizadas</strong>
+                <strong>
+                  {duration(usedThisMonth)} utilizadas{plannedThisMonth > 0 && ` · ${duration(plannedThisMonth)} previstas`}
+                </strong>
               </div>
               {usages.length === 0 ? (
                 <div className="space-y-2 p-8 text-center text-sm text-muted-foreground">
@@ -262,6 +274,7 @@ export function ZeusPage() {
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <span className="font-medium">{shortDate(usage.date)}</span>
+                          {usage.isPlanned && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">Previsto</span>}
                           {usage.startTime && usage.endTime && <span className="text-sm text-muted-foreground">{usage.startTime.slice(0, 5)}–{usage.endTime.slice(0, 5)}</span>}
                           <strong className="text-teal-700 dark:text-teal-300">{duration(usage.minutes)}</strong>
                         </p>

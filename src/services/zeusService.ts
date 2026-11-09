@@ -18,6 +18,7 @@ export interface ZeusPass {
   minutes: number;
   usedMinutes: number;
   remainingMinutes: number;
+  plannedMinutes?: number;
   expense: ZeusExpense;
 }
 
@@ -28,6 +29,7 @@ export interface ZeusUsage {
   startTime?: string | null;
   endTime?: string | null;
   note?: string | null;
+  isPlanned?: boolean;
   allocations: { passId: string; purchasedOn: string; minutes: number }[];
 }
 
@@ -39,6 +41,7 @@ export interface ZeusSummary {
   passes: ZeusPass[];
   usages: ZeusUsage[];
   careStays: ZeusCareStay[];
+  plannedMinutes?: number;
 }
 
 export type ZeusCareProvider = "daycare" | "alessia";
