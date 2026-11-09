@@ -122,7 +122,7 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
               <CheckCircle2 className="h-4 w-4" /> Todos pagaron la cuota de {quotaLabel}.
             </p>
           ) : (
-            <ul className="divide-y">
+            <ul className="max-h-[13rem] divide-y overflow-y-auto">
               {pending.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-4 py-2">
                   {numberBadge(p, "bg-warning-soft text-warning")}
@@ -160,7 +160,7 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
           {paid.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">Nadie ha pagado todavía la cuota de {quotaLabel}.</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="max-h-[13rem] divide-y overflow-y-auto">
               {paid.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-4 py-2">
                   {numberBadge(p, "bg-positive-soft text-positive")}
