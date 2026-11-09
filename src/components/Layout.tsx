@@ -9,6 +9,8 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   PawPrint,
   Settings,
   Upload,
@@ -55,6 +57,8 @@ const wideContentPaths = ['imports', 'movements', 'ledger', 'monthly', 'plan'];
 // so its search, folds and scroll position survive.
 const keepMountedOnDataChangePaths = ['/assistant', '/imports', '/ledger'];
 
+const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
+
 export function Layout({ children }: LayoutProps) {
   return (
     <GlobalChatProvider>
@@ -67,6 +71,7 @@ function LayoutShell({ children }: LayoutProps) {
   const { signOut } = useAuth();
   const { view: chatView, hidden: chatHidden, minimizePanel: minimizeChat } = useGlobalChatPanel();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true');
   // Changing it re-mounts only the routed page so it refetches; the assistant and the rest of the layout keep their state.
   const [pageKey, setPageKey] = useState(0);
   const navigate = useNavigate();
@@ -97,8 +102,15 @@ function LayoutShell({ children }: LayoutProps) {
     navigate(`/${path}`);
   };
 
-  const NavLinks = () => (
-    <nav className="flex-1 space-y-0.5 px-3" data-tour="nav">
+  const toggleSidebar = () => {
+    setSidebarCollapsed((collapsed) => {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(!collapsed));
+      return !collapsed;
+    });
+  };
+
+  const NavLinks = ({ compact = false }: { compact?: boolean }) => (
+    <nav className={cn('flex-1 space-y-0.5', compact ? 'px-2' : 'px-3')} data-tour="nav">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = item.activePaths.includes(currentPath);
@@ -108,47 +120,75 @@ function LayoutShell({ children }: LayoutProps) {
             data-tour={`nav-${item.path}`}
             onClick={() => onNavigate(item.path)}
             aria-current={active ? 'page' : undefined}
+            aria-label={compact ? item.label : undefined}
+            title={compact ? item.label : undefined}
             className={cn(
-              'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+              'flex w-full items-center gap-3 rounded-md py-2 text-sm transition-colors',
+              compact ? 'justify-center px-0' : 'px-3',
               active
                 ? `${item.activeClass} font-medium shadow-sm`
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            {!compact && item.label}
           </button>
         );
       })}
     </nav>
   );
 
+  const sidebarButtonClass = cn(
+    'flex w-full items-center gap-3 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-accent',
+    sidebarCollapsed ? 'justify-center px-0' : 'px-3',
+  );
+
   return (
     <div className="min-h-screen bg-background md:flex">
       {/* Sidebar (desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card md:flex">
-        <div className="flex h-16 items-center gap-2 border-b px-5">
+      <aside
+        className={cn(
+          'hidden shrink-0 flex-col border-r bg-card transition-[width] md:sticky md:top-0 md:flex md:h-screen',
+          sidebarCollapsed ? 'w-16' : 'w-64',
+        )}
+      >
+        <div className={cn('flex h-16 shrink-0 items-center gap-2 border-b', sidebarCollapsed ? 'justify-center px-2' : 'px-5')}>
           <div className="rounded-md bg-primary p-1.5">
             <Wallet className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-base font-semibold tracking-tight">Mi Finanzas</span>
-          <div className="ml-auto">
-            <HelpMenu align="left" />
-          </div>
+          {!sidebarCollapsed && (
+            <>
+              <span className="text-base font-semibold tracking-tight">Mi Finanzas</span>
+              <div className="ml-auto">
+                <HelpMenu align="left" />
+              </div>
+            </>
+          )}
         </div>
-        <div className="border-b px-3 py-2">
-          <ReminderBell variant="sidebar" />
+        <div className={cn('flex shrink-0 border-b py-2', sidebarCollapsed ? 'justify-center px-2' : 'px-3')}>
+          <ReminderBell variant={sidebarCollapsed ? 'topbar' : 'sidebar'} />
         </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <NavLinks />
+        <div className="min-h-0 flex-1 overflow-y-auto py-4">
+          <NavLinks compact={sidebarCollapsed} />
         </div>
-        <div className="border-t p-3">
+        <div className={cn('shrink-0 space-y-0.5 border-t', sidebarCollapsed ? 'p-2' : 'p-3')}>
+          <button
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+            title={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+            className={cn(sidebarButtonClass, 'hover:text-accent-foreground')}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {!sidebarCollapsed && 'Contraer menú'}
+          </button>
           <button
             onClick={() => void handleSignOut()}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-negative"
+            aria-label="Salir"
+            title={sidebarCollapsed ? 'Salir' : undefined}
+            className={cn(sidebarButtonClass, 'hover:text-negative')}
           >
             <LogOut className="h-4 w-4" />
-            Salir
+            {!sidebarCollapsed && 'Salir'}
           </button>
         </div>
       </aside>
