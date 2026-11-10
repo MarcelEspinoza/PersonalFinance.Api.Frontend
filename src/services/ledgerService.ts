@@ -253,6 +253,14 @@ export const LedgerService = {
     await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-entry`, { plannedEntryId });
   },
 
+  setRowObligation: async (
+    batchId: string,
+    rowId: string,
+    input: { reminderId?: string | null; reminderDueDate?: string | null; settlementId?: string | null },
+  ): Promise<void> => {
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/obligation`, input);
+  },
+
   setRowPlannedAllocations: async (
     batchId: string,
     rowId: string,

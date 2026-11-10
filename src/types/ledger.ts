@@ -285,6 +285,11 @@ export interface ImportRow {
   allocations: ImportRowAllocation[];
   /** Planned entry this row will be deducted from when the batch is applied. */
   plannedEntryId?: string | null;
+  reminderId?: string | null;
+  reminderDueDate?: CivilDate | null;
+  settlementId?: string | null;
+  obligationName?: string | null;
+  automaticReminderName?: string | null;
   plannedAllocations?: ImportPlannedAllocation[];
   /** Pasanaco quota this income row pays; it is marked as paid when the batch is applied. */
   pasanacoParticipantId?: string | null;
@@ -400,6 +405,9 @@ export type ImportChatActionType =
   | "set_row_concept"
   | "create_concept"
   | "link_planned"
+  | "link_reminder"
+  | "link_settlement"
+  | "unlink_obligation"
   | "allocate_planned"
   | "share_expense"
   | "unlink_planned"
@@ -411,6 +419,8 @@ export type ImportChatActionType =
 
 /** Cambio que propone el asistente; no se aplica hasta que el usuario lo confirma. */
 export interface ImportChatProposedAction {
+  reminderId?: string | null;
+  settlementId?: string | null;
   type: ImportChatActionType;
   summary: string;
   rowIds: string[];

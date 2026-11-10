@@ -94,7 +94,7 @@ type ChatActionState = "pending" | "running" | "done" | "dismissed" | "failed";
 
 type ImportChatAction = ImportChatProposedAction & { state: ChatActionState; error?: string };
 
-type ImportChatEntry = ImportChatMessage & { actions?: ImportChatAction[] };
+type ImportChatEntry = ImportChatMessage & { actions?: ImportChatAction[]; issues?: string[] };
 
 class ChatActionError extends Error {}
 
@@ -117,6 +117,9 @@ const chatActionIcons: Record<ImportChatActionType, typeof Tags> = {
   set_row_concept: Tags,
   create_concept: Plus,
   link_planned: CalendarClock,
+  link_reminder: Bell,
+  link_settlement: Users,
+  unlink_obligation: Undo2,
   allocate_planned: Layers3,
   share_expense: Users,
   unlink_planned: Undo2,
@@ -137,13 +140,23 @@ type AssistantView = "closed" | "open" | "minimized";
 const fetchReviewData = async (
   batchId: string,
   withCandidates = true,
-): Promise<{ review: ImportReview; candidates: PlannedCandidate[] }> => {
-  const [review, candidates] = await Promise.all([
+): Promise<{ review: ImportReview; candidates: PlannedCandidate[]; candidateWarning: string | null }> => {
+  const [review, candidateData] = await Promise.all([
     LedgerService.getImportReview(batchId),
-    // Optional data: without candidates the page just hides the planned-entry options.
-    withCandidates ? LedgerService.getPlannedCandidates(batchId).catch((): PlannedCandidate[] => []) : [],
+    withCandidates
+      ? LedgerService.getPlannedCandidates(batchId)
+          .then((candidates) => ({ candidates, warning: null }))
+          .catch((err: unknown): { candidates: PlannedCandidate[]; warning: string } => ({
+            candidates: [],
+            warning: ledgerErrorMessage(err, "No se han podido cargar los previstos. Sus opciones no están disponibles; recarga la revisión."),
+          }))
+      : { candidates: [], warning: null },
   ]);
-  return { review, candidates: review.status === "Applied" ? [] : candidates };
+  return {
+    review,
+    candidates: review.status === "Applied" ? [] : candidateData.candidates,
+    candidateWarning: candidateData.warning,
+  };
 };
 
 const rowQuestion = (row: ImportRow) =>
@@ -178,6 +191,7 @@ export function ImportsPage() {
   const [reviewMode, setReviewMode] = useState<"groups" | "unassigned" | "rows">("groups");
   const [assistantView, setAssistantView] = useState<AssistantView>("closed");
   const [plannedCandidates, setPlannedCandidates] = useState<PlannedCandidate[]>([]);
+  const [candidateWarning, setCandidateWarning] = useState<string | null>(null);
   const [plannedPickerRow, setPlannedPickerRow] = useState<ImportRow | null>(null);
   const [plannedPickerSaving, setPlannedPickerSaving] = useState(false);
   const [plannedPickerError, setPlannedPickerError] = useState<string | null>(null);
@@ -222,6 +236,7 @@ export function ImportsPage() {
     const data = await fetchReviewData(batchId, withCandidates);
     setReview(data.review);
     setPlannedCandidates(data.candidates);
+    setCandidateWarning(data.candidateWarning);
   };
 
   const resumeImport = async (batchId: string) => {
@@ -232,6 +247,7 @@ export function ImportsPage() {
       const data = await fetchReviewData(batchId);
       setReview(data.review);
       setPlannedCandidates(data.candidates);
+      setCandidateWarning(data.candidateWarning);
       setAccountId(data.review.accountId);
       setFile(null);
       setChatMessages([]);
@@ -254,6 +270,7 @@ export function ImportsPage() {
         if (!active) return;
         setReview(data.review);
         setPlannedCandidates(data.candidates);
+        setCandidateWarning(data.candidateWarning);
         setMessage(createdBatchMessage(result));
       })
       .catch((err) => {
@@ -472,7 +489,12 @@ export function ImportsPage() {
     const sharedRows = review.rows.filter((row) => row.status === "Pending" &&
       row.allocations.some((part) => part.counterpartyId)).length;
     const sharedText = sharedRows > 0 ? ` Se registrarán ${sharedRows} gastos compartidos y sus importes por cobrar en Liquidaciones.` : "";
-    if (!window.confirm(`¿Aplicar las filas con concepto al libro contable?${linkedText}${sharedText}`)) return;
+    const obligationRows = review.rows.filter((row) => row.status === "Pending" &&
+      (row.reminderId || row.settlementId || row.automaticReminderName)).length;
+    const obligationText = obligationRows > 0
+      ? ` ${obligationRows} movimientos actualizarán sus recordatorios o liquidaciones, sin duplicar cobros ni pagos.`
+      : "";
+    if (!window.confirm(`¿Aplicar las filas con concepto al libro contable?${linkedText}${sharedText}${obligationText}`)) return;
 
     setBusy(true);
     setError(null);
@@ -518,6 +540,7 @@ export function ImportsPage() {
   const resetImport = () => {
     setReview(null);
     setPlannedCandidates([]);
+    setCandidateWarning(null);
     setPlannedPickerRow(null);
     setSharedExpenseRow(null);
     setFile(null);
@@ -578,7 +601,9 @@ export function ImportsPage() {
         ...action,
         state: "pending",
       }));
-      setChatMessages((current) => [...current, { role: "assistant", content: result.reply, actions }]);
+      setChatMessages((current) => [...current, {
+        role: "assistant", content: result.reply, actions, issues: result.unrecognized ?? [],
+      }]);
       if (result.appliedChanges > 0) {
         await reloadReview(review.id);
       }
@@ -696,6 +721,20 @@ export function ImportsPage() {
     }
   };
 
+  const unlinkObligation = async (row: ImportRow) => {
+    if (!review) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await LedgerService.setRowObligation(review.id, row.id, {});
+      await reloadReview(review.id);
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido quitar el vínculo con lo pendiente."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const setChatActionState = (entryIndex: number, actionIndex: number, state: ChatActionState, error?: string) =>
     setChatMessages((current) =>
       current.map((entry, index) =>
@@ -713,6 +752,24 @@ export function ImportsPage() {
   const executeChatAction = async (batchId: string, action: ImportChatProposedAction) => {
     const rowIds = action.rowIds ?? [];
     switch (action.type) {
+      case "link_reminder":
+      case "link_settlement": {
+        if (rowIds.length !== 1 || (action.type === "link_reminder"
+          ? !action.reminderId || !action.dueDate : !action.settlementId)) {
+          throw new ChatActionError("La propuesta no identifica el movimiento y el recordatorio o la liquidación.");
+        }
+        await LedgerService.setRowObligation(batchId, rowIds[0], {
+          reminderId: action.type === "link_reminder" ? action.reminderId : null,
+          reminderDueDate: action.type === "link_reminder" ? action.dueDate : null,
+          settlementId: action.type === "link_settlement" ? action.settlementId : null,
+        });
+        return;
+      }
+      case "unlink_obligation": {
+        if (rowIds.length === 0) throw new ChatActionError("La propuesta no indica los movimientos.");
+        for (const rowId of rowIds) await LedgerService.setRowObligation(batchId, rowId, {});
+        return;
+      }
       case "create_concept": {
         const [firstRowId, ...otherRowIds] = rowIds;
         if (!firstRowId || !action.groupId || !action.name) {
@@ -921,6 +978,20 @@ export function ImportsPage() {
     const lines: Array<string | null> = [];
 
     switch (action.type) {
+      case "link_reminder":
+      case "link_settlement":
+        lines.push(
+          "Confirmar prepara el vínculo. Lo pendiente se actualiza al aplicar el extracto.",
+          "Se conserva un solo movimiento bancario; no se crea otro ingreso ni gasto.",
+          action.notes ?? null,
+          action.type === "link_reminder" && action.repeat && action.repeat !== "none"
+            ? "Al cubrirlo completo, el recordatorio avanzará a su próxima fecha."
+            : null,
+        );
+        break;
+      case "unlink_obligation":
+        lines.push("La deuda o el recordatorio sigue pendiente. Solo se quita la relación con este movimiento.");
+        break;
       case "create_concept":
         lines.push(`Nueva categoría «${action.name ?? ""}»${action.groupName ? ` en ${action.groupName}` : ""}`, futureNote);
         break;
@@ -1006,7 +1077,8 @@ export function ImportsPage() {
 
   const renderChatActions = (entry: ImportChatEntry, entryIndex: number) => {
     const actions = entry.actions ?? [];
-    if (actions.length === 0) return null;
+    const issues = entry.issues ?? [];
+    if (actions.length === 0 && issues.length === 0) return null;
     // Admin `api_call` proposals are never confirmed in bulk.
     const pendingIndexes = actions.flatMap((action, index) =>
       action.state === "pending" && (action.type as string) !== "api_call" ? [index] : [],
@@ -1015,9 +1087,14 @@ export function ImportsPage() {
 
     return (
       <div className="mt-3 space-y-2">
-        <p className="text-xs text-muted-foreground">
+        {issues.length > 0 && (
+          <div role="status" className="space-y-1 rounded-md border border-warning/40 bg-warning-soft/40 p-3 text-xs">
+            {issues.map((issue, index) => <p key={index}>{issue}</p>)}
+          </div>
+        )}
+        {actions.length > 0 && <p className="text-xs text-muted-foreground">
           Te propongo estos cambios. No se aplica nada hasta que pulses «Confirmar».
-        </p>
+        </p>}
         {actions.map((action, actionIndex) => {
           const rows = (action.rowIds ?? [])
             .map((rowId) => rowsById.get(rowId))
@@ -1117,6 +1194,11 @@ export function ImportsPage() {
       </div>
 
       {error && <div className="flex gap-2 rounded-md border border-negative/25 bg-negative-soft p-3 text-sm text-negative"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
+      {candidateWarning && (
+        <div role="status" className="flex gap-2 rounded-md border border-warning/30 bg-warning-soft/40 p-3 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />{candidateWarning}
+        </div>
+      )}
       {message && <div className="flex gap-2 rounded-md border border-positive/25 bg-positive-soft p-3 text-sm text-positive"><CheckCircle2 className="h-4 w-4 shrink-0" />{message}</div>}
 
       {!review && pendingImports.length > 0 && (
@@ -1336,6 +1418,13 @@ export function ImportsPage() {
                           <div className="min-w-0 flex-1">
                             <div className="line-clamp-2 break-words font-medium leading-snug" title={group.rows[0]?.rawDescription}>{group.rows[0]?.rawDescription}</div>
                             {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground" title={group.normalizedDescription}>{group.normalizedDescription}</div>}
+                            {group.rows.filter((row) => row.reminderId || row.settlementId || row.automaticReminderName).map((row) => (
+                              <button key={row.id} type="button" className="mt-1 block text-left text-xs text-primary hover:underline"
+                                onClick={() => setReviewMode("rows")}>
+                                {review.status === "Applied" ? "Vinculado a " : "Al aplicar: "}
+                                {row.obligationName ?? row.automaticReminderName ?? (row.reminderId ? "recordatorio" : "liquidación")}
+                              </button>
+                            ))}
                           </div>
                           {review.status !== "Applied" && (
                             <Button
@@ -1396,6 +1485,7 @@ export function ImportsPage() {
                     const reviewOpen = review.status !== "Applied";
                     const linkedPlannedName = plannedNameFor(row.plannedEntryId);
                     const hasPlannedLinks = plannedAllocationsFor(row).length > 0;
+                    const hasObligation = Boolean(row.reminderId || row.settlementId);
                     const linkedPlannedText = row.plannedAllocations?.length
                       ? row.plannedAllocations.map((part) => {
                           const candidate = plannedById.get(part.plannedEntryId);
@@ -1408,6 +1498,7 @@ export function ImportsPage() {
                       reviewOpen &&
                       row.status === "Pending" &&
                       !hasPlannedLinks &&
+                      !hasObligation &&
                       plannedDirections.has(directionForAmount(row.amount));
                     return (
                       <tr key={row.id} className="border-t">
@@ -1502,6 +1593,27 @@ export function ImportsPage() {
                                 )}
                               </div>
                             )}
+                            {hasObligation && (
+                              <div className="inline-flex max-w-full items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs text-primary">
+                                {row.reminderId ? <Bell className="h-3.5 w-3.5 shrink-0" /> : <Users className="h-3.5 w-3.5 shrink-0" />}
+                                <span className="min-w-0 break-words">
+                                  {reviewOpen ? "Al aplicar: " : "Vinculado a "}
+                                  {row.obligationName ?? (row.reminderId ? "recordatorio" : "liquidación")}
+                                </span>
+                                {reviewOpen && row.status === "Pending" && (
+                                  <button type="button" className="shrink-0 rounded-full p-0.5 hover:bg-primary/15"
+                                    aria-label="Quitar el vínculo con lo pendiente" disabled={busy}
+                                    onClick={() => void unlinkObligation(row)}>
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {!hasObligation && row.automaticReminderName && (
+                              <span className="text-xs text-primary">
+                                Al aplicar se cubrirá el recordatorio «{row.automaticReminderName}».
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
@@ -1509,7 +1621,7 @@ export function ImportsPage() {
                           <div className="flex gap-1 whitespace-nowrap">
                             {row.amount < 0 && (
                               <Button type="button" variant="outline" size="sm"
-                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks}
+                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks || hasObligation}
                                 title={hasPlannedLinks ? "Quita el vínculo con los previstos antes de compartir el gasto" : "Separar tu gasto de lo que te deben"}
                                 onClick={() => setSharedExpenseRow(row)}>
                                 <Users className="h-3.5 w-3.5" /> {isSharedExpense ? "Editar reparto" : "Compartir"}
@@ -1532,7 +1644,7 @@ export function ImportsPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={busy || savingSplit || isSharedExpense || row.status !== "Pending" || review.status === "Applied"}
+                              disabled={busy || savingSplit || isSharedExpense || hasObligation || row.status !== "Pending" || review.status === "Applied"}
                               onClick={() => openSplitRow(row)}
                             >
                               <Layers3 className="h-3.5 w-3.5" /> {splitSummary ? "Editar partes" : "Dividir"}
