@@ -71,8 +71,14 @@ export const pasanacoService = {
 
   markPaymentAsPaid: (paymentId: string, transactionId?: number) =>
     apiClient.post(`/pasanacos/payments/${paymentId}/mark-paid`, { transactionId }),
-  markQuotaPaid: (pasanacoId: string, participantId: string, month: number, year: number) =>
-    apiClient.post(`/pasanacos/${pasanacoId}/participants/${participantId}/quota-paid`, null, { params: { month, year } }),
+  markQuotaPaid: (
+    pasanacoId: string,
+    participantId: string,
+    month: number,
+    year: number,
+    cash?: { accountId: string | null; conceptId: string | null; date: string },
+  ) =>
+    apiClient.post(`/pasanacos/${pasanacoId}/participants/${participantId}/quota-paid`, cash ?? {}, { params: { month, year } }),
 
   // Avanzar / retroceder ronda (createLoans pasa como query param)
   advance: (id: string, createLoans = false) =>

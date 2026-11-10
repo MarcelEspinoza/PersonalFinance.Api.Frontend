@@ -198,6 +198,17 @@ export const settlementService = {
     return data;
   },
 
+  async recordPayment(id: string, payload: {
+    accountId: string;
+    conceptId: string;
+    amount: number;
+    date: string;
+    description?: string | null;
+  }): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/payments/record`, payload);
+    return data;
+  },
+
   async addLine(id: string, payload: {
     kind: SettlementLineKind;
     description: string;

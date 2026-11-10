@@ -19,6 +19,7 @@ import type {
   ImportPlannedAllocation,
   MonthlyEntry,
   MonthlySummary,
+  OwnTransferPayload,
   PlannedCandidate,
   SeedChartOfAccountsResult,
   UpdateAccountInput,
@@ -49,6 +50,11 @@ export const LedgerService = {
 
   createEntry: async (payload: CreateLedgerEntryPayload): Promise<MonthlyEntry> => {
     const { data } = await apiClient.post<MonthlyEntry>("/ledger-entries", payload);
+    return data;
+  },
+
+  createOwnTransfer: async (payload: OwnTransferPayload): Promise<MonthlyEntry[]> => {
+    const { data } = await apiClient.post<MonthlyEntry[]>("/ledger-entries/own-transfer", payload);
     return data;
   },
 

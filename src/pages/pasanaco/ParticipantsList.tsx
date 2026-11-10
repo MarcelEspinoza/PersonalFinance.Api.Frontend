@@ -11,6 +11,8 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import pasanacoService, { Participant, PasanacoPayment } from "../../services/pasanacoService";
+import { AccountMovementDialog, type AccountMovementValues } from "../../components/Ledger/AccountMovementDialog";
+import { ConceptKind } from "../../types/ledger";
 import { euros } from "../../utils/civilDate";
 import { apiErrorText, monthLabel } from "./pasanacoFormat";
 
@@ -35,6 +37,8 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
   const [loanAmount, setLoanAmount] = useState(String(monthlyAmount ?? ""));
   const [loanBusy, setLoanBusy] = useState(false);
   const [loanError, setLoanError] = useState<string | null>(null);
+  const [quotaParticipant, setQuotaParticipant] = useState<ParticipantWithPayment | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
 
   if (participants.length === 0) {
     return (
@@ -79,16 +83,23 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
     }
   };
 
-  const handleMarkPaid = async (participant: ParticipantWithPayment) => {
-    if (!confirm(`¿${participant.name} ya te pagó su cuota de ${quotaLabel} (${euros(monthlyAmount)})?\n\nSirve también si te la dio en efectivo. No se crea ningún ingreso aparte.`)) return;
+  const handleMarkPaid = async (values: AccountMovementValues) => {
+    const participant = quotaParticipant;
+    if (!participant) return;
 
     setBusyId(participant.id);
+    setQuotaError(null);
     try {
-      await pasanacoService.markQuotaPaid(pasanacoId, participant.id, quotaMonth, quotaYear);
+      await pasanacoService.markQuotaPaid(pasanacoId, participant.id, quotaMonth, quotaYear, {
+        accountId: values.accountId,
+        conceptId: values.conceptId,
+        date: values.date,
+      });
+      setQuotaParticipant(null);
       await onRefresh();
     } catch (err) {
       console.error("Error marcando pago como pagado", err);
-      alert(apiErrorText(err, "No se pudo marcar el pago como pagado"));
+      setQuotaError(apiErrorText(err, "No se pudo marcar el pago como pagado"));
     } finally {
       setBusyId(null);
     }
@@ -139,7 +150,15 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
                       >
                         <Banknote />
                       </Button>
-                      <Button type="button" size="sm" disabled={busyId === p.id} onClick={() => void handleMarkPaid(p)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={busyId === p.id}
+                        onClick={() => {
+                          setQuotaError(null);
+                          setQuotaParticipant(p);
+                        }}
+                      >
                         <Check /> Ya pagó
                       </Button>
                     </>
@@ -172,6 +191,22 @@ export function ParticipantsList({ participants, onRefresh, pasanacoId, monthlyA
           )}
         </section>
       </div>
+
+      <AccountMovementDialog
+        open={quotaParticipant !== null}
+        title={`${quotaParticipant?.name ?? ""} pagó su cuota`}
+        description={`Cuota de ${quotaLabel}: ${euros(monthlyAmount)}. Si te la dio en mano, elige «Efectivo» y sumará a tu efectivo. Si llegó por el banco, elige «No lo apunto»: ya entra con el extracto.`}
+        defaultAmount={monthlyAmount}
+        lockAmount
+        conceptKinds={[ConceptKind.Transfer, ConceptKind.Income]}
+        preferredConcept={/dinero de paso/i}
+        noAccountLabel="No lo apunto en ninguna cuenta (solo marcarla pagada)"
+        submitLabel="Marcar pagada"
+        busy={busyId !== null}
+        error={quotaError}
+        onOpenChange={(open) => !open && setQuotaParticipant(null)}
+        onSubmit={(values) => void handleMarkPaid(values)}
+      />
 
       <Dialog open={loanParticipant !== null} onOpenChange={(open) => !open && setLoanParticipant(null)}>
         <DialogContent className="max-w-md">

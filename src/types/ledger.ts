@@ -498,3 +498,13 @@ export interface ConfirmLedgerEntryPayload {
   valueDate?: CivilDate | null;
   accountId?: string | null;
 }
+
+export interface OwnTransferPayload {
+  fromAccountId: string;
+  toAccountId: string;
+  conceptId: string;
+  amount: number;
+  date: CivilDate;
+  description?: string | null;
+  sourceOnly?: boolean;
+}

@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
-import { Archive, ArrowLeft, ArrowRight, RotateCcw, Trash2, UserMinus } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, HandCoins, RotateCcw, Trash2, UserMinus } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { AccountMovementDialog, type AccountMovementValues } from "../../components/Ledger/AccountMovementDialog";
+import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
+import { ConceptKind, EntryDirection } from "../../types/ledger";
 import {
   Participant,
   Pasanaco,
@@ -26,6 +29,10 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
   const [adding, setAdding] = useState(false);
   const [removeId, setRemoveId] = useState("");
   const [advanceWithLoans, setAdvanceWithLoans] = useState(false);
+  const [potOpen, setPotOpen] = useState(false);
+  const [potBusy, setPotBusy] = useState(false);
+  const [potError, setPotError] = useState<string | null>(null);
+  const [potNotice, setPotNotice] = useState<string | null>(null);
 
   const totalAllowed = pasanaco.totalParticipants;
   const round = pasanaco.currentRound;
@@ -50,6 +57,30 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
   const pot = enriched.length * amount;
   const toCollect = pot - collected;
   const collectedPercent = pot > 0 ? Math.round((collected / pot) * 100) : 0;
+
+  const handleGivePot = async (values: AccountMovementValues) => {
+    if (!values.accountId || !values.conceptId) return;
+    setPotBusy(true);
+    setPotError(null);
+    try {
+      await LedgerService.createEntry({
+        conceptId: values.conceptId,
+        accountId: values.accountId,
+        direction: EntryDirection.Out,
+        dueDate: values.date,
+        forecastAmount: values.amount,
+        actualAmount: values.amount,
+        valueDate: values.date,
+        description: `Bote pasanaco ${pasanaco.name} para ${recipient?.name ?? "el turno"} (${monthLabel(month, year).toLowerCase()})`,
+      });
+      setPotOpen(false);
+      setPotNotice(`Apuntado: ${euros(values.amount)} entregados a ${recipient?.name ?? "quien cobra"}.`);
+    } catch (err) {
+      setPotError(ledgerErrorMessage(err, "No se pudo apuntar la entrega del bote."));
+    } finally {
+      setPotBusy(false);
+    }
+  };
 
   const usedNumbers = useMemo(() => participants.map((p) => Number(p.assignedNumber)), [participants]);
   const missingParticipants = Math.max(0, totalAllowed - participants.length);
@@ -175,6 +206,19 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
 
           {!readOnly && (
             <div className="flex flex-col items-stretch gap-2 md:items-end">
+              {recipient && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPotError(null);
+                    setPotNotice(null);
+                    setPotOpen(true);
+                  }}
+                >
+                  <HandCoins /> Entregar bote a {recipient.name}
+                </Button>
+              )}
               {isLastRound ? (
                 <Button type="button" onClick={() => void handleComplete()}>
                   <Archive /> Finalizar pasanaco
@@ -220,7 +264,22 @@ export function PasanacoDetail({ pasanaco, participants, payments, onRefresh, on
             Faltan {missingParticipants} participantes por añadir. Hazlo en «Más opciones».
           </p>
         )}
+        {potNotice && <p className="mt-3 text-xs text-positive">{potNotice}</p>}
       </section>
+
+      <AccountMovementDialog
+        open={potOpen}
+        title={`Entregar el bote a ${recipient?.name ?? ""}`}
+        description="Elige de qué cuenta salió el dinero (por ejemplo, «Efectivo» si se lo diste en mano). Si se lo pasaste por el banco, no hace falta: ya sale con el extracto."
+        defaultAmount={collected > 0 ? collected : pot}
+        conceptKinds={[ConceptKind.Transfer, ConceptKind.Expense]}
+        preferredConcept={/dinero de paso/i}
+        submitLabel="Apuntar entrega"
+        busy={potBusy}
+        error={potError}
+        onOpenChange={setPotOpen}
+        onSubmit={(values) => void handleGivePot(values)}
+      />
 
       <TurnsCalendar
         turns={Array.from({ length: totalAllowed }, (_, i) => i + 1).map((n): CalendarTurn => {

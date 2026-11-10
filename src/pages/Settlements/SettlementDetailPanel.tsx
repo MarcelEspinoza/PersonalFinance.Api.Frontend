@@ -6,6 +6,8 @@ import {
   type SettlementDetail,
   type SettlementLineKind,
 } from '../../services/settlementService';
+import { LedgerService } from '../../services/ledgerService';
+import { ConceptKind, type Account, type ChartConcept } from '../../types/ledger';
 
 const euro = (value: number) =>
   value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
@@ -59,6 +61,9 @@ export const balanceText = (name: string, pending: number, closed: boolean) => {
 export const balanceTone = (pending: number) =>
   Math.abs(pending) < 0.005 ? 'text-foreground' : pending > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
 
+type RecordForm = { accountId: string; conceptId: string; amount: string; date: string };
+type RecordOptions = { accounts: Account[]; concepts: ChartConcept[] };
+
 const settingsSummary = (detail: SettlementDetail) => {
   const parts: string[] = [];
   if (detail.linkedLoan) parts.push(`préstamo: ${euro(detail.linkedLoan.outstandingAmount)}`);
@@ -90,9 +95,18 @@ export function SettlementDetailPanel({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sendDate, setSendDate] = useState(() => detail.expectedDate ?? inDays(7));
+  const [recordForm, setRecordForm] = useState<RecordForm | null>(null);
+  const [recordOptions, setRecordOptions] = useState<RecordOptions | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
 
   const editable = detail.status === 'Draft';
   const status = statusLabels[detail.status] ?? statusLabels.Sent;
+  const outgoing = detail.totals.pending < 0;
+  const pendingAmount = Math.abs(detail.totals.pending);
+  const recordAmount = recordForm ? Number(recordForm.amount.replace(',', '.')) : 0;
+  const recordValid =
+    !!recordForm?.accountId && !!recordForm.conceptId && !!recordForm.date &&
+    recordAmount > 0 && recordAmount <= pendingAmount + 0.005;
 
   // Keeps the «¿Cuándo esperas el dinero?» box in step with the saved date and the selected settlement.
   useEffect(() => {
@@ -105,7 +119,38 @@ export function SettlementDetailPanel({
     setLinkLineId('');
     setLineCandidates([]);
     setLineEntryId('');
+    setRecordForm(null);
   }, [detail.id]);
+
+  const openRecord = async () => {
+    setLoadingRecord(true);
+    setError(null);
+    try {
+      const [accounts, chart] = await Promise.all([
+        LedgerService.getAccounts(),
+        LedgerService.getChartOfAccounts(),
+      ]);
+      const kind = outgoing ? ConceptKind.Expense : ConceptKind.Income;
+      const concepts = chart.groups
+        .filter((group) => group.isActive && group.kind === kind)
+        .flatMap((group) => group.concepts.filter((concept) => concept.isActive))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      const preferred = outgoing ? /transferencias y bizum enviados/i : /reembolso|liquidaci/i;
+      const account = accounts.find((item) => item.type === 'cash') ?? accounts[0];
+      const concept = concepts.find((item) => preferred.test(item.name)) ?? concepts[0];
+      setRecordOptions({ accounts, concepts });
+      setRecordForm({
+        accountId: account?.id ?? '',
+        conceptId: concept?.id ?? '',
+        amount: pendingAmount.toFixed(2),
+        date: inDays(0),
+      });
+    } catch {
+      setError('No he podido cargar tus cuentas y conceptos.');
+    } finally {
+      setLoadingRecord(false);
+    }
+  };
 
   const loadLineEntries = async (lineId: string) => {
     setLinkLineId(lineId);
@@ -170,6 +215,7 @@ export function SettlementDetailPanel({
       setPaymentId('');
       setLinkLineId('');
       setLineEntryId('');
+      setRecordForm(null);
       await loadCandidates();
       await loadLoanOptions();
     } catch (e) {
@@ -248,11 +294,23 @@ export function SettlementDetailPanel({
               </button>
               <button
                 type="button"
+                disabled={busy || loadingRecord}
+                onClick={() => void openRecord()}
+                className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                {loadingRecord
+                  ? 'Cargando cuentas…'
+                  : outgoing
+                    ? 'Registrar pago (efectivo u otra cuenta)'
+                    : 'Registrar cobro (efectivo u otra cuenta)'}
+              </button>
+              <button
+                type="button"
                 disabled={busy}
                 onClick={() => {
                   if (
                     window.confirm(
-                      '¿Ya está pagada (en efectivo, por otra cuenta…)? Saldrá de la previsión. Solo se saldarán los movimientos vinculados: las líneas escritas a mano sin vínculo no cierran sus previstos en «Mes». Revisa «Vincular movimiento» antes de continuar.',
+                      '¿Darla por pagada sin apuntar ningún movimiento? Si la pagaste en efectivo o por otra cuenta, usa mejor «Registrar pago» para que salga de esa cuenta. Saldrá de la previsión. Solo se saldarán los movimientos vinculados: las líneas escritas a mano sin vínculo no cierran sus previstos en «Mes». Revisa «Vincular movimiento» antes de continuar.',
                     )
                   ) {
                     void run(() => settlementService.markPaid(detail.id));
@@ -304,6 +362,106 @@ export function SettlementDetailPanel({
                     Vincular
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+          {recordForm && recordOptions && detail.status !== 'Closed' && (
+            <div className="mt-3 space-y-2 border-t border-border pt-3">
+              <p>
+                {outgoing
+                  ? `Apunta lo que le pagaste a ${detail.counterpartyName} fuera del extracto. Sale de la cuenta que elijas (por ejemplo, «Efectivo») y se vincula a esta liquidación.`
+                  : `Apunta lo que te pagó ${detail.counterpartyName} fuera del extracto. Entra en la cuenta que elijas (por ejemplo, «Efectivo») y se vincula a esta liquidación.`}
+              </p>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-muted-foreground">Cuenta</span>
+                  <select
+                    value={recordForm.accountId}
+                    onChange={(event) => setRecordForm({ ...recordForm, accountId: event.target.value })}
+                    disabled={busy}
+                    className="rounded-lg border border-input bg-card px-3 py-1.5"
+                  >
+                    {recordOptions.accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-muted-foreground">Concepto</span>
+                  <select
+                    value={recordForm.conceptId}
+                    onChange={(event) => setRecordForm({ ...recordForm, conceptId: event.target.value })}
+                    disabled={busy}
+                    className="max-w-[16rem] rounded-lg border border-input bg-card px-3 py-1.5"
+                  >
+                    {recordOptions.concepts.map((concept) => (
+                      <option key={concept.id} value={concept.id}>
+                        {concept.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-muted-foreground">Importe</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={pendingAmount.toFixed(2)}
+                    step="0.01"
+                    value={recordForm.amount}
+                    onChange={(event) => setRecordForm({ ...recordForm, amount: event.target.value })}
+                    disabled={busy}
+                    className="w-28 rounded-lg border border-input bg-card px-3 py-1.5"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-xs text-muted-foreground">Día</span>
+                  <input
+                    type="date"
+                    value={recordForm.date}
+                    onChange={(event) => setRecordForm({ ...recordForm, date: event.target.value })}
+                    disabled={busy}
+                    className="rounded-lg border border-input bg-card px-3 py-1.5"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || !recordValid}
+                  onClick={() =>
+                    void run(() =>
+                      settlementService.recordPayment(detail.id, {
+                        accountId: recordForm.accountId,
+                        conceptId: recordForm.conceptId,
+                        amount: Math.round(recordAmount * 100) / 100,
+                        date: recordForm.date,
+                      }),
+                    )
+                  }
+                  className="rounded-lg bg-teal-600 px-3 py-2 text-white hover:bg-teal-700 disabled:opacity-50"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setRecordForm(null)}
+                  className="rounded-lg border border-input bg-card px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+              {recordValid && pendingAmount - recordAmount >= 0.005 && (
+                <p className="text-xs text-muted-foreground">
+                  Quedarán {euro(pendingAmount - recordAmount)} pendientes. Para pasarlos a la siguiente
+                  liquidación, ponlos allí en «Pendiente anterior».
+                </p>
+              )}
+              {recordAmount > pendingAmount + 0.005 && (
+                <p className="text-xs text-rose-700 dark:text-rose-400">
+                  No puede ser más que lo pendiente ({euro(pendingAmount)}).
+                </p>
               )}
             </div>
           )}

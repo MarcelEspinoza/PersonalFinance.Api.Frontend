@@ -11,11 +11,13 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { today } from "../../utils/civilDate";
-import type { MonthlyEntry } from "../../types/ledger";
+import type { Account, MonthlyEntry } from "../../types/ledger";
+import { LedgerService } from "../../services/ledgerService";
 
 export interface ConfirmFormValues {
   actualAmount: number;
   valueDate: string;
+  accountId?: string | null;
 }
 
 interface Props {
@@ -30,6 +32,8 @@ interface Props {
 export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onSubmit }: Props) {
   const [amount, setAmount] = useState("");
   const [valueDate, setValueDate] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
   useEffect(() => {
     if (!open || !entry) return;
@@ -37,7 +41,23 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
     // El importe previsto es la mejor conjetura: lo normal es confirmarlo tal cual.
     setAmount(String((entry.settlementAllocatedAmount ?? 0) > 0 ? entry.remaining : entry.forecastAmount));
     setValueDate(today());
+    setAccountId(entry.accountId ?? "");
   }, [open, entry]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    LedgerService.getAccounts()
+      .then((items) => {
+        if (active) setAccounts(items);
+      })
+      .catch(() => {
+        if (active) setAccounts([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   const parsedAmount = Number(amount.replace(",", "."));
   const canSubmit = !busy && amount.trim() !== "" && Number.isFinite(parsedAmount);
@@ -46,7 +66,7 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
     event.preventDefault();
     if (!canSubmit) return;
 
-    onSubmit({ actualAmount: parsedAmount, valueDate });
+    onSubmit({ actualAmount: parsedAmount, valueDate, accountId: accountId || null });
   };
 
   return (
@@ -84,6 +104,27 @@ export function ConfirmEntryDialog({ open, entry, busy, error, onOpenChange, onS
                 onChange={(e) => setValueDate(e.target.value)}
               />
             </div>
+
+            {accounts.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-account">Cuenta (por ejemplo, «Efectivo» si lo pagaste en mano)</Label>
+                <select
+                  id="confirm-account"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-card px-3 text-sm"
+                >
+                  {!entry?.accountId && (
+                    <option value="">{entry?.accountName ? `La de ahora (${entry.accountName})` : "Sin cuenta"}</option>
+                  )}
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {error && (
               <p className="rounded-lg border border-negative/25 bg-negative-soft p-3 text-sm text-negative">

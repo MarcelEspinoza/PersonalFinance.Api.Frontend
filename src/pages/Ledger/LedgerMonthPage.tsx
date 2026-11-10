@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { AlertCircle, Loader2, Search, Sparkles, X } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, Loader2, Search, Sparkles, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -17,6 +17,7 @@ import {
 import { CloseMonthDialog } from "../../components/Ledger/CloseMonthDialog";
 import { AssignEntryDialog } from "../../components/Ledger/AssignEntryDialog";
 import { RenameConceptDialog } from "../../components/Ledger/RenameConceptDialog";
+import { OwnTransferDialog } from "../../components/Ledger/OwnTransferDialog";
 import { MonthWorkspaceTabs } from "../../components/Monthly/MonthWorkspaceTabs";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { DATA_CHANGED_EVENT } from "../../services/chatService";
@@ -68,6 +69,7 @@ export function LedgerMonthPage() {
   const [assignTarget, setAssignTarget] = useState<MonthlyEntry | null>(null);
   const [renameTarget, setRenameTarget] = useState<MonthlyConcept | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   /** Groups folded down to their header, by groupId (all expanded by default). */
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   /** Survives month changes. */
@@ -196,6 +198,7 @@ export function LedgerMonthPage() {
         LedgerService.confirmEntry(confirmTarget.id, {
           actualAmount: values.actualAmount,
           valueDate: values.valueDate || null,
+          accountId: values.accountId ?? null,
         }),
       () => setConfirmTarget(null),
     );
@@ -271,6 +274,12 @@ export function LedgerMonthPage() {
         }}
         onReopen={() => void mutate(() => LedgerService.reopenMonth(year, month))}
       />
+
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
+          <ArrowLeftRight /> Pasar dinero entre mis cuentas
+        </Button>
+      </div>
 
       {(loading || (summary !== null && !isEmpty)) && (
         <div data-tour="month-search" className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -421,6 +430,12 @@ export function LedgerMonthPage() {
           if (!open) setConfirmTarget(null);
         }}
         onSubmit={submitConfirm}
+      />
+
+      <OwnTransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        onDone={() => void load(year, month, true)}
       />
 
       <CloseMonthDialog
