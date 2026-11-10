@@ -289,7 +289,6 @@ export interface ImportRow {
   reminderDueDate?: CivilDate | null;
   settlementId?: string | null;
   obligationName?: string | null;
-  automaticReminderName?: string | null;
   plannedAllocations?: ImportPlannedAllocation[];
   /** Pasanaco quota this income row pays; it is marked as paid when the batch is applied. */
   pasanacoParticipantId?: string | null;

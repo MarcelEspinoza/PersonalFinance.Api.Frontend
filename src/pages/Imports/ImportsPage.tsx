@@ -490,7 +490,7 @@ export function ImportsPage() {
       row.allocations.some((part) => part.counterpartyId)).length;
     const sharedText = sharedRows > 0 ? ` Se registrarán ${sharedRows} gastos compartidos y sus importes por cobrar en Liquidaciones.` : "";
     const obligationRows = review.rows.filter((row) => row.status === "Pending" &&
-      (row.reminderId || row.settlementId || row.automaticReminderName)).length;
+      (row.reminderId || row.settlementId)).length;
     const obligationText = obligationRows > 0
       ? ` ${obligationRows} movimientos actualizarán sus recordatorios o liquidaciones, sin duplicar cobros ni pagos.`
       : "";
@@ -1418,11 +1418,11 @@ export function ImportsPage() {
                           <div className="min-w-0 flex-1">
                             <div className="line-clamp-2 break-words font-medium leading-snug" title={group.rows[0]?.rawDescription}>{group.rows[0]?.rawDescription}</div>
                             {group.count > 1 && <div className="mt-1 truncate text-xs text-muted-foreground" title={group.normalizedDescription}>{group.normalizedDescription}</div>}
-                            {group.rows.filter((row) => row.reminderId || row.settlementId || row.automaticReminderName).map((row) => (
+                            {group.rows.filter((row) => row.reminderId || row.settlementId).map((row) => (
                               <button key={row.id} type="button" className="mt-1 block text-left text-xs text-primary hover:underline"
                                 onClick={() => setReviewMode("rows")}>
                                 {review.status === "Applied" ? "Vinculado a " : "Al aplicar: "}
-                                {row.obligationName ?? row.automaticReminderName ?? (row.reminderId ? "recordatorio" : "liquidación")}
+                                {row.obligationName ?? (row.reminderId ? "recordatorio" : "liquidación")}
                               </button>
                             ))}
                           </div>
@@ -1608,11 +1608,6 @@ export function ImportsPage() {
                                   </button>
                                 )}
                               </div>
-                            )}
-                            {!hasObligation && row.automaticReminderName && (
-                              <span className="text-xs text-primary">
-                                Al aplicar se cubrirá el recordatorio «{row.automaticReminderName}».
-                              </span>
                             )}
                           </div>
                         </td>
