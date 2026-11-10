@@ -422,11 +422,11 @@ export function PlanPage() {
         </Card>
       ) : (
         <Card data-tour="plan-table" className={cn("overflow-hidden transition-opacity", loading && "opacity-60")}>
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-7rem)] overflow-auto">
             <table className="w-full min-w-[760px] border-separate border-spacing-0 text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className={cn(stickyCell, "w-44 px-3 py-2.5 text-left font-medium text-muted-foreground sm:w-64")}>
+                  <th className={cn(stickyCell, "z-30 w-44 border-b px-3 py-2.5 text-left font-medium text-muted-foreground sm:w-64")}>
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarRange className="h-4 w-4" /> Mes
                     </span>
@@ -695,8 +695,10 @@ function MonthHeader({ month }: { month: ExpensePlanMonth }) {
   return (
     <th
       className={cn(
-        "px-3 py-2.5 text-right font-medium",
-        month.isCurrent ? "bg-primary/5 text-primary" : "text-foreground",
+        "border-b bg-card px-3 py-2.5 text-right font-medium",
+        month.isCurrent
+          ? "bg-[linear-gradient(hsl(var(--primary)/0.05),hsl(var(--primary)/0.05))] text-primary"
+          : "text-foreground",
       )}
     >
       <div>{capitalize(monthName(month.month))}</div>
