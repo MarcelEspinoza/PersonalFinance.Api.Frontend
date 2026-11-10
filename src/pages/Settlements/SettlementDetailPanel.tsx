@@ -321,6 +321,24 @@ export function SettlementDetailPanel({
                 <CheckCircle2 className="h-4 w-4" />
                 Marcar como pagada
               </button>
+              {Math.abs(detail.totals.pending) >= 0.01 && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `¿Pasar los ${euro(Math.abs(detail.totals.pending))} que quedan a la siguiente liquidación? Aparecerán allí como «Pendiente anterior» y esta quedará cerrada. Si la siguiente no existe, se crea.`,
+                      )
+                    ) {
+                      void run(() => settlementService.carryOver(detail.id));
+                    }
+                  }}
+                  className="rounded-lg border border-input bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Pasar lo pendiente a la siguiente
+                </button>
+              )}
             </div>
           )}
           {paymentCandidates !== null && detail.status !== 'Closed' && (

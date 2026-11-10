@@ -276,6 +276,12 @@ export const settlementService = {
     const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/reopen`);
     return data;
   },
+
+  /** Moves what is still pending to the next settlement and closes this one. Returns the next one. */
+  async carryOver(id: string): Promise<SettlementDetail> {
+    const { data } = await apiClient.post<SettlementDetail>(`${base}/${id}/carry-over`);
+    return data;
+  },
 };
 
 export default settlementService;
