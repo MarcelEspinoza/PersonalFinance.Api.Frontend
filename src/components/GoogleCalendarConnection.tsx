@@ -2,9 +2,7 @@ import { useId, useState } from "react";
 import { CalendarDays, Check, ExternalLink, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
 import { useGoogleCalendar } from "../contexts/googleCalendarContext";
-import type { GoogleCalendarReturnPath } from "../services/googleCalendarService";
 
 const eventColors = [
   { id: 1, name: "Lavanda" },
@@ -23,7 +21,8 @@ const eventColors = [
 export function GoogleCalendarAccountButton() {
   const { state, action, error, notice, refresh, connect, disconnect } = useGoogleCalendar();
   const { pathname } = useLocation();
-  const returnPath = pathname === "/pasanaco" || pathname === "/reminders" ? pathname : "/zeus";
+  const returnPath = pathname === "/pasanaco" || pathname === "/reminders" || pathname === "/settings"
+    ? pathname : "/zeus";
   const linked = state?.connected || state?.needsReconnect;
 
   return (
@@ -85,34 +84,52 @@ function GoogleCalendarColorsForm({ zeusColorId, pasanacoColorId }: { zeusColorI
   );
 }
 
-export function GoogleCalendarConnection({ returnPath }: { returnPath: GoogleCalendarReturnPath }) {
-  const { state, action, error, connect, retry } = useGoogleCalendar();
-  const connected = state?.connected ?? false;
-  const synchronized = connected && !!state?.configured && !!state.lastSyncedAt
+export function GoogleCalendarSyncStatus() {
+  const { state, action, error, retry } = useGoogleCalendar();
+  const connected = !!state?.connected && state.configured;
+  const synchronized = connected && !!state?.lastSyncedAt
     && state.pendingCount === 0 && !error && !action;
+  const canRetry = connected && !!error && !action;
+  const waiting = (!state && !error) || (connected && (!!action || (!synchronized && !error)));
+  const label = !state ? (error ? "No sincronizado" : "Consultando…")
+    : !connected ? "No sincronizado"
+    : synchronized ? "Sincronizado"
+    : waiting ? "Sincronizando…" : "Sincronizar";
 
   return (
-    <Card className="space-y-3 p-4">
+    <div className="flex justify-end">
+      <Button
+        variant="outline"
+        onClick={() => void retry()}
+        disabled={!canRetry}
+        title={error || (connected ? "Google Calendar y Tasks" : "Configura Google en Configuración → Google.")}
+      >
+        {synchronized ? <Check className="mr-2 h-4 w-4" />
+          : waiting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          : canRetry ? <RefreshCw className="mr-2 h-4 w-4" />
+          : <CalendarDays className="mr-2 h-4 w-4" />}
+        {label}
+      </Button>
+    </div>
+  );
+}
+
+export function GoogleCalendarSettingsPanel() {
+  const { state, action, connect } = useGoogleCalendar();
+  const connected = state?.connected ?? false;
+
+  return (
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 font-semibold"><CalendarDays className="h-4 w-4" />Google Calendar y Tasks</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Horas de Zeus y entregas de pasanaco del día 5 en tu calendario principal.
-            Tus recordatorios van a la lista PersonalFinance de Tasks.
-            Crear, editar, completar o borrar aquí actualiza su registro en Google. Sin IA.
-          </p>
-        </div>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Horas de Zeus y entregas de pasanaco del día 5 en tu calendario principal.
+          Tus recordatorios van a la lista PersonalFinance de Tasks.
+          Crear, editar, completar o borrar en la app actualiza su registro en Google. Sin IA.
+        </p>
         <div className="flex flex-wrap gap-2">
-          {connected && state?.configured && (
-            <Button variant="outline" onClick={() => void retry()} disabled={!!action || !state?.configured || !error}>
-              {synchronized ? <Check className="mr-2 h-4 w-4" />
-                : error ? <RefreshCw className="mr-2 h-4 w-4" />
-                : <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {synchronized ? "Sincronizado" : error ? "Reintentar sincronización" : "Sincronizando…"}
-            </Button>
-          )}
+          <GoogleCalendarSyncStatus />
           {state?.needsReconnect && (
-            <Button variant="outline" onClick={() => void connect(returnPath)} disabled={!!action || !state.configured}>
+            <Button variant="outline" onClick={() => void connect("/settings")} disabled={!!action || !state.configured}>
               <ExternalLink className="mr-2 h-4 w-4" />Volver a conectar Google
             </Button>
           )}
@@ -135,6 +152,6 @@ export function GoogleCalendarConnection({ returnPath }: { returnPath: GoogleCal
           pasanacoColorId={state.pasanacoColorId}
         />
       )}
-    </Card>
+    </div>
   );
 }

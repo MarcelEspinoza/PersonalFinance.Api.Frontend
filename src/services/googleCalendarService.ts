@@ -12,7 +12,7 @@ export interface GoogleCalendarState {
   pasanacoColorId: number;
 }
 
-export type GoogleCalendarReturnPath = "/zeus" | "/pasanaco" | "/reminders";
+export type GoogleCalendarReturnPath = "/zeus" | "/pasanaco" | "/reminders" | "/settings";
 
 const endpoint = "/calendar/google";
 

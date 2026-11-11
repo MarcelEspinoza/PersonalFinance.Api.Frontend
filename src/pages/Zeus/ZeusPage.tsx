@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, CalendarDays, Clock, Heart, Loader2, PawPrint, Pencil, Plus, Ticket, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
-import { GoogleCalendarConnection } from "../../components/GoogleCalendarConnection";
+import { GoogleCalendarSyncStatus } from "../../components/GoogleCalendarConnection";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -149,7 +149,7 @@ export function ZeusPage() {
     <div className="space-y-6">
       <PageHeader title="Zeus" description="Su guardería y su niñera, cada una con sus cuidados y sus pagos."
         actions={provider === "daycare" ? <Button variant="outline" onClick={() => setBuying(true)} disabled={!summary || !!busy || loading}><Plus className="mr-2 h-4 w-4" />Comprar bono</Button> : undefined} />
-      <GoogleCalendarConnection returnPath="/zeus" />
+      <GoogleCalendarSyncStatus />
       <div className="flex flex-wrap gap-2" aria-label="Cuidador de Zeus">
         <Button variant={provider === "daycare" ? "default" : "outline"} aria-pressed={provider === "daycare"} onClick={() => setProvider("daycare")}><PawPrint className="mr-2 h-4 w-4" />Guardería</Button>
         <Button variant={provider === "alessia" ? "default" : "outline"} aria-pressed={provider === "alessia"} onClick={() => setProvider("alessia")}><Heart className="mr-2 h-4 w-4" />Alessia · Niñera</Button>

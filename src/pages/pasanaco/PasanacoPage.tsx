@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "../../components/PageHeader";
-import { GoogleCalendarConnection } from "../../components/GoogleCalendarConnection";
+import { GoogleCalendarSyncStatus } from "../../components/GoogleCalendarConnection";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -129,7 +129,7 @@ export function PasanacoPage() {
         actions={<PasanacoModal onCreated={loadPasanacos} />}
       />
 
-      <GoogleCalendarConnection returnPath="/pasanaco" />
+      <GoogleCalendarSyncStatus />
 
       <PasanacoList
         pasanacos={pasanacos}

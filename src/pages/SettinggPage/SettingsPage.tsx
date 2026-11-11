@@ -1,5 +1,6 @@
 ﻿import {
   Archive,
+  CalendarDays,
   Landmark,
   Palette,
   ShieldCheck,
@@ -12,11 +13,12 @@ import CategoriesManager from "../../components/Settings/CategoriesManager";
 import ManageRoles from "../../components/Settings/ManageRoles";
 import ThemePicker from "../../components/Settings/ThemePicker";
 import { PageHeader } from "../../components/PageHeader";
+import { GoogleCalendarSettingsPanel } from "../../components/GoogleCalendarConnection";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import { cn } from "../../lib/utils";
 
-type SettingsTab = "banks" | "categories" | "appearance" | "admin";
+type SettingsTab = "banks" | "categories" | "appearance" | "google" | "admin";
 
 type TabDefinition = {
   id: SettingsTab;
@@ -47,6 +49,13 @@ const tabs: TabDefinition[] = [
     shortTitle: "Apariencia",
     subtitle: "Elige si quieres ver la app en modo claro u oscuro.",
     icon: Palette,
+  },
+  {
+    id: "google",
+    title: "Google Calendar y Tasks",
+    shortTitle: "Google",
+    subtitle: "Configura la sincronización y los colores de tus eventos.",
+    icon: CalendarDays,
   },
   {
     id: "admin",
@@ -126,6 +135,7 @@ export default function SettingsPage() {
           {active.id === "banks" && <BanksManager />}
           {active.id === "categories" && <CategoriesManager />}
           {active.id === "appearance" && <ThemePicker />}
+          {active.id === "google" && <GoogleCalendarSettingsPanel />}
           {active.id === "admin" && isAdmin && <ManageRoles />}
         </CardContent>
       </Card>
