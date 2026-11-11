@@ -168,6 +168,7 @@ export function LedgerMonthPage() {
             direction,
             dueDate: values.dueDate,
             forecastAmount: values.forecastAmount,
+            accountId: values.accountId ?? null,
             description,
             notes: values.notes ? values.notes : null,
           }),
@@ -183,6 +184,7 @@ export function LedgerMonthPage() {
         LedgerService.updateEntry(entry.id, {
           dueDate: values.dueDate,
           forecastAmount: values.forecastAmount,
+          ...(values.accountId !== undefined ? { accountId: values.accountId } : {}),
           description,
           ...(values.notes !== undefined ? { notes: values.notes } : {}),
         }),

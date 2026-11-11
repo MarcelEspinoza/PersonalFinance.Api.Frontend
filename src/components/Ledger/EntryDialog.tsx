@@ -11,12 +11,14 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { firstDayOf } from "../../utils/civilDate";
-import type { MonthlyEntry } from "../../types/ledger";
+import { EntryStatus, type Account, type MonthlyEntry } from "../../types/ledger";
+import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 
 export interface EntryFormValues {
   dueDate: string;
   forecastAmount: number;
   description: string;
+  accountId?: string | null;
   /** Sólo viene si el usuario cambió la nota (así no se borra una nota por error). */
   notes?: string;
 }
@@ -50,7 +52,13 @@ export function EntryDialog({
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [accountsReload, setAccountsReload] = useState(0);
   const initialNotes = mode === "edit" ? entry?.notes ?? "" : "";
+  const initialAccountId = mode === "edit" ? entry?.accountId ?? "" : "";
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +68,7 @@ export function EntryDialog({
       setAmount(String(entry.forecastAmount));
       setDescription(entry.description ?? "");
       setNotes(entry.notes ?? "");
+      setAccountId(entry.accountId ?? "");
       return;
     }
 
@@ -67,11 +76,33 @@ export function EntryDialog({
     setAmount("");
     setDescription("");
     setNotes("");
+    setAccountId("");
   }, [open, mode, entry, year, month]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setAccountsLoading(true);
+    setAccountsError(null);
+    LedgerService.getAccounts()
+      .then((items) => {
+        if (active) setAccounts(items);
+      })
+      .catch((loadError) => {
+        if (active) setAccountsError(ledgerErrorMessage(loadError, "No se han podido cargar las cuentas."));
+      })
+      .finally(() => {
+        if (active) setAccountsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, accountsReload]);
 
   const parsedAmount = Number(amount.replace(",", "."));
   const canSubmit =
-    !busy && dueDate.length === 10 && amount.trim() !== "" && Number.isFinite(parsedAmount);
+    !busy && !accountsLoading && !accountsError &&
+    dueDate.length === 10 && amount.trim() !== "" && Number.isFinite(parsedAmount);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -81,13 +112,14 @@ export function EntryDialog({
       dueDate,
       forecastAmount: parsedAmount,
       description: description.trim(),
+      accountId: mode === "create" || accountId !== initialAccountId ? accountId || null : undefined,
       notes: notes.trim() !== initialNotes.trim() ? notes.trim() : undefined,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-xl border bg-card p-6 shadow-xl sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-xl border bg-card p-6 shadow-xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{mode === "create" ? "Nuevo apunte" : "Editar apunte"}</DialogTitle>
@@ -117,6 +149,40 @@ export function EntryDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="entry-account">Cuenta</Label>
+              <select
+                id="entry-account"
+                value={accountId}
+                onChange={(event) => setAccountId(event.target.value)}
+                disabled={busy || accountsLoading || accountsError !== null}
+                className="h-9 min-w-0 rounded-md border border-input bg-card px-3 text-sm"
+              >
+                {!initialAccountId && <option value="">Sin cuenta asignada</option>}
+                {initialAccountId && !accounts.some(account => account.id === initialAccountId) && (
+                  <option value={initialAccountId}>{entry?.accountName ?? "Cuenta actual"} (actual)</option>
+                )}
+                {accounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}</option>
+                ))}
+              </select>
+              {accountsLoading && <p role="status" className="text-xs text-muted-foreground">Cargando cuentas…</p>}
+              {accountsError && (
+                <div className="space-y-2">
+                  <p role="alert" className="text-sm text-negative">{accountsError}</p>
+                  <Button type="button" variant="outline" size="sm" disabled={busy}
+                    onClick={() => setAccountsReload(current => current + 1)}>
+                    Reintentar cuentas
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {mode === "edit" && entry?.status === EntryStatus.Paid
+                  ? "Este apunte ya está confirmado. Cambiar su cuenta reasigna el cobro o pago y afecta a sus saldos."
+                  : "Elegir una cuenta no marca este apunte como cobrado o pagado."}
+              </p>
             </div>
 
             <div className="grid gap-2">
