@@ -14,6 +14,7 @@ import type {
   SplitImportRowInput,
   ShareImportRowInput,
   ImportReview,
+  ImportSplitTarget,
   PendingImport,
   ImportRow,
   ImportPlannedAllocation,
@@ -251,6 +252,11 @@ export const LedgerService = {
   /** Open planned entries near the batch dates that its rows can be deducted from. */
   getPlannedCandidates: async (batchId: string): Promise<PlannedCandidate[]> => {
     const { data } = await apiClient.get<PlannedCandidate[]>(`/imports/${batchId}/planned-candidates`);
+    return data;
+  },
+
+  getImportSplitTargets: async (batchId: string): Promise<ImportSplitTarget[]> => {
+    const { data } = await apiClient.get<ImportSplitTarget[]>(`/imports/${batchId}/split-targets`);
     return data;
   },
 

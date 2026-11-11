@@ -1,8 +1,9 @@
 import { CalendarClock, Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { cn } from "../../lib/utils";
+import { cn, normalizeSearchText } from "../../lib/utils";
 import type { ImportPlannedAllocation, ImportRow, PlannedCandidate } from "../../types/ledger";
 import { money } from "../../utils/civilDate";
 import {
@@ -39,12 +40,22 @@ export function PlannedEntryPickerDialog({
   onClose,
 }: PlannedEntryPickerDialogProps) {
   const [multiple, setMultiple] = useState(false);
+  const [query, setQuery] = useState("");
   const [parts, setParts] = useState<ImportPlannedAllocation[]>([]);
   useEffect(() => {
+    setQuery("");
     setMultiple(Boolean(row?.plannedAllocations?.length));
     setParts(row?.plannedAllocations ?? []);
   }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
+  const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+  const filteredOptions = options.filter(candidate => {
+    const text = normalizeSearchText([
+      plannedEntryLabel(candidate), candidate.description, candidate.accountName,
+      formatCivilDate(candidate.dueDate), candidate.forecastAmount,
+    ].join(" "));
+    return terms.every(term => text.includes(term));
+  });
   const linkedId = row?.plannedEntryId ?? null;
   const current = row ? plannedAllocationsFor(row) : [];
   const cents = (amount: number) => Math.round(amount * 100);
@@ -104,14 +115,22 @@ export function PlannedEntryPickerDialog({
                 {" "}Usa importes positivos de hasta dos decimales, sin superar lo disponible.
               </p>
             )}
+            <Input type="search" aria-label="Buscar previstos"
+              placeholder="Buscar por categoría, descripción, cuenta o fecha…"
+              value={query} disabled={saving} onChange={event => setQuery(event.target.value)} />
             {options.length === 0 ? (
               <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                 No hay previstos abiertos de {row.amount < 0 ? "gasto" : "ingreso"} cerca de las fechas de este
                 extracto.
+                {" "}Los presupuestos se actualizan por categoría; no son recibos pendientes.
+              </p>
+            ) : filteredOptions.length === 0 ? (
+              <p role="status" className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                No hay previstos que coincidan con la búsqueda.
               </p>
             ) : (
               <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-                {options.map((candidate) => {
+                {filteredOptions.map((candidate) => {
                   const linked = candidate.id === linkedId;
                   const part = parts.find((allocation) => allocation.plannedEntryId === candidate.id);
                   const incompatible = parts.length > 0 && candidate.conceptId !== selectedCategory;

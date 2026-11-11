@@ -42,7 +42,7 @@ import {
   remainingText,
   truncateText,
 } from "../../components/Imports/importAssistantUtils";
-import { cn } from "../../lib/utils";
+import { cn, normalizeSearchText } from "../../lib/utils";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { ReminderService } from "../../services/reminderService";
 import { pasanacoService } from "../../services/pasanacoService";
@@ -57,6 +57,7 @@ import type {
   ImportFinding,
   ImportReview,
   ImportRow,
+  ImportSplitTarget,
   ImportPlannedAllocation,
   PlannedCandidate,
   PendingImport,
@@ -199,8 +200,33 @@ export function ImportsPage() {
   const [creatingConcept, setCreatingConcept] = useState(false);
   const [splitRow, setSplitRow] = useState<ImportRow | null>(null);
   const [sharedExpenseRow, setSharedExpenseRow] = useState<ImportRow | null>(null);
-  const [splitParts, setSplitParts] = useState<Array<{ conceptId: string; amount: string }>>([]);
+  const [splitParts, setSplitParts] = useState<Array<{ conceptId: string; amount: string; target: string; search: string }>>([]);
+  const [splitTargets, setSplitTargets] = useState<ImportSplitTarget[]>([]);
+  const [splitTargetsLoading, setSplitTargetsLoading] = useState(false);
+  const [splitTargetsError, setSplitTargetsError] = useState<string | null>(null);
+  const [splitTargetsReload, setSplitTargetsReload] = useState(0);
+  const [splitError, setSplitError] = useState<string | null>(null);
   const [savingSplit, setSavingSplit] = useState(false);
+  const splitRowId = splitRow?.id;
+  const splitBatchId = review?.id;
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+  useEffect(() => {
+    if (!splitRowId || !splitBatchId) return;
+    let active = true;
+    setSplitTargetsLoading(true);
+    setSplitTargetsError(null);
+    LedgerService.getImportSplitTargets(splitBatchId)
+      .then(targets => { if (active) setSplitTargets(targets); })
+      .catch(loadError => {
+        if (active) setSplitTargetsError(ledgerErrorMessage(loadError, "No se han podido cargar los pendientes."));
+      })
+      .finally(() => { if (active) setSplitTargetsLoading(false); });
+    return () => { active = false; };
+  }, [splitRowId, splitBatchId, splitTargetsReload]);
   const importWorking =
     importProgress.status === "preparing" ||
     importProgress.status === "uploading" ||
@@ -411,44 +437,53 @@ export function ImportsPage() {
   };
 
   const openSplitRow = (row: ImportRow) => {
+    setSplitError(null);
     const existing = row.allocations ?? [];
     const firstConcept = row.confirmedConceptId ?? row.suggestedConceptId ?? "";
     const firstAmount = existing[0]?.amount ?? Math.floor(Math.abs(row.amount) * 50) / 100;
     const secondAmount = existing[1]?.amount ?? Math.abs(row.amount) - firstAmount;
     setSplitParts(existing.length > 0
-      ? existing.map((part) => ({ conceptId: part.conceptId, amount: String(part.amount) }))
+      ? existing.map((part) => ({
+          conceptId: part.conceptId, amount: String(part.amount), search: "",
+          target: part.plannedEntryId ? `planned:${part.plannedEntryId}` :
+            part.settlementId ? `settlement:${part.settlementId}` : "",
+        }))
       : [
-          { conceptId: firstConcept, amount: firstAmount.toFixed(2) },
-          { conceptId: "", amount: secondAmount.toFixed(2) },
+          { conceptId: firstConcept, amount: firstAmount.toFixed(2), target: "", search: "" },
+          { conceptId: "", amount: secondAmount.toFixed(2), target: "", search: "" },
         ]);
+    setSplitTargetsLoading(true);
     setSplitRow(row);
   };
 
   const saveRowSplit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!review || !splitRow) return;
+    if (!review || !splitRow || splitTargetsLoading || splitTargetsError || savingSplit) return;
     const allocations = splitParts.map((part) => ({
       conceptId: part.conceptId,
       amount: Number(part.amount.replace(",", ".")),
+      plannedEntryId: part.target.startsWith("planned:") ? part.target.slice("planned:".length) : null,
+      settlementId: part.target.startsWith("settlement:") ? part.target.slice("settlement:".length) : null,
     }));
     const totalCents = allocations.reduce((sum, part) => sum + Math.round(part.amount * 100), 0);
     if (allocations.length < 2 || allocations.length > 3 ||
         allocations.some((part) => !part.conceptId || !Number.isFinite(part.amount) || part.amount <= 0) ||
         new Set(allocations.map((part) => part.conceptId)).size !== allocations.length ||
         totalCents !== Math.round(Math.abs(splitRow.amount) * 100)) {
-      setError("Indica 2 o 3 conceptos distintos y reparte el importe completo del movimiento.");
+      setSplitError("Indica 2 o 3 conceptos distintos y reparte el importe completo del movimiento.");
       return;
     }
 
     setSavingSplit(true);
-    setError(null);
+    setSplitError(null);
+    setMessage(null);
     try {
       await LedgerService.splitImportRow(review.id, splitRow.id, { allocations });
       await reloadReview(review.id);
       setSplitRow(null);
-      setMessage("Movimiento dividido en partes y conceptos separados.");
+      setMessage("División guardada. Los vínculos se harán efectivos al aplicar la importación.");
     } catch (err) {
-      setError(ledgerErrorMessage(err, "No se ha podido dividir el movimiento."));
+      setSplitError(ledgerErrorMessage(err, "No se ha podido dividir el movimiento."));
     } finally {
       setSavingSplit(false);
     }
@@ -1479,7 +1514,9 @@ export function ImportsPage() {
                         return `${person?.name ?? "La otra persona"} te debe ${money(part.amount)}`;
                       }
                       const conceptName = review.concepts.find((concept) => concept.id === part.conceptId)?.name ?? "Concepto";
-                      return `${conceptName}: ${part.amount.toFixed(2)}`;
+                      return `${conceptName}: ${part.amount.toFixed(2)}${
+                        part.plannedEntryId ? " (previsto vinculado)" : part.settlementId ? " (liquidación vinculada)" : ""
+                      }`;
                     }).join(" · ");
                     const isSharedExpense = row.allocations?.some((part) => part.counterpartyId);
                     const reviewOpen = review.status !== "Applied";
@@ -1701,8 +1738,8 @@ export function ImportsPage() {
         onClose={closePlannedPicker}
       />
 
-      <Dialog open={splitRow !== null} onOpenChange={(open) => !open && setSplitRow(null)}>
-        <DialogContent className="max-w-xl">
+      <Dialog open={splitRow !== null} onOpenChange={(open) => !open && !savingSplit && setSplitRow(null)}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Dividir movimiento</DialogTitle>
           </DialogHeader>
@@ -1713,7 +1750,17 @@ export function ImportsPage() {
               </p>
               <p className="text-sm text-muted-foreground">
                 Reparte el importe entre 2 o 3 conceptos. Las partes deben sumar exactamente el total del banco.
+                {" "}Puedes vincular cada parte a un previsto o una liquidación; solo se saldarán al aplicar el lote.
               </p>
+              {splitTargetsLoading && <p role="status" className="text-sm text-muted-foreground">Cargando pendientes…</p>}
+              {splitTargetsError && (
+                <div role="alert" className="space-y-2 text-sm text-destructive">
+                  <p>{splitTargetsError}</p>
+                  <Button type="button" variant="outline" onClick={() => setSplitTargetsReload(value => value + 1)}>
+                    Reintentar pendientes
+                  </Button>
+                </div>
+              )}
               <div className="space-y-3">
                 {splitParts.map((part, index) => (
                   <div key={index} className="grid grid-cols-[minmax(0,1fr)_130px_auto] items-end gap-2">
@@ -1730,7 +1777,8 @@ export function ImportsPage() {
                         showKind={false}
                         label={`Categoría de la parte ${index + 1}`}
                         onChange={value => setSplitParts(current => current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, conceptId: value } : item))}
+                          itemIndex === index ? { ...item, conceptId: value, target: "", search: "" } : item))}
+                        disabled={savingSplit}
                         required
                       />
                     </div>
@@ -1740,6 +1788,7 @@ export function ImportsPage() {
                         min="0.01"
                         step="0.01"
                         value={part.amount}
+                        disabled={savingSplit}
                         onChange={(event) => setSplitParts((current) => current.map((item, itemIndex) =>
                           itemIndex === index ? { ...item, amount: event.target.value } : item))}
                         required
@@ -1751,29 +1800,66 @@ export function ImportsPage() {
                         size="icon"
                         variant="outline"
                         aria-label={`Quitar parte ${index + 1}`}
+                        disabled={savingSplit}
                         onClick={() => setSplitParts((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     )}
+                    <div className="col-span-full min-w-0 space-y-1.5 rounded-md border p-3">
+                      <Label htmlFor={`split-target-${index}`}>Pendiente de la parte {index + 1}</Label>
+                      <Input type="search" aria-label={`Buscar pendiente de la parte ${index + 1}`}
+                        placeholder="Buscar previsto o liquidación…"
+                        value={part.search} disabled={savingSplit || splitTargetsLoading || Boolean(splitTargetsError)}
+                        onChange={event => setSplitParts(current => current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, search: event.target.value } : item))} />
+                      <select id={`split-target-${index}`} value={part.target}
+                        disabled={savingSplit || splitTargetsLoading || Boolean(splitTargetsError)}
+                        className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm"
+                        onChange={event => setSplitParts(current => current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, target: event.target.value } : item))}>
+                        <option value="">Sin vínculo: solo clasificar esta parte</option>
+                        {part.target && !splitTargets.some(target => `${target.kind}:${target.id}` === part.target) && (
+                          <option value={part.target}>Vínculo actual no disponible; quítalo o elige otro</option>
+                        )}
+                        {splitTargets.filter(target => {
+                          const selected = `${target.kind}:${target.id}` === part.target;
+                          const terms = normalizeSearchText(part.search).split(/\s+/).filter(Boolean);
+                          return selected || (target.direction === directionForAmount(splitRow.amount) &&
+                            (target.kind !== "planned" || target.conceptId === part.conceptId) &&
+                            terms.every(term => normalizeSearchText(target.label).includes(term)));
+                        }).map(target => (
+                          <option key={`${target.kind}:${target.id}`} value={`${target.kind}:${target.id}`}>
+                            {target.kind === "planned" ? "Previsto" : "Liquidación"} · {target.label} · {money(target.remainingAmount)}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        {part.target ? "Vínculo seleccionado: se aplicará solo el importe de esta parte." :
+                          "Sin vínculo, esta parte no cierra ningún previsto ni liquidación."}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
+              {splitError && <p role="alert" className="text-sm text-destructive">{splitError}</p>}
               {splitParts.length < 3 && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setSplitParts((current) => [...current, { conceptId: "", amount: "" }])}
+                  disabled={savingSplit}
+                  onClick={() => setSplitParts((current) => [...current, { conceptId: "", amount: "", target: "", search: "" }])}
                 >
                   <Plus className="h-4 w-4" /> Añadir parte
                 </Button>
               )}
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setSplitRow(null)}>
+                <Button type="button" variant="outline" disabled={savingSplit} onClick={() => setSplitRow(null)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={savingSplit}>
+                <Button type="submit" disabled={savingSplit || splitTargetsLoading || Boolean(splitTargetsError) ||
+                  splitParts.some(part => part.target && !splitTargets.some(target => `${target.kind}:${target.id}` === part.target))}>
                   {savingSplit ? "Guardando…" : <><Check className="h-4 w-4" /> Guardar división</>}
                 </Button>
               </DialogFooter>

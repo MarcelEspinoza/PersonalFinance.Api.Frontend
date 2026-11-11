@@ -328,6 +328,17 @@ export interface ImportRowAllocation {
   conceptId: string;
   amount: number;
   counterpartyId?: string | null;
+  plannedEntryId?: string | null;
+  settlementId?: string | null;
+}
+
+export interface ImportSplitTarget {
+  id: string;
+  kind: "planned" | "settlement";
+  label: string;
+  direction: EntryDirection;
+  remainingAmount: number;
+  conceptId?: string | null;
 }
 
 export interface ShareImportRowInput {
