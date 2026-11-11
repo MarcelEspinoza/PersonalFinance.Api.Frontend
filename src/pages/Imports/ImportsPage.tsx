@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { ImportAssistantPanel } from "../../components/Imports/ImportAssistantPanel";
+import { ImportConceptPicker } from "../../components/Imports/ImportConceptPicker";
 import { PlannedEntryPickerDialog } from "../../components/Imports/PlannedEntryPickerDialog";
 import { SharedExpenseDialog } from "../../components/Imports/SharedExpenseDialog";
 import {
@@ -72,12 +73,6 @@ const findingStyle: Record<string, { box: string; icon: ReactNode }> = {
 
 const explainReviewPrompt =
   "Explícame la revisión con este formato: En resumen (1–2 líneas), Qué hacer (máximo 5 pasos numerados) y Detalle (una línea por aviso). Sé breve.";
-
-const conceptKindLabel = (kind: string) => {
-  if (kind.toLowerCase() === "income") return "Ingreso";
-  if (kind.toLowerCase() === "transfer") return "Traspaso";
-  return "Gasto";
-};
 
 const createdBatchMessage = (result: ImportBatchResult) => {
   const confirmed = result.confirmedPendingRows ?? 0;
@@ -1448,10 +1443,15 @@ export function ImportsPage() {
                       <td className="px-3 py-2 text-right font-medium tabular-nums">{group.count}</td>
                       <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${group.total < 0 ? "text-negative" : "text-positive"}`}>{money(group.total)}</td>
                       <td className="px-3 py-2">
-                        <select data-tour="import-concept" className="h-9 w-full rounded-md border bg-background px-2" value={group.selectedConceptId} disabled={busy || review.status === "Applied"} onChange={(e) => void updateGroupConcept(group.normalizedDescription, e.target.value)}>
-                          <option value="">Sin concepto (revisar)</option>
-                          {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
-                        </select>
+                        <ImportConceptPicker
+                          concepts={review.concepts}
+                          value={group.selectedConceptId}
+                          dataTour="import-concept"
+                          className="w-full"
+                          label={`Categoría de ${group.rows[0]?.rawDescription ?? group.normalizedDescription}`}
+                          disabled={busy || review.status === "Applied"}
+                          onChange={value => void updateGroupConcept(group.normalizedDescription, value)}
+                        />
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{group.suggestionSource ?? "manual"}</td>
                     </tr>
@@ -1519,10 +1519,15 @@ export function ImportsPage() {
                             {splitSummary ? (
                               <span className="text-xs font-medium text-primary">{splitSummary}</span>
                             ) : (
-                              <select data-tour="import-concept" className="h-8 min-w-52 max-w-xs rounded-md border bg-background px-2" value={selected} disabled={busy || review.status === "Applied"} onChange={(e) => void updateConcept(row, e.target.value)}>
-                                <option value="">Sin concepto (revisar)</option>
-                                {review.concepts.map((concept) => <option key={concept.id} value={concept.id}>{conceptKindLabel(concept.kind)} · {concept.name}</option>)}
-                              </select>
+                              <ImportConceptPicker
+                                concepts={review.concepts}
+                                value={selected}
+                                dataTour="import-concept"
+                                className="h-8 min-w-52 max-w-xs"
+                                label={`Categoría de ${row.rawDescription}`}
+                                disabled={busy || review.status === "Applied"}
+                                onChange={value => void updateConcept(row, value)}
+                              />
                             )}
                             {hasPlannedLinks ? (
                               <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
@@ -1712,23 +1717,23 @@ export function ImportsPage() {
               <div className="space-y-3">
                 {splitParts.map((part, index) => (
                   <div key={index} className="grid grid-cols-[minmax(0,1fr)_130px_auto] items-end gap-2">
-                    <Field label={`Parte ${index + 1} · concepto`}>
-                      <select
-                        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`split-concept-${index}`} className="block text-xs font-medium text-muted-foreground">
+                        Parte {index + 1} · concepto
+                      </Label>
+                      <ImportConceptPicker
+                        id={`split-concept-${index}`}
+                        concepts={(review?.concepts ?? []).filter(concept => concept.kind.toLowerCase() ===
+                          (splitRow.amount >= 0 ? ConceptKind.Income : ConceptKind.Expense))}
                         value={part.conceptId}
-                        onChange={(event) => setSplitParts((current) => current.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, conceptId: event.target.value } : item))}
+                        placeholder="Selecciona un concepto"
+                        showKind={false}
+                        label={`Categoría de la parte ${index + 1}`}
+                        onChange={value => setSplitParts(current => current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, conceptId: value } : item))}
                         required
-                      >
-                        <option value="">Selecciona un concepto</option>
-                        {review?.concepts
-                          .filter((concept) => concept.kind.toLowerCase() ===
-                            (splitRow.amount >= 0 ? ConceptKind.Income : ConceptKind.Expense))
-                          .map((concept) => (
-                            <option key={concept.id} value={concept.id}>{concept.name}</option>
-                          ))}
-                      </select>
-                    </Field>
+                      />
+                    </div>
                     <Field label="Importe">
                       <Input
                         type="number"

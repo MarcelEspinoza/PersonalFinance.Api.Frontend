@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import type { ImportConceptOption, ImportPersonOption, ImportRow, ShareImportRowInput } from "../../types/ledger";
 import { ledgerErrorMessage } from "../../services/ledgerService";
 import { formatAmount } from "./importAssistantUtils";
+import { ImportConceptPicker } from "./ImportConceptPicker";
 
 interface SharedExpenseDialogProps {
   row: ImportRow;
@@ -63,15 +65,20 @@ export function SharedExpenseDialog({ row, people, concepts, onSave, onRemove, o
             </select>
           </label>
           {people.length === 0 && <p className="text-sm text-muted-foreground">Añade primero a la persona en Liquidaciones.</p>}
-          <label className="block space-y-1 text-sm">
-            <span>Categoría de tu parte</span>
-            <select className="h-9 w-full rounded-md border bg-background px-2" value={conceptId}
-              disabled={saving} onChange={(event) => setConceptId(event.target.value)} required>
-              <option value="">Selecciona una categoría</option>
-              {concepts.filter((concept) => concept.kind.toLowerCase() === "expense")
-                .map((concept) => <option key={concept.id} value={concept.id}>{concept.name}</option>)}
-            </select>
-          </label>
+          <div className="space-y-1 text-sm">
+            <Label htmlFor="shared-expense-concept">Categoría de tu parte</Label>
+            <ImportConceptPicker
+              id="shared-expense-concept"
+              concepts={concepts.filter(concept => concept.kind.toLowerCase() === "expense")}
+              value={conceptId}
+              placeholder="Selecciona una categoría"
+              showKind={false}
+              label="Categoría de tu parte"
+              disabled={saving}
+              onChange={setConceptId}
+              required
+            />
+          </div>
           <label className="block space-y-1 text-sm">
             <span>Importe que te devolverá</span>
             <Input type="number" min="0.01" max={(bankCents - 1) / 100} step="0.01" required

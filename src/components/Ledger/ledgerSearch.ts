@@ -1,4 +1,5 @@
 import type { CivilDate, MonthlyEntry, MonthlyGroup } from "../../types/ledger";
+import { normalizeSearchText } from "../../lib/utils";
 
 interface SearchToken {
   text: string;
@@ -11,9 +12,6 @@ export interface LedgerSearchResult {
   groups: Map<string, MonthlyGroup>;
   count: number;
 }
-
-const normalize = (value: string) =>
-  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /** "45" matches any 45,xx; "45,9" or "45.9" matches 45,90-45,99; "1.234,56" and "1,234.56" are read as thousands. */
 function parseAmount(token: string): SearchToken["amount"] {
@@ -41,7 +39,7 @@ function parseDate(token: string): SearchToken["date"] {
 
 /** Splits the term into tokens (all must match); null when there is nothing to search. */
 export function parseLedgerSearch(term: string): SearchToken[] | null {
-  const tokens = normalize(term).replace(/€/g, " ").split(/\s+/).filter(Boolean);
+  const tokens = normalizeSearchText(term).replace(/€/g, " ").split(/\s+/).filter(Boolean);
   return tokens.length > 0
     ? tokens.map((text) => ({ text, amount: parseAmount(text), date: parseDate(text) }))
     : null;
@@ -63,7 +61,7 @@ function dateMatches(value: CivilDate | null | undefined, date: NonNullable<Sear
 }
 
 function entryMatches(entry: MonthlyEntry, context: string[], tokens: SearchToken[]) {
-  const text = normalize(
+  const text = normalizeSearchText(
     [entry.description, entry.notes, entry.accountName, ...context].filter(Boolean).join("\n"),
   );
   const shownDate = entry.valueDate ?? entry.dueDate;
