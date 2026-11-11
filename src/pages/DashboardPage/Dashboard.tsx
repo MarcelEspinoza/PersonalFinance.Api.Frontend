@@ -2,15 +2,14 @@
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, PiggyBank, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ActionCenter } from "../../components/Dashboard/ActionCenter";
 import { MonthAdvicePanel } from "../../components/Dashboard/MonthAdvicePanel";
+import { DebtOverviewCard } from "../../components/Dashboard/DebtOverviewCard";
 import { MonthHero } from "../../components/Dashboard/MonthHero";
 import { NextMonthsPreview } from "../../components/Dashboard/NextMonthsPreview";
 import { ServiceSavingsCard } from "../../components/Dashboard/ServiceSavingsCard";
 import { capitalize } from "../../components/Dashboard/dashboardUtils";
 import { PeriodStatusBadge } from "../../components/Monthly/PeriodStatusBadge";
 import { PageHeader } from "../../components/PageHeader";
-import { useUpcomingReminders } from "../../components/Reminders/useUpcomingReminders";
 import { Button } from "../../components/ui/button";
 import { useAuth } from "../../contexts/AuthContext";
 import { cn } from "../../lib/utils";
@@ -36,7 +35,6 @@ export function Dashboard() {
   );
   const [extra, setExtra] = useState<Extra | null>(null);
   const latestRequest = useRef(0);
-  const reminders = useUpcomingReminders();
 
   useEffect(() => {
     if (!user) return;
@@ -62,7 +60,7 @@ export function Dashboard() {
   const header = (
     <PageHeader
       title="Tu situación financiera"
-      description="Cómo vas a terminar el mes y qué te toca hacer."
+      description="Cómo vas a terminar el mes y tus próximos pagos y cobros."
       actions={
         <Button asChild>
           <Link to="/imports">
@@ -168,13 +166,7 @@ export function Dashboard() {
           onChangeReserve={changeReserve}
         />
 
-        <ActionCenter
-          outlook={outlook}
-          alerts={projection.alerts?.items ?? []}
-          reminders={reminders.items}
-          remindersFailed={reminders.failed}
-          monthName={monthOnly}
-        />
+        <DebtOverviewCard year={selectedYear} month={selectedMonth} />
 
         <NextMonthsPreview
           months={projection.monthlyData}

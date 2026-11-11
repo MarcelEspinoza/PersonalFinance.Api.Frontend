@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PersonalLoan } from "../../pages/LoansPage/LoansPage";
-import { LoansService } from "../../services/loansService";
+import { LoansService, type LoanInput } from "../../services/loansService";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -40,7 +40,7 @@ export default function PersonalLoanModal({ userId, initial, onClose, onSaved }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const payload = {
+    const payload: LoanInput = {
       userId: userId,
       type: form.type === "given" ? "Given" : "Received",
       name: form.name,

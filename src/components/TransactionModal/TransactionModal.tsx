@@ -12,7 +12,7 @@ interface LoanItem {
   type: "bank" | "given" | "received";
   name: string;
   outstandingAmount: number;
-  status: "active" | "paid" | "overdue";
+  status: "active" | "paid" | "overdue" | "cancelled";
 }
 
 interface BankItem {
@@ -76,7 +76,7 @@ export function TransactionModal({
   useEffect(() => {
     if (isLoanCategory && type === "expense" && userId) {
       LoansService.getLoans(userId)
-        .then(({ data }) => setLoans(data || []))
+        .then(({ data }) => setLoans(data.filter(loan => !loan.archivedAt)))
         .catch(() => setLoans([]));
     } else {
       setLoans([]);

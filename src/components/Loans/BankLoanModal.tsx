@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BankLoan } from "../../pages/LoansPage/LoansPage";
-import { LoansService } from "../../services/loansService";
+import { LoansService, type LoanInput } from "../../services/loansService";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -47,7 +47,7 @@ export default function BankLoanModal({ userId, initial, onClose, onSaved }: Pro
     e.preventDefault();
 
     // Construimos el payload con camelCase y fechas en ISO (Z)
-    const payload = {
+    const payload: LoanInput = {
       userId: userId,
       type: "bank",
       name: form.name,

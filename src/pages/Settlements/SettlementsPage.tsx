@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { HandCoins, Loader2, Plus, Trash2, X } from 'lucide-react';
 import {
   settlementService,
@@ -20,6 +21,8 @@ const lastDayOfMonth = () => {
 };
 
 export function SettlementsPage() {
+  const [searchParams] = useSearchParams();
+  const requestedId = searchParams.get('id');
   const [people, setPeople] = useState<SettlementPerson[]>([]);
   const [list, setList] = useState<SettlementSummary[]>([]);
   const [selected, setSelected] = useState<SettlementDetail | null>(null);
@@ -29,6 +32,17 @@ export function SettlementsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState<'open' | 'paid'>('open');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!requestedId) return;
+    let active = true;
+    void settlementService.get(requestedId).then(detail => {
+      if (active) setSelected(detail);
+    }).catch(() => {
+      if (active) setError('No he podido abrir esa liquidación.');
+    });
+    return () => { active = false; };
+  }, [requestedId]);
 
   const [form, setForm] = useState({
     counterpartyId: '',
