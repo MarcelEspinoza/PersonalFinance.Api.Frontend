@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "../../components/PageHeader";
+import { GoogleCalendarConnection } from "../../components/GoogleCalendarConnection";
 import { Card, CardContent } from "../../components/ui/card";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -127,6 +128,8 @@ export function PasanacoPage() {
         description="Quién cobra este mes, quién ya pagó y cuánto falta por cobrar."
         actions={<PasanacoModal onCreated={loadPasanacos} />}
       />
+
+      <GoogleCalendarConnection returnPath="/pasanaco" />
 
       <PasanacoList
         pasanacos={pasanacos}

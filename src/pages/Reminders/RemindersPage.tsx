@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
+import { GoogleCalendarConnection } from "../../components/GoogleCalendarConnection";
 import { AiBadge, DoneBadge, EmailIndicator, UrgencyBadge } from "../../components/Reminders/ReminderBadges";
 import { ReminderFormDialog } from "../../components/Reminders/ReminderFormDialog";
 import {
@@ -198,6 +199,8 @@ export function RemindersPage() {
           </Button>
         }
       />
+
+      <GoogleCalendarConnection returnPath="/reminders" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label="Qué recordatorios ver" className="inline-flex rounded-lg border bg-card p-1">
