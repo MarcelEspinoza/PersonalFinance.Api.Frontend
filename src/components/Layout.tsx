@@ -23,10 +23,12 @@ import { matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGlobalChatPanel } from '../contexts/globalChatContext';
 import { GlobalChatProvider } from '../contexts/GlobalChatProvider';
+import { GoogleCalendarProvider } from '../contexts/GoogleCalendarProvider';
 import { cn } from '../lib/utils';
 import { DATA_CHANGED_EVENT } from '../services/chatService';
 import { GlobalChatPanel } from './Chat/GlobalChatPanel';
 import { GlobalImportProgress } from './Imports/GlobalImportProgress';
+import { GoogleCalendarAccountButton } from './GoogleCalendarConnection';
 import { ReminderBell } from './Reminders/ReminderBell';
 import { ScrollButtons } from './ScrollButtons';
 import { HelpMenu } from './Tour/HelpMenu';
@@ -61,9 +63,11 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <GlobalChatProvider>
-      <LayoutShell>{children}</LayoutShell>
-    </GlobalChatProvider>
+    <GoogleCalendarProvider>
+      <GlobalChatProvider>
+        <LayoutShell>{children}</LayoutShell>
+      </GlobalChatProvider>
+    </GoogleCalendarProvider>
   );
 }
 
@@ -237,6 +241,9 @@ function LayoutShell({ children }: LayoutProps) {
 
       {/* overflow-x-clip (not hidden) so main doesn't become a scroll container and sticky headers keep working. */}
       <main className="min-w-0 flex-1 overflow-x-clip">
+        <div className="border-b bg-card px-4 py-2 sm:px-6 lg:px-8">
+          <GoogleCalendarAccountButton />
+        </div>
         <div
           className={cn(
             'mx-auto px-4 py-5 sm:px-6 lg:px-8',

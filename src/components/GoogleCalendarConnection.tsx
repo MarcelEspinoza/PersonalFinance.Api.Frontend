@@ -1,96 +1,95 @@
-import { useEffect, useState } from "react";
-import { CalendarDays, ExternalLink, Loader2, RefreshCw, Unplug } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useId, useState } from "react";
+import { CalendarDays, Check, ExternalLink, Loader2, RefreshCw, Unplug } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { chatErrorMessage } from "../services/chatService";
-import { GoogleCalendarService, type GoogleCalendarState } from "../services/googleCalendarService";
+import { useGoogleCalendar } from "../contexts/googleCalendarContext";
+import type { GoogleCalendarReturnPath } from "../services/googleCalendarService";
 
-export function GoogleCalendarConnection({ returnPath }: { returnPath: "/zeus" | "/pasanaco" | "/reminders" }) {
-  const [state, setState] = useState<GoogleCalendarState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [reload, setReload] = useState(0);
-  const [params, setParams] = useSearchParams();
+const eventColors = [
+  { id: 1, name: "Lavanda" },
+  { id: 2, name: "Salvia" },
+  { id: 3, name: "Uva" },
+  { id: 4, name: "Flamenco" },
+  { id: 5, name: "Amarillo" },
+  { id: 6, name: "Mandarina" },
+  { id: 7, name: "Turquesa" },
+  { id: 8, name: "Gris" },
+  { id: 9, name: "Azul" },
+  { id: 10, name: "Verde" },
+  { id: 11, name: "Rojo" },
+];
+
+export function GoogleCalendarAccountButton() {
+  const { state, action, error, notice, refresh, connect, disconnect } = useGoogleCalendar();
+  const { pathname } = useLocation();
+  const returnPath = pathname === "/pasanaco" || pathname === "/reminders" ? pathname : "/zeus";
+  const linked = state?.connected || state?.needsReconnect;
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      {error && <p role="alert" className="max-w-xl text-sm text-negative">{error}</p>}
+      {notice && <p role="status" className="max-w-xl text-sm text-muted-foreground">{notice}</p>}
+      {state && !state.configured && <p className="text-xs text-muted-foreground">Falta configurar Google en el servidor.</p>}
+      {!state ? (
+        <Button variant="outline" onClick={refresh} disabled={!!action}>Consultar Google</Button>
+      ) : linked ? (
+        <Button variant="outline" onClick={() => void disconnect()} disabled={!!action}>
+          {action === "disconnect" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unplug className="mr-2 h-4 w-4" />}
+          Desconectar Google
+        </Button>
+      ) : (
+        <Button variant="outline" onClick={() => void connect(returnPath)} disabled={!!action || !state.configured}>
+          {action === "connect" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+          Conectar Google
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function GoogleCalendarColorsForm({ zeusColorId, pasanacoColorId }: { zeusColorId: number; pasanacoColorId: number }) {
+  const { action, saveColors } = useGoogleCalendar();
+  const [zeus, setZeus] = useState(zeusColorId);
+  const [pasanaco, setPasanaco] = useState(pasanacoColorId);
+  const id = useId();
+  const changed = zeus !== zeusColorId || pasanaco !== pasanacoColorId;
+  const selectClass = "rounded-md border bg-background px-3 py-2 text-sm";
+
+  return (
+    <form className="space-y-2 border-t pt-3" onSubmit={event => {
+      event.preventDefault();
+      void saveColors(zeus, pasanaco);
+    }}>
+      <p className="text-sm font-medium">Colores en Google Calendar</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${id}-zeus`} className="text-xs text-muted-foreground">Zeus</label>
+          <select id={`${id}-zeus`} value={zeus} onChange={event => setZeus(Number(event.target.value))} disabled={!!action} className={selectClass}>
+            {eventColors.map(color => <option key={color.id} value={color.id}>{color.name}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${id}-pasanaco`} className="text-xs text-muted-foreground">Pasanaco</label>
+          <select id={`${id}-pasanaco`} value={pasanaco} onChange={event => setPasanaco(Number(event.target.value))} disabled={!!action} className={selectClass}>
+            {eventColors.map(color => <option key={color.id} value={color.id}>{color.name}</option>)}
+          </select>
+        </div>
+        <Button type="submit" variant="outline" disabled={!changed || !!action}>
+          {action === "colors" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Guardar colores
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">Se aplican también a los eventos ya creados, sin duplicarlos.</p>
+    </form>
+  );
+}
+
+export function GoogleCalendarConnection({ returnPath }: { returnPath: GoogleCalendarReturnPath }) {
+  const { state, action, error, connect, retry } = useGoogleCalendar();
   const connected = state?.connected ?? false;
-
-  useEffect(() => {
-    const result = params.get("googleCalendar");
-    if (!result) return;
-    if (result === "connected") setNotice("Google conectado. Se prepararán también los registros pasados.");
-    else if (result === "denied") setError("No autorizaste la conexión con Google.");
-    else setError("No se pudo completar la conexión con Google. Vuelve a intentarlo.");
-    const next = new URLSearchParams(params);
-    next.delete("googleCalendar");
-    setParams(next, { replace: true });
-  }, [params, setParams]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        const data = await GoogleCalendarService.state(controller.signal);
-        if (!controller.signal.aborted) {
-          setState(data);
-          setLoadError(null);
-        }
-      } catch (err) {
-        if (!controller.signal.aborted)
-          setLoadError(chatErrorMessage(err, "No se pudo consultar la conexión con Google."));
-      }
-    };
-    void load();
-    const timer = connected ? window.setInterval(() => void load(), 15000) : undefined;
-    return () => {
-      controller.abort();
-      if (timer !== undefined) window.clearInterval(timer);
-    };
-  }, [reload, connected]);
-
-  const connect = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { authorizationUrl } = await GoogleCalendarService.connect(returnPath);
-      const url = new URL(authorizationUrl);
-      if (url.origin !== "https://accounts.google.com")
-        throw new Error("La dirección de autorización de Google no es válida.");
-      window.location.assign(url.href);
-    } catch (err) {
-      setError(chatErrorMessage(err, "No se pudo iniciar la conexión con Google."));
-      setBusy(false);
-    }
-  };
-
-  const retry = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      setState(await GoogleCalendarService.retry());
-      setNotice("Sincronización solicitada. Los cambios se enviarán en unos segundos.");
-      setReload(value => value + 1);
-    } catch (err) {
-      setError(chatErrorMessage(err, "No se pudo solicitar la sincronización."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const disconnect = async () => {
-    if (!window.confirm("¿Desconectar Google? Los eventos y tareas ya creados se conservarán en Google, pero dejarán de actualizarse.")) return;
-    setBusy(true);
-    setError(null);
-    try {
-      setState(await GoogleCalendarService.disconnect());
-      setNotice("Google desconectado. Los eventos y tareas existentes se conservan.");
-    } catch (err) {
-      setError(chatErrorMessage(err, "No se pudo desconectar Google."));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const synchronized = connected && !!state?.configured && !!state.lastSyncedAt
+    && state.pendingCount === 0 && !error && !action;
 
   return (
     <Card className="space-y-3 p-4">
@@ -104,21 +103,17 @@ export function GoogleCalendarConnection({ returnPath }: { returnPath: "/zeus" |
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!state ? (
-            <Button variant="outline" onClick={() => setReload(value => value + 1)} disabled={busy}>Consultar conexión</Button>
-          ) : !connected ? (
-            <Button variant="outline" onClick={() => void connect()} disabled={!state.configured || busy}>
-              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-              {state.needsReconnect ? "Volver a conectar Google" : "Conectar Google"}
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={() => void retry()} disabled={busy || !state.configured}>
-              <RefreshCw className="mr-2 h-4 w-4" />Sincronizar
+          {connected && state?.configured && (
+            <Button variant="outline" onClick={() => void retry()} disabled={!!action || !state?.configured || !error}>
+              {synchronized ? <Check className="mr-2 h-4 w-4" />
+                : error ? <RefreshCw className="mr-2 h-4 w-4" />
+                : <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {synchronized ? "Sincronizado" : error ? "Reintentar sincronización" : "Sincronizando…"}
             </Button>
           )}
-          {(connected || state?.needsReconnect) && (
-            <Button variant="outline" onClick={() => void disconnect()} disabled={busy}>
-              <Unplug className="mr-2 h-4 w-4" />Desconectar
+          {state?.needsReconnect && (
+            <Button variant="outline" onClick={() => void connect(returnPath)} disabled={!!action || !state.configured}>
+              <ExternalLink className="mr-2 h-4 w-4" />Volver a conectar Google
             </Button>
           )}
         </div>
@@ -126,15 +121,20 @@ export function GoogleCalendarConnection({ returnPath }: { returnPath: "/zeus" |
       {state && <p className="text-xs text-muted-foreground">
         {!state.configured ? "Falta la configuración inicial de Google en el servidor."
           : state.needsReconnect ? "Google necesita una nueva autorización."
-          : !connected ? "Todavía no has conectado tu cuenta de Google."
+          : !connected ? "Conecta tu cuenta de Google desde el botón de la cabecera."
           : state.pendingCount > 0 ? `${state.pendingCount} registro(s) pendientes de sincronizar.`
           : state.lastSyncedAt ? `Última sincronización: ${new Date(state.lastSyncedAt).toLocaleString("es-ES")}.`
           : "Preparando la primera sincronización…"}
         {" "}Las horas de Zeus sin horario son de día completo. Tasks conserva la fecha, no una hora exacta.
         Los cambios hechos en Google no se copian a la app.
       </p>}
-      {(error || loadError || state?.error) && <p role="alert" className="text-sm text-negative">{error || loadError || state?.error}</p>}
-      {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
+      {state && state.zeusColorId !== undefined && state.pasanacoColorId !== undefined && (
+        <GoogleCalendarColorsForm
+          key={`${state.zeusColorId}:${state.pasanacoColorId}`}
+          zeusColorId={state.zeusColorId}
+          pasanacoColorId={state.pasanacoColorId}
+        />
+      )}
     </Card>
   );
 }

@@ -8,15 +8,21 @@ export interface GoogleCalendarState {
   lastSyncedAt?: string | null;
   error?: string | null;
   timeZone: string;
+  zeusColorId: number;
+  pasanacoColorId: number;
 }
+
+export type GoogleCalendarReturnPath = "/zeus" | "/pasanaco" | "/reminders";
 
 const endpoint = "/calendar/google";
 
 export const GoogleCalendarService = {
   state: async (signal?: AbortSignal) =>
     (await apiClient.get<GoogleCalendarState>(endpoint, { signal })).data,
-  connect: async (returnPath: "/zeus" | "/pasanaco" | "/reminders") =>
+  connect: async (returnPath: GoogleCalendarReturnPath) =>
     (await apiClient.post<{ authorizationUrl: string }>(`${endpoint}/connect`, { returnPath })).data,
   retry: async () => (await apiClient.post<GoogleCalendarState>(`${endpoint}/retry`)).data,
   disconnect: async () => (await apiClient.delete<GoogleCalendarState>(endpoint)).data,
+  updateColors: async (zeusColorId: number, pasanacoColorId: number) =>
+    (await apiClient.put<GoogleCalendarState>(`${endpoint}/colors`, { zeusColorId, pasanacoColorId })).data,
 };
