@@ -122,7 +122,7 @@ export function GoogleCalendarSettingsPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Horas de Zeus y entregas de pasanaco del día 5 en tu calendario principal.
+          Horas y noches de Zeus, cuidados de Alessia y entregas de pasanaco del día 5 en tu calendario principal.
           Tus recordatorios van a la lista PersonalFinance de Tasks.
           Crear, editar, completar o borrar en la app actualiza su registro en Google. Sin IA.
         </p>
@@ -142,7 +142,7 @@ export function GoogleCalendarSettingsPanel() {
           : state.pendingCount > 0 ? `${state.pendingCount} registro(s) pendientes de sincronizar.`
           : state.lastSyncedAt ? `Última sincronización: ${new Date(state.lastSyncedAt).toLocaleString("es-ES")}.`
           : "Preparando la primera sincronización…"}
-        {" "}Las horas de Zeus sin horario son de día completo. Tasks conserva la fecha, no una hora exacta.
+        {" "}Las horas de Zeus sin horario y las noches de Alessia son de día completo. Tasks conserva la fecha, no una hora exacta.
         Los cambios hechos en Google no se copian a la app.
       </p>}
       {state && state.zeusColorId !== undefined && state.pasanacoColorId !== undefined && (
