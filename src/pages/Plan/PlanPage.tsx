@@ -259,7 +259,7 @@ export function PlanPage() {
   const header = (
     <PageHeader
       title="Plan de gastos"
-      description="Los próximos 6 meses: lo que entra, lo que pagas siempre y lo que depende de ti. Para cambiar algo, toca «Cambiar» en su fila."
+      description="Los próximos 6 meses. Cambia presupuestos o recibos desde su fila; «Añadir pago fijo» crea un pago independiente."
       actions={
         <div className="flex items-center gap-2">
           {!showsCurrentMonth && (
@@ -336,7 +336,7 @@ export function PlanPage() {
   const newButton = (kind: ConceptKind, tour?: string) =>
     canChange && (
       <NewButton tour={tour} onClick={() => openDialog({ mode: "new", kind })}>
-        {kind === ConceptKind.Income ? "Nuevo ingreso fijo" : "Nuevo gasto fijo"}
+        {kind === ConceptKind.Income ? "Nuevo ingreso fijo" : "Añadir pago fijo"}
       </NewButton>
     );
 
@@ -351,9 +351,12 @@ export function PlanPage() {
     if (!planning) return null;
     const concept = concepts.get(row.conceptId);
     if (concept) {
+      const label = concept.kind === ConceptKind.Expense
+        ? concept.item.frequency ? "Cambiar recibo" : "Cambiar previsión"
+        : "Cambiar";
       return (
         <>
-          {scheduleText(concept, planning.accounts)} · {change(row.conceptId, "Cambiar", tour)}
+          {scheduleText(concept, planning.accounts)} · {change(row.conceptId, label, tour)}
         </>
       );
     }
@@ -379,7 +382,7 @@ export function PlanPage() {
     if (!concepts.has(row.conceptId)) return text;
     return (
       <>
-        {text} · {change(row.conceptId, row.defaultBudget != null ? "Cambiar" : "Ponerle uno")}
+        {text} · {change(row.conceptId, row.defaultBudget != null ? "Cambiar presupuesto" : "Poner presupuesto")}
       </>
     );
   };
@@ -511,8 +514,8 @@ export function PlanPage() {
                 />
                 {data.variable.length === 0 && (
                   <EmptyRow columnCount={columnCount}>
-                    No tienes gastos variables. Si un gasto cambia cada mes (como el súper), toca «Cambiar» en su fila
-                    y elige «Varía cada mes».
+                    No tienes gastos variables. Si un gasto cambia cada mes (como el súper), abre su recibo o previsión
+                    y elige «Presupuesto mensual».
                   </EmptyRow>
                 )}
                 {data.variable.length > 0 && variableRows.length === 0 && (
@@ -665,8 +668,8 @@ function PlanSources({ open, onToggle }: { open: boolean; onToggle: () => void }
             <h2 className="mb-2 font-semibold">Cómo cambiarlo</h2>
             <ul className="list-disc space-y-1.5 pl-5 text-muted-foreground">
               <li>
-                Toca <span className={strong}>«Cambiar»</span> en una fila y elige cómo se repite: cada mes, cada 2
-                meses, varía cada mes o no se repite solo.
+                Usa <span className={strong}>«Cambiar presupuesto»</span> para sustituir el límite: las compras ya
+                registradas cuentan dentro. <span className={strong}>«Cambiar recibo»</span> modifica un recibo existente.
               </li>
               <li>
                 En un gasto variable, toca el importe de un mes para ponerle un límite solo a ese mes. Sale en{" "}
@@ -674,7 +677,7 @@ function PlanSources({ open, onToggle }: { open: boolean; onToggle: () => void }
               </li>
               <li>
                 ¿Algo nuevo que pagas o cobras siempre igual? Usa{" "}
-                <span className={strong}>«Nuevo gasto fijo»</span> o <span className={strong}>«Nuevo ingreso fijo»</span>.
+                <span className={strong}>«Añadir pago fijo»</span> o <span className={strong}>«Nuevo ingreso fijo»</span>.
               </li>
               <li>
                 ¿Falta una cuenta en la lista? Créala en{" "}

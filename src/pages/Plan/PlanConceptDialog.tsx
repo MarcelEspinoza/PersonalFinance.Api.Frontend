@@ -59,9 +59,9 @@ type Form = {
 
 const COPY: Record<"income" | "expense", Record<PlanChoice, { title: string; example: string }>> = {
   expense: {
-    monthly: { title: "Cada mes", example: "Como el alquiler: mismo importe y mismo día" },
-    bimonthly: { title: "Cada 2 meses", example: "Como el agua: un mes sí y otro no" },
-    variable: { title: "Varía cada mes", example: "Como el súper: le pones un máximo" },
+    monthly: { title: "Recibo cada mes", example: "Un pago independiente, con importe y día fijos" },
+    bimonthly: { title: "Recibo cada 2 meses", example: "Un pago independiente, un mes sí y otro no" },
+    variable: { title: "Presupuesto mensual", example: "Un total que incluye tus compras, como las del súper" },
     manual: { title: "No se repite solo", example: "Solo cuenta lo que ya está apuntado" },
   },
   income: {
@@ -213,6 +213,7 @@ function PlanConceptForm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversionAcknowledged, setConversionAcknowledged] = useState(false);
 
   const concept = concepts.get(form.conceptId);
   const kind = target.mode === "new" ? target.kind : (concept?.kind ?? ConceptKind.Expense);
@@ -222,6 +223,15 @@ function PlanConceptForm({
     target.mode === "new" ? ["monthly", "bimonthly"] : ["monthly", "bimonthly", "variable", "manual"];
   const repeats = isRepeating(form.choice);
   const repeatedBefore = concept ? repeatsByItself(concept.item) : false;
+  const addsExpensePayment = !isIncome && repeats && !repeatedBefore;
+  const convertsBudget = addsExpensePayment && concept?.item.nature === ConceptNature.Variable;
+  const submitLabel = isIncome
+    ? "Guardar"
+    : form.choice === "variable"
+      ? "Guardar presupuesto"
+      : addsExpensePayment
+        ? "Añadir pago fijo"
+        : "Guardar cambios";
   const done = isIncome ? "cobrado" : "pagado";
   const candidates =
     target.mode === "new"
@@ -233,12 +243,17 @@ function PlanConceptForm({
 
   const update = (patch: Partial<Form>) => {
     setForm((current) => ({ ...current, ...patch }));
+    if (patch.conceptId !== undefined || patch.choice !== undefined) setConversionAcknowledged(false);
     setError(null);
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!concept) return;
+    if (convertsBudget && !conversionAcknowledged) {
+      setError("Confirma que quieres convertir el presupuesto en un pago fijo independiente.");
+      return;
+    }
     const built = build(form, concept);
     if ("error" in built) {
       setError(built.error);
@@ -273,12 +288,14 @@ function PlanConceptForm({
     <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
       <DialogHeader className="pr-6">
         <DialogTitle>
-          {target.mode === "edit" ? concept?.item.name : isIncome ? "Nuevo ingreso fijo" : "Nuevo gasto fijo"}
+          {target.mode === "edit" ? concept?.item.name : isIncome ? "Nuevo ingreso fijo" : "Añadir pago fijo"}
         </DialogTitle>
         <DialogDescription>
           {target.mode === "edit"
             ? `${isIncome ? "Ingreso" : "Gasto"} de «${concept?.groupName}». Elige cómo se repite: de aquí salen sus importes en cada mes.`
-            : `Algo que ${isIncome ? "cobras" : "pagas"} siempre igual: mismo importe y mismo día.`}
+            : isIncome
+              ? "Algo que cobras siempre igual: mismo importe y mismo día."
+              : "Un pago independiente que se repite. Se suma a lo ya apuntado; no cambia un presupuesto."}
         </DialogDescription>
       </DialogHeader>
 
@@ -401,11 +418,11 @@ function PlanConceptForm({
       {form.choice === "variable" && (
         <div className="grid gap-3">
           <Field
-            label={isIncome ? "¿Cuánto esperas cobrar al mes, más o menos?" : "¿Cuánto quieres gastar como máximo al mes?"}
+            label={isIncome ? "¿Cuánto esperas cobrar al mes, más o menos?" : "Presupuesto total del mes"}
             hint={
               isIncome
                 ? "Si lo dejas vacío, solo cuenta lo que ya esté apuntado."
-                : "Si lo dejas vacío, no tiene límite: solo cuenta lo que ya esté apuntado."
+                : "Incluye lo ya gastado. Si lo dejas vacío, no tiene límite."
             }
           >
             <Input
@@ -450,14 +467,39 @@ function PlanConceptForm({
           desde este mes. Lo ya {done} se queda.
         </Note>
       )}
-      {concept && !repeatedBefore && repeats && amountsAhead.has(concept.item.conceptId) && (
+      {convertsBudget && (
+        <div className="space-y-3 rounded-lg bg-warning-soft p-3 text-xs text-warning">
+          <p>
+            Vas a sustituir el presupuesto por un recibo fijo. Este recibo se sumará a las compras ya registradas;
+            no las sustituye. Para cambiar el total del mes, cancela y usa «Cambiar presupuesto».
+          </p>
+          <label className="flex items-start gap-2 font-medium">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              checked={conversionAcknowledged}
+              disabled={saving}
+              onChange={(event) => {
+                setConversionAcknowledged(event.target.checked);
+                setError(null);
+              }}
+              required
+            />
+            Quiero convertir el presupuesto en un pago fijo independiente.
+          </label>
+        </div>
+      )}
+      {concept && !repeatedBefore && repeats && !convertsBudget && amountsAhead.has(concept.item.conceptId) && (
         <Note warning>
           Ya hay importes de «{concept.item.name}» en este mes o en los siguientes. Si están apuntados en «Mes», podrían
           contarse dos veces: revísalo allí después de guardar.
         </Note>
       )}
       {form.choice === "variable" && !isIncome && (
-        <Note>Para cambiar el límite solo de un mes, toca su importe en la tabla.</Note>
+        <Note>
+          El nuevo presupuesto sustituye al anterior e incluye tus compras; no añade un pago.
+          Para cambiar el límite solo de un mes, toca su importe en la tabla.
+        </Note>
       )}
 
       {error && (
@@ -470,9 +512,10 @@ function PlanConceptForm({
         <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={saving || !concept || isUnchanged(form, concept.item)}>
+        <Button type="submit" disabled={saving || !concept || isUnchanged(form, concept.item) ||
+          (convertsBudget && !conversionAcknowledged)}>
           {saving && <Loader2 className="animate-spin" />}
-          Guardar
+          {submitLabel}
         </Button>
       </DialogFooter>
     </form>
