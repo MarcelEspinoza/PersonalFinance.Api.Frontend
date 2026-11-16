@@ -1596,6 +1596,7 @@ export function ImportsPage() {
                     const reviewOpen = review.status !== "Applied";
                     const linkedPlannedName = plannedNameFor(row.plannedEntryId);
                     const hasPlannedLinks = plannedAllocationsFor(row).length > 0;
+                    const hasMultiplePlannedLinks = plannedAllocationsFor(row).length > 1;
                     const hasObligation = Boolean(row.reminderId || row.settlementId);
                     const linkedPlannedText = row.plannedAllocations?.length
                       ? row.plannedAllocations.map((part) => {
@@ -1650,7 +1651,8 @@ export function ImportsPage() {
                                       className="min-w-0 break-words text-left hover:underline disabled:opacity-50"
                                       title="Editar los previstos y el reparto"
                                       disabled={busy}
-                                      onClick={() => openPlannedPicker(row)}
+                                      onClick={() => isSharedExpense && !hasMultiplePlannedLinks
+                                        ? setSharedExpenseRow(row) : openPlannedPicker(row)}
                                     >
                                       {row.plannedAllocations?.length ? "Reparto: " : "Descuenta de "}{linkedPlannedText}
                                     </button>
@@ -1671,6 +1673,11 @@ export function ImportsPage() {
                                   </span>
                                 )}
                               </div>
+                            ) : canLinkPlanned && isSharedExpense ? (
+                              <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs"
+                                disabled={busy} onClick={() => setSharedExpenseRow(row)}>
+                                <CalendarClock className="h-3.5 w-3.5" /> Descontar tu parte de un previsto…
+                              </Button>
                             ) : canLinkPlanned && splitSummary ? (
                               <span className="inline-flex cursor-not-allowed" title="Este movimiento está dividido">
                                 <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled>
@@ -1745,8 +1752,8 @@ export function ImportsPage() {
                             )}
                             {row.amount < 0 && (
                               <Button type="button" variant="outline" size="sm"
-                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks || hasObligation}
-                                title={hasPlannedLinks ? "Quita el vínculo con los previstos antes de compartir el gasto" : "Separar tu gasto de lo que te deben"}
+                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasMultiplePlannedLinks || hasObligation}
+                                title={hasMultiplePlannedLinks ? "Edita los vínculos para dejar un solo previsto antes de compartir el gasto" : "Separar tu gasto de lo que te deben"}
                                 onClick={() => setSharedExpenseRow(row)}>
                                 <Users className="h-3.5 w-3.5" /> {isSharedExpense ? "Editar reparto" : "Compartir"}
                               </Button>
@@ -1800,6 +1807,8 @@ export function ImportsPage() {
           row={sharedExpenseRow}
           people={review.people ?? []}
           concepts={review.concepts}
+          plannedCandidates={plannedCandidates}
+          plannedWarning={candidateWarning}
           onCreatePerson={createImportPerson}
           onClose={() => setSharedExpenseRow(null)}
           onSave={async (input) => {

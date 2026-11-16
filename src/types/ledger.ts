@@ -344,6 +344,7 @@ export interface ImportSplitTarget {
 
 export interface ShareImportRowInput {
   conceptId: string;
+  plannedEntryId?: string | null;
   replaceExisting?: boolean;
   shares: Array<{
     counterpartyId: string;

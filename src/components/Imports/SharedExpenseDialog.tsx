@@ -4,9 +4,10 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import type { ImportConceptOption, ImportPersonOption, ImportRow, ShareImportRowInput } from "../../types/ledger";
+import type { ImportConceptOption, ImportPersonOption, ImportRow, PlannedCandidate, ShareImportRowInput } from "../../types/ledger";
 import { ledgerErrorMessage } from "../../services/ledgerService";
-import { formatAmount } from "./importAssistantUtils";
+import { normalizeSearchText } from "../../lib/utils";
+import { candidatesForRow, formatAmount, formatCivilDate, plannedAllocationsFor, plannedEntryLabel } from "./importAssistantUtils";
 import { ImportConceptPicker } from "./ImportConceptPicker";
 import { ImportPersonPicker } from "./ImportPersonPicker";
 
@@ -14,16 +15,23 @@ interface SharedExpenseDialogProps {
   row: ImportRow;
   people: ImportPersonOption[];
   concepts: ImportConceptOption[];
+  plannedCandidates: PlannedCandidate[];
+  plannedWarning: string | null;
   onCreatePerson: (name: string) => Promise<ImportPersonOption>;
   onSave: (input: ShareImportRowInput) => Promise<void>;
   onRemove: () => Promise<void>;
   onClose: () => void;
 }
 
-export function SharedExpenseDialog({ row, people, concepts, onCreatePerson, onSave, onRemove, onClose }: SharedExpenseDialogProps) {
+export function SharedExpenseDialog({
+  row, people, concepts, plannedCandidates, plannedWarning, onCreatePerson, onSave, onRemove, onClose,
+}: SharedExpenseDialogProps) {
   const sharedParts = row.allocations.filter((part) => part.counterpartyId);
   const own = row.allocations.find((part) => !part.counterpartyId);
   const [conceptId, setConceptId] = useState(own?.conceptId ?? row.confirmedConceptId ?? row.suggestedConceptId ?? "");
+  const currentPlanned = plannedAllocationsFor(row);
+  const [plannedEntryId, setPlannedEntryId] = useState(currentPlanned[0]?.plannedEntryId ?? "");
+  const [plannedSearch, setPlannedSearch] = useState("");
   const [shares, setShares] = useState(sharedParts.length > 0
     ? sharedParts.map((part) => ({ personId: part.counterpartyId ?? "", amount: String(part.amount) }))
     : [{ personId: "", amount: (Math.abs(row.amount) / 2).toFixed(2) }]);
@@ -35,6 +43,15 @@ export function SharedExpenseDialog({ row, people, concepts, onCreatePerson, onS
   const amounts = shares.map((share) => Number(share.amount.replace(",", ".")));
   const shareCents = amounts.map((value) => Number.isFinite(value) ? Math.round(value * 100) : 0);
   const totalSharedCents = shareCents.reduce((sum, amountCents) => sum + amountCents, 0);
+  const ownCents = bankCents - totalSharedCents;
+  const plannedOptions = candidatesForRow(plannedCandidates, row);
+  const selectedPlanned = plannedOptions.find(candidate => candidate.id === plannedEntryId);
+  const availableCents = (candidate: PlannedCandidate) => Math.round(candidate.remainingAfterLinks * 100) +
+    currentPlanned.filter(link => link.plannedEntryId === candidate.id)
+      .reduce((sum, link) => sum + Math.round(link.amount * 100), 0);
+  const usesPlanned = ownCents > 0 && Boolean(plannedEntryId);
+  const validPlanned = !usesPlanned || (!plannedWarning && selectedPlanned?.conceptId === conceptId &&
+    ownCents <= availableCents(selectedPlanned));
   const valid = shares.length > 0 &&
     shares.every((share, index) => people.some((person) => person.id === share.personId) &&
       Number.isFinite(amounts[index]) && shareCents[index] > 0 &&
@@ -42,7 +59,7 @@ export function SharedExpenseDialog({ row, people, concepts, onCreatePerson, onS
     new Set(shares.map((share) => share.personId)).size === shares.length &&
     totalSharedCents > 0 && totalSharedCents <= bankCents &&
     concepts.some((concept) => concept.id === conceptId && concept.kind.toLowerCase() === "expense") &&
-    bankCents > 0;
+    bankCents > 0 && validPlanned;
   const canAddShare = bankCents - totalSharedCents > 0;
   const submit = async (remove: boolean) => {
     setSavingExpense(true);
@@ -51,6 +68,7 @@ export function SharedExpenseDialog({ row, people, concepts, onCreatePerson, onS
       if (remove) await onRemove();
       else await onSave({
         conceptId,
+        plannedEntryId: usesPlanned ? plannedEntryId : null,
         replaceExisting: sharedParts.length > 0,
         shares: shares.map((share, index) => ({
           counterpartyId: share.personId,
@@ -125,9 +143,55 @@ export function SharedExpenseDialog({ row, people, concepts, onCreatePerson, onS
               showKind={false}
               label="Categoría del gasto"
               disabled={saving}
-              onChange={setConceptId}
+              onChange={value => {
+                setConceptId(value);
+                if (selectedPlanned?.conceptId !== value) setPlannedEntryId("");
+              }}
               required
             />
+          </div>
+          <div className="space-y-2 rounded-md border p-3 text-sm">
+            <Label htmlFor="shared-expense-planned">Descontar tu parte de un previsto (opcional)</Label>
+            <Input type="search" value={plannedSearch} disabled={saving || ownCents <= 0 || Boolean(plannedWarning)}
+              aria-label="Buscar previsto para tu parte" placeholder="Ej.: cumple de Vane"
+              onChange={event => setPlannedSearch(event.target.value)} />
+            <select id="shared-expense-planned" value={plannedEntryId}
+              disabled={saving || ownCents <= 0 || Boolean(plannedWarning)}
+              className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm"
+              onChange={event => {
+                const id = event.target.value;
+                setPlannedEntryId(id);
+                const candidate = plannedOptions.find(option => option.id === id);
+                if (candidate?.conceptId) setConceptId(candidate.conceptId);
+              }}>
+              <option value="">Sin previsto: solo registrar mi gasto</option>
+              {plannedEntryId && !selectedPlanned && (
+                <option value={plannedEntryId}>Previsto vinculado no disponible</option>
+              )}
+              {plannedOptions.filter(candidate => {
+                const text = normalizeSearchText([plannedEntryLabel(candidate), candidate.description, candidate.accountName,
+                  formatCivilDate(candidate.dueDate)].join(" "));
+                return candidate.id === plannedEntryId ||
+                  normalizeSearchText(plannedSearch).split(/\s+/).every(term => text.includes(term));
+              }).map(candidate => (
+                <option key={candidate.id} value={candidate.id}>
+                  {[plannedEntryLabel(candidate), candidate.description, formatCivilDate(candidate.dueDate),
+                    `disponible ${formatAmount(availableCents(candidate) / 100, row.currency)}`].filter(Boolean).join(" · ")}
+                </option>
+              ))}
+            </select>
+            {plannedWarning && <p role="alert" className="text-xs text-destructive">{plannedWarning}</p>}
+            <p className="text-xs text-muted-foreground">
+              {ownCents <= 0 ? "Si te devuelven todo, no se descuenta nada de tus previstos." :
+                usesPlanned ? `Solo tus ${formatAmount(ownCents / 100, row.currency)} se descontarán del previsto. Las devoluciones quedan aparte.` :
+                  "Elige un previsto para descontar solo tu parte. Su categoría se seleccionará automáticamente."}
+            </p>
+            {!validPlanned && (
+              <p role="alert" className="text-xs text-destructive">
+                {!selectedPlanned ? "El previsto ya no está disponible. Actualiza la revisión o quita el vínculo." :
+                  "Tu parte supera lo disponible en el previsto. Elige otro o ajusta el reparto."}
+              </p>
+            )}
           </div>
           {totalSharedCents > 0 && totalSharedCents <= bankCents && <p className="text-sm" aria-live="polite">
             Tu gasto: <strong>{formatAmount((bankCents - totalSharedCents) / 100, row.currency)}</strong>.
