@@ -308,7 +308,13 @@ function SummaryRow({
               "border-t px-3 py-2 text-right tabular-nums",
               total && "border-t-2",
               index === 0 && "bg-primary/5",
-              signed || total ? (amount < -0.005 ? "text-negative" : signed ? "text-positive" : undefined) : className,
+              signed || total
+                ? amount < -0.005
+                  ? "text-negative"
+                  : signed || amount > 0.005
+                    ? "text-positive"
+                    : undefined
+                : className,
             )}
           >
             {signed && amount > 0.005 ? "+" : ""}
