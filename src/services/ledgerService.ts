@@ -286,8 +286,13 @@ export const LedgerService = {
     batchId: string,
     rowId: string,
     allocations: ImportPlannedAllocation[],
+    increase?: { plannedEntryId: string; reason: string },
   ): Promise<void> => {
-    await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-allocations`, { allocations });
+    await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-allocations`, {
+      allocations,
+      increasePlannedEntryId: increase?.plannedEntryId,
+      increaseReason: increase?.reason,
+    });
   },
 
   chatImport: async (

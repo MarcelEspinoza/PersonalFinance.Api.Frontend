@@ -24,7 +24,7 @@ interface PlannedEntryPickerDialogProps {
   saving: boolean;
   error: string | null;
   onPick: (candidate: PlannedCandidate) => void;
-  onSave: (allocations: ImportPlannedAllocation[]) => void;
+  onSave: (allocations: ImportPlannedAllocation[], increase?: { plannedEntryId: string; reason: string }) => void;
   onIncrease: (candidate: PlannedCandidate, reason: string) => void;
   onSplit: (row: ImportRow) => void;
   onUnlink: () => void;
@@ -48,12 +48,16 @@ export function PlannedEntryPickerDialog({
   const [parts, setParts] = useState<ImportPlannedAllocation[]>([]);
   const [increaseCandidateId, setIncreaseCandidateId] = useState<string | null>(null);
   const [increaseReason, setIncreaseReason] = useState("");
+  const [partIncreaseId, setPartIncreaseId] = useState("");
+  const [partIncreaseReason, setPartIncreaseReason] = useState("");
   useEffect(() => {
     setQuery("");
     setMultiple(Boolean(row?.plannedAllocations?.length));
     setParts(row?.plannedAllocations ?? []);
     setIncreaseCandidateId(null);
     setIncreaseReason("");
+    setPartIncreaseId("");
+    setPartIncreaseReason("");
   }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
   const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
@@ -73,11 +77,31 @@ export function PlannedEntryPickerDialog({
   const selectedCategory = options.find((candidate) => candidate.id === parts[0]?.plannedEntryId)?.conceptId;
   const available = (candidate: PlannedCandidate) => cents(candidate.remainingAfterLinks) +
     current.filter((part) => part.plannedEntryId === candidate.id).reduce((sum, part) => sum + cents(part.amount), 0);
-  const valid = parts.length > 0 && total === bankTotal && parts.every((part) => {
+  const partsAreValid = parts.length > 0 && parts.every((part) => {
     const candidate = options.find((option) => option.id === part.plannedEntryId);
     return candidate && candidate.conceptId === selectedCategory && Number.isFinite(part.amount) &&
       part.amount > 0 && cents(part.amount) / 100 === part.amount && cents(part.amount) <= available(candidate);
   });
+  const valid = partsAreValid && total === bankTotal;
+  const missing = bankTotal - total;
+  const canIncreasePart = multiple && partsAreValid && missing > 0;
+  const increasePart = parts.find((part) => part.plannedEntryId === partIncreaseId) ? partIncreaseId : parts[0]?.plannedEntryId ?? "";
+  const partLabel = (part: ImportPlannedAllocation) => {
+    const candidate = options.find((option) => option.id === part.plannedEntryId);
+    return candidate
+      ? `${plannedEntryLabel(candidate)} · vence el ${formatCivilDate(candidate.dueDate)} · ${money(part.amount)}`
+      : money(part.amount);
+  };
+  const saveWithIncrease = () => {
+    const reason = partIncreaseReason.trim();
+    if (!increasePart || !reason) return;
+    onSave(
+      parts.map((part) => part.plannedEntryId === increasePart
+        ? { ...part, amount: (cents(part.amount) + missing) / 100 }
+        : part),
+      { plannedEntryId: increasePart, reason },
+    );
+  };
   const toggle = (candidate: PlannedCandidate) => {
     setParts((previous) => previous.some((part) => part.plannedEntryId === candidate.id)
       ? previous.filter((part) => part.plannedEntryId !== candidate.id)
@@ -94,7 +118,7 @@ export function PlannedEntryPickerDialog({
         if (!open && !saving) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[90vh] max-w-lg flex-col">
         <DialogHeader>
           <DialogTitle>Descontar de previstos</DialogTitle>
           <DialogDescription>
@@ -104,12 +128,12 @@ export function PlannedEntryPickerDialog({
           </DialogDescription>
         </DialogHeader>
         {row && (
-          <div className="min-w-0 space-y-3">
+          <div className="-mr-2 min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto pr-2">
             <p className="break-words rounded-md bg-muted p-3 text-sm">
               {formatCivilDate(row.valueDate)} · {truncateText(row.rawDescription, 80)} ·{" "}
               <span className="font-medium tabular-nums">{formatAmount(row.amount, row.currency)}</span>
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button type="button" variant={multiple ? "outline" : "default"} disabled={saving} onClick={() => setMultiple(false)}>
                 Un previsto
               </Button>
@@ -128,6 +152,46 @@ export function PlannedEntryPickerDialog({
                 {" "}Usa importes positivos de hasta dos decimales, sin superar lo disponible.
               </p>
             )}
+            {canIncreasePart && (
+              <div className="space-y-2 rounded-md border border-warning/40 bg-warning-soft/20 p-3 text-sm">
+                <p>
+                  Faltan {money(missing / 100)} para cubrir el pago. Si gastaste más de lo previsto, súmalo a uno de los
+                  previstos marcados e indica el motivo. Si esa parte es de otra categoría, usa «Dividir entre categorías».
+                </p>
+                <label className="block space-y-1 text-xs font-medium" htmlFor="part-increase-target">
+                  Previsto que aumenta en {money(missing / 100)}
+                  <select
+                    id="part-increase-target"
+                    value={increasePart}
+                    disabled={saving}
+                    onChange={(event) => setPartIncreaseId(event.target.value)}
+                    className="h-9 w-full rounded-md border bg-background px-2 text-sm font-normal"
+                  >
+                    {parts.map((part) => (
+                      <option key={part.plannedEntryId} value={part.plannedEntryId}>{partLabel(part)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1 text-xs font-medium" htmlFor="part-increase-reason">
+                  Motivo del aumento
+                  <textarea
+                    id="part-increase-reason"
+                    maxLength={450}
+                    rows={2}
+                    value={partIncreaseReason}
+                    disabled={saving}
+                    placeholder="Ej.: la guardería cobró un día extra"
+                    onChange={(event) => setPartIncreaseReason(event.target.value)}
+                    className="w-full rounded-md border bg-background px-2 py-1.5 text-sm font-normal"
+                  />
+                </label>
+                <div className="flex justify-end">
+                  <Button type="button" size="sm" disabled={saving || !partIncreaseReason.trim()} onClick={saveWithIncrease}>
+                    Aumentar y guardar reparto
+                  </Button>
+                </div>
+              </div>
+            )}
             <Input type="search" aria-label="Buscar previstos"
               placeholder="Buscar por categoría, descripción, cuenta o fecha…"
               value={query} disabled={saving} onChange={event => setQuery(event.target.value)} />
@@ -142,7 +206,7 @@ export function PlannedEntryPickerDialog({
                 No hay previstos que coincidan con la búsqueda.
               </p>
             ) : (
-              <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+              <ul className="space-y-2">
                 {filteredOptions.map((candidate) => {
                   const linked = candidate.id === linkedId;
                   const part = parts.find((allocation) => allocation.plannedEntryId === candidate.id);

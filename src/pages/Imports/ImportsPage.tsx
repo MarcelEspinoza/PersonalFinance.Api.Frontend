@@ -683,14 +683,18 @@ export function ImportsPage() {
     setPlannedPickerError(null);
   };
 
-  const savePlannedLink = async (plannedEntryId: string | null, allocations?: ImportPlannedAllocation[]) => {
+  const savePlannedLink = async (
+    plannedEntryId: string | null,
+    allocations?: ImportPlannedAllocation[],
+    increase?: { plannedEntryId: string; reason: string },
+  ) => {
     if (!review || !plannedPickerRow) return;
     const batchId = review.id;
     setPlannedPickerSaving(true);
     setPlannedPickerError(null);
     try {
       if (allocations) {
-        await LedgerService.setRowPlannedAllocations(batchId, plannedPickerRow.id, allocations);
+        await LedgerService.setRowPlannedAllocations(batchId, plannedPickerRow.id, allocations, increase);
       } else {
         await LedgerService.setRowPlannedEntry(batchId, plannedPickerRow.id, plannedEntryId);
       }
@@ -1760,7 +1764,7 @@ export function ImportsPage() {
         saving={plannedPickerSaving}
         error={plannedPickerError}
         onPick={pickPlannedEntry}
-        onSave={(allocations) => void savePlannedLink(null, allocations)}
+        onSave={(allocations, increase) => void savePlannedLink(null, allocations, increase)}
         onIncrease={(candidate, reason) => void increasePlannedForImport(candidate, reason)}
         onSplit={(row) => {
           setPlannedPickerRow(null);
