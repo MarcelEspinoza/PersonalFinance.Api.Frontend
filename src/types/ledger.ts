@@ -339,6 +339,7 @@ export interface ImportSplitTarget {
   direction: EntryDirection;
   remainingAmount: number;
   conceptId?: string | null;
+  isExpenseReimbursement?: boolean;
 }
 
 export interface ShareImportRowInput {

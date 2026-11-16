@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { cn, normalizeSearchText } from "../../lib/utils";
+import { ledgerErrorMessage } from "../../services/ledgerService";
 import type {
   ImportPersonOption,
   ImportPlannedAllocation,
@@ -32,6 +33,7 @@ interface PlannedEntryPickerDialogProps {
   error: string | null;
   onPick: (candidate: PlannedCandidate) => void;
   onSave: (allocations: ImportPlannedAllocation[], options?: PlannedAllocationSaveOptions) => void;
+  onCreatePerson: (name: string) => Promise<ImportPersonOption>;
   onIncrease: (candidate: PlannedCandidate, reason: string) => void;
   onSplit: (row: ImportRow) => void;
   onUnlink: () => void;
@@ -42,10 +44,11 @@ export function PlannedEntryPickerDialog({
   row,
   candidates,
   people,
-  saving,
+  saving: savingAllocation,
   error,
   onPick,
   onSave,
+  onCreatePerson,
   onIncrease,
   onSplit,
   onUnlink,
@@ -60,6 +63,10 @@ export function PlannedEntryPickerDialog({
   const [partIncreaseReason, setPartIncreaseReason] = useState("");
   const [missingMode, setMissingMode] = useState<"increase" | "refund">("increase");
   const [refundPersonId, setRefundPersonId] = useState("");
+  const [newRefundPersonName, setNewRefundPersonName] = useState("");
+  const [creatingRefundPerson, setCreatingRefundPerson] = useState(false);
+  const [refundPersonError, setRefundPersonError] = useState<string | null>(null);
+  const saving = savingAllocation || creatingRefundPerson;
   useEffect(() => {
     const refundPart = row?.plannedAllocations?.length
       ? row.allocations?.find((part) => part.counterpartyId)
@@ -73,6 +80,8 @@ export function PlannedEntryPickerDialog({
     setPartIncreaseReason("");
     setMissingMode(refundPart ? "refund" : "increase");
     setRefundPersonId(refundPart?.counterpartyId ?? "");
+    setNewRefundPersonName("");
+    setRefundPersonError(null);
   }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
   const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
@@ -124,6 +133,28 @@ export function PlannedEntryPickerDialog({
   const saveWithRefund = () => {
     if (!refundPerson) return;
     onSave(parts, { refundCounterpartyId: refundPerson.id });
+  };
+  const createRefundPerson = async () => {
+    const name = newRefundPersonName.trim();
+    if (!name || saving) return;
+    const existing = people.find(person => normalizeSearchText(person.name) === normalizeSearchText(name));
+    if (existing) {
+      setRefundPersonId(existing.id);
+      setNewRefundPersonName("");
+      setRefundPersonError(null);
+      return;
+    }
+    setCreatingRefundPerson(true);
+    setRefundPersonError(null);
+    try {
+      const person = await onCreatePerson(name);
+      setRefundPersonId(person.id);
+      setNewRefundPersonName("");
+    } catch (err) {
+      setRefundPersonError(ledgerErrorMessage(err, "No se ha podido crear la persona o el comercio."));
+    } finally {
+      setCreatingRefundPerson(false);
+    }
   };
   const toggle = (candidate: PlannedCandidate) => {
     setParts((previous) => previous.some((part) => part.plannedEntryId === candidate.id)
@@ -200,11 +231,6 @@ export function PlannedEntryPickerDialog({
                   </div>
                 )}
                 {missingMode === "refund" && canRefund ? (
-                  people.length === 0 ? (
-                    <p className="text-xs">
-                      Primero añade a quién te lo tiene que devolver (por ejemplo, la guardería o el comercio) en «Liquidaciones».
-                    </p>
-                  ) : (
                     <>
                       <label className="block space-y-1 text-xs font-medium" htmlFor="part-refund-person">
                         ¿Quién te devuelve {money(missing / 100)}?
@@ -212,19 +238,42 @@ export function PlannedEntryPickerDialog({
                           id="part-refund-person"
                           value={refundPersonId}
                           disabled={saving}
-                          onChange={(event) => setRefundPersonId(event.target.value)}
+                          onChange={(event) => {
+                            setRefundPersonId(event.target.value);
+                            setRefundPersonError(null);
+                          }}
                           className="h-9 w-full rounded-md border bg-background px-2 text-sm font-normal"
                         >
                           <option value="">Elige una persona o comercio…</option>
                           {people.map((person) => (
                             <option key={person.id} value={person.id}>{person.name}</option>
                           ))}
+                          <option value="new">Otra persona o comercio…</option>
                         </select>
                       </label>
+                      {refundPersonId === "new" && (
+                        <div className="space-y-2 rounded-md border p-3">
+                          <label className="block space-y-1 text-xs font-medium" htmlFor="part-refund-person-name">
+                            Nombre de la persona o comercio
+                            <Input id="part-refund-person-name" value={newRefundPersonName}
+                              disabled={saving} placeholder="Ej.: La guardería"
+                              onChange={event => setNewRefundPersonName(event.target.value)} />
+                          </label>
+                          <Button type="button" size="sm" variant="outline"
+                            disabled={saving || !newRefundPersonName.trim()}
+                            onClick={() => void createRefundPerson()}>
+                            {creatingRefundPerson ? "Creando…" : "Crear y seleccionar"}
+                          </Button>
+                          <p className="text-xs text-muted-foreground">
+                            Se guardará en Liquidaciones. La deuda se creará al aplicar el extracto.
+                          </p>
+                        </div>
+                      )}
+                      {refundPersonError && <p role="alert" className="text-xs text-destructive">{refundPersonError}</p>}
                       <p className="text-xs text-muted-foreground">
                         Al aplicar el extracto, {money(total / 100)} se descuentan de los previstos y
                         {" "}{refundPerson?.name ?? "esa persona o comercio"} te quedará debiendo {money(missing / 100)} en
-                        {" "}«Liquidaciones». Cuando te llegue el ingreso, se vincula a esa deuda y queda saldada.
+                        {" "}«Liquidaciones». Cuando te llegue el ingreso, podrás vincularlo a esa deuda.
                       </p>
                       <div className="flex justify-end">
                         <Button type="button" size="sm" disabled={saving || !refundPerson} onClick={saveWithRefund}>
@@ -232,7 +281,6 @@ export function PlannedEntryPickerDialog({
                         </Button>
                       </div>
                     </>
-                  )
                 ) : (
                 <>
                 <label className="block space-y-1 text-xs font-medium" htmlFor="part-increase-target">

@@ -45,6 +45,7 @@ import {
 import { cn, normalizeSearchText } from "../../lib/utils";
 import { LedgerService, ledgerErrorMessage } from "../../services/ledgerService";
 import { ReminderService } from "../../services/reminderService";
+import { settlementService } from "../../services/settlementService";
 import { pasanacoService } from "../../services/pasanacoService";
 import { ConceptKind, ConceptNature } from "../../types/ledger";
 import type {
@@ -201,6 +202,13 @@ export function ImportsPage() {
   const [creatingConcept, setCreatingConcept] = useState(false);
   const [splitRow, setSplitRow] = useState<ImportRow | null>(null);
   const [sharedExpenseRow, setSharedExpenseRow] = useState<ImportRow | null>(null);
+  const [settlementRow, setSettlementRow] = useState<ImportRow | null>(null);
+  const [settlementTargets, setSettlementTargets] = useState<ImportSplitTarget[]>([]);
+  const [settlementTargetId, setSettlementTargetId] = useState("");
+  const [settlementLoading, setSettlementLoading] = useState(false);
+  const [settlementSaving, setSettlementSaving] = useState(false);
+  const [settlementError, setSettlementError] = useState<string | null>(null);
+  const [settlementReload, setSettlementReload] = useState(0);
   const [splitParts, setSplitParts] = useState<Array<{ conceptId: string; amount: string; target: string; search: string }>>([]);
   const [splitTargets, setSplitTargets] = useState<ImportSplitTarget[]>([]);
   const [splitTargetsLoading, setSplitTargetsLoading] = useState(false);
@@ -210,6 +218,19 @@ export function ImportsPage() {
   const [savingSplit, setSavingSplit] = useState(false);
   const splitRowId = splitRow?.id;
   const splitBatchId = review?.id;
+  const settlementRowId = settlementRow?.id;
+  const settlementBatchId = review?.id;
+  useEffect(() => {
+    if (!settlementRowId || !settlementBatchId) return;
+    let active = true;
+    setSettlementLoading(true);
+    setSettlementError(null);
+    LedgerService.getImportSplitTargets(settlementBatchId)
+      .then(targets => { if (active) setSettlementTargets(targets.filter(target => target.kind === "settlement")); })
+      .catch(loadError => { if (active) setSettlementError(ledgerErrorMessage(loadError, "No se han podido cargar las liquidaciones.")); })
+      .finally(() => { if (active) setSettlementLoading(false); });
+    return () => { active = false; };
+  }, [settlementRowId, settlementBatchId, settlementReload]);
   useEffect(() => {
     if (!message) return;
     const timer = window.setTimeout(() => setMessage(null), 3000);
@@ -790,6 +811,21 @@ export function ImportsPage() {
       setError(ledgerErrorMessage(err, "No se ha podido quitar el vínculo con lo pendiente."));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveSettlementLink = async () => {
+    if (!review || !settlementRow || !settlementTargetId) return;
+    setSettlementSaving(true);
+    setSettlementError(null);
+    try {
+      await LedgerService.setRowObligation(review.id, settlementRow.id, { settlementId: settlementTargetId });
+      await reloadReview(review.id);
+      setSettlementRow(null);
+    } catch (err) {
+      setSettlementError(ledgerErrorMessage(err, "No se ha podido vincular la liquidación."));
+    } finally {
+      setSettlementSaving(false);
     }
   };
 
@@ -1688,6 +1724,19 @@ export function ImportsPage() {
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{row.confirmedConceptId ? "manual" : row.suggestionSource ?? "manual"}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1 whitespace-nowrap">
+                            {row.amount > 0 && (
+                              <Button type="button" variant="outline" size="sm"
+                                disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks ||
+                                  hasObligation || Boolean(row.allocations?.length) || Boolean(row.pasanacoParticipantId)}
+                                onClick={() => {
+                                  setSettlementTargetId("");
+                                  setSettlementTargets([]);
+                                  setSettlementError(null);
+                                  setSettlementRow(row);
+                                }}>
+                                <Users className="h-3.5 w-3.5" /> Vincular devolución
+                              </Button>
+                            )}
                             {row.amount < 0 && (
                               <Button type="button" variant="outline" size="sm"
                                 disabled={busy || row.status !== "Pending" || !reviewOpen || hasPlannedLinks || hasObligation}
@@ -1767,6 +1816,11 @@ export function ImportsPage() {
         people={review?.people ?? []}
         onPick={pickPlannedEntry}
         onSave={(allocations, options) => void savePlannedLink(null, allocations, options)}
+        onCreatePerson={async (name) => {
+          const person = await settlementService.createPerson(name, null, null);
+          setReview(current => current ? { ...current, people: [...(current.people ?? []), person] } : current);
+          return person;
+        }}
         onIncrease={(candidate, reason) => void increasePlannedForImport(candidate, reason)}
         onSplit={(row) => {
           setPlannedPickerRow(null);
@@ -1776,6 +1830,73 @@ export function ImportsPage() {
         onUnlink={() => void savePlannedLink(null)}
         onClose={closePlannedPicker}
       />
+
+      <Dialog open={settlementRow !== null} onOpenChange={(open) => !open && !settlementSaving && setSettlementRow(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Vincular devolución</DialogTitle>
+          </DialogHeader>
+          {settlementRow && (
+            <div className="space-y-3">
+              <p className="break-words rounded-md bg-muted p-3 text-sm">
+                {settlementRow.rawDescription} · {formatAmount(settlementRow.amount, settlementRow.currency)}
+              </p>
+              {!settlementRow.confirmedConceptId && !settlementRow.suggestedConceptId && (
+                <p className="text-sm text-muted-foreground">
+                  Elige también una categoría para este movimiento antes de aplicar el extracto.
+                </p>
+              )}
+              <Label htmlFor="refund-settlement">¿A quién corresponde esta devolución?</Label>
+              <select id="refund-settlement" value={settlementTargetId}
+                disabled={settlementLoading || settlementSaving || Boolean(settlementError)}
+                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                onChange={event => setSettlementTargetId(event.target.value)}>
+                <option value="">Elige una liquidación pendiente</option>
+                {settlementTargets.filter(target => target.direction === directionForAmount(settlementRow.amount))
+                  .map(target => (
+                    <option key={target.id} value={target.id}>
+                      {target.label} · pendiente {money(target.remainingAmount)}
+                    </option>
+                  ))}
+              </select>
+              {settlementLoading && <p className="text-sm">Cargando liquidaciones…</p>}
+              {settlementError && (
+                <div role="alert" className="space-y-2 text-sm text-destructive">
+                  <p>{settlementError}</p>
+                  <Button type="button" variant="outline" onClick={() => setSettlementReload(value => value + 1)}>
+                    Volver a cargar
+                  </Button>
+                </div>
+              )}
+              {settlementTargetId && (() => {
+                const target = settlementTargets.find(item => item.id === settlementTargetId);
+                if (!target) return null;
+                const otherCents = (review?.rows ?? []).filter(item => item.id !== settlementRow.id && item.status === "Pending")
+                  .reduce((sum, item) => sum + (item.settlementId === target.id ? Math.round(Math.abs(item.amount) * 100) : 0) +
+                    (item.allocations ?? []).filter(part => part.settlementId === target.id)
+                      .reduce((total, part) => total + Math.round(part.amount * 100), 0), 0);
+                const remainingCents = Math.round(target.remainingAmount * 100) - otherCents - Math.round(settlementRow.amount * 100);
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    {remainingCents > 0
+                      ? `Al aplicar el extracto quedarán ${money(remainingCents / 100)} pendientes.`
+                      : remainingCents === 0
+                        ? "Al aplicar el extracto quedará saldada la deuda."
+                        : target.isExpenseReimbursement
+                          ? `Al aplicar el extracto quedarán ${money(-remainingCents / 100)} a favor de quien te pagó.`
+                          : "El importe supera lo pendiente de esta liquidación."}
+                  </p>
+                );
+              })()}
+              <DialogFooter>
+                <Button type="button" variant="outline" disabled={settlementSaving} onClick={() => setSettlementRow(null)}>Cancelar</Button>
+                <Button type="button" disabled={!settlementTargetId || settlementLoading || settlementSaving || Boolean(settlementError)}
+                  onClick={() => void saveSettlementLink()}>Guardar vínculo</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={splitRow !== null} onOpenChange={(open) => !open && !savingSplit && setSplitRow(null)}>
         <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
