@@ -814,6 +814,12 @@ export function ImportsPage() {
     }
   };
 
+  const createImportPerson = async (name: string) => {
+    const person = await settlementService.createPerson(name, null, null);
+    setReview(current => current ? { ...current, people: [...(current.people ?? []), person] } : current);
+    return person;
+  };
+
   const saveSettlementLink = async () => {
     if (!review || !settlementRow || !settlementTargetId) return;
     setSettlementSaving(true);
@@ -1794,6 +1800,7 @@ export function ImportsPage() {
           row={sharedExpenseRow}
           people={review.people ?? []}
           concepts={review.concepts}
+          onCreatePerson={createImportPerson}
           onClose={() => setSharedExpenseRow(null)}
           onSave={async (input) => {
             await LedgerService.shareImportRow(review.id, sharedExpenseRow.id, input);
@@ -1816,11 +1823,7 @@ export function ImportsPage() {
         people={review?.people ?? []}
         onPick={pickPlannedEntry}
         onSave={(allocations, options) => void savePlannedLink(null, allocations, options)}
-        onCreatePerson={async (name) => {
-          const person = await settlementService.createPerson(name, null, null);
-          setReview(current => current ? { ...current, people: [...(current.people ?? []), person] } : current);
-          return person;
-        }}
+        onCreatePerson={createImportPerson}
         onIncrease={(candidate, reason) => void increasePlannedForImport(candidate, reason)}
         onSplit={(row) => {
           setPlannedPickerRow(null);
