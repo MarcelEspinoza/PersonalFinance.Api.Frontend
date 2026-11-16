@@ -1,8 +1,9 @@
 import { AlertTriangle, CalendarRange } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import type { MonthlyData } from "../../services/dashboardService";
+import type { MonthlyData, MonthOutlook } from "../../services/dashboardService";
 import { euros, monthName } from "../../utils/civilDate";
+import { MonthExpenseBreakdown } from "./MonthExpenseBreakdown";
 import { SectionCard, SectionLink } from "./SectionCard";
 import { capitalize, joinWithAnd, monthTotals } from "./dashboardUtils";
 
@@ -28,13 +29,15 @@ type Props = {
   /** Free money at the end of the selected month: where «Libre a fin de mes» starts. */
   startFree: number;
   includeVariableReserve: boolean;
+  outlook: MonthOutlook;
+  paidExpense: number;
   /** What really came in and went out in the selected month, when it is already over. */
   pastTotals?: { income: number; expense: number } | null;
   onSelectMonth: (target: { year: number; month: number }) => void;
 };
 
 /** The same summary as «Plan de gastos», month by month: what comes in, what goes out and what is left. */
-export function NextMonthsPreview({ months, startFree, includeVariableReserve, pastTotals, onSelectMonth }: Props) {
+export function NextMonthsPreview({ months, startFree, includeVariableReserve, outlook, paidExpense, pastTotals, onSelectMonth }: Props) {
   const columns = buildColumns(months.slice(0, COLUMNS), startFree, includeVariableReserve, pastTotals ?? null);
   // From a month that is over, adding up the months after it would not match what really happened since.
   const showFree = !pastTotals;
@@ -145,6 +148,15 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, p
               </tbody>
             </table>
           </div>
+
+          {!pastTotals && columns[0] && (
+            <MonthExpenseBreakdown
+              outlook={outlook}
+              paidExpense={paidExpense}
+              totalExpense={columns[0].expense}
+              includeVariableReserve={includeVariableReserve}
+            />
+          )}
 
           {firstShort ? (
             <p className="m-4 flex items-start gap-2 rounded-lg bg-negative-soft px-3 py-2 text-sm text-negative">

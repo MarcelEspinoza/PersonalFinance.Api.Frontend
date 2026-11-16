@@ -172,6 +172,8 @@ export function Dashboard() {
           months={projection.monthlyData}
           startFree={isPast ? closingBalance : outlook.freeMoney}
           includeVariableReserve={isPast || includeVariableReserve}
+          outlook={outlook}
+          paidExpense={summary.currentMonthExpense}
           pastTotals={isPast ? { income: summary.currentMonthIncome, expense: summary.currentMonthExpense } : null}
           onSelectMonth={goTo}
         />
