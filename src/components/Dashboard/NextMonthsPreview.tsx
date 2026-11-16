@@ -19,7 +19,7 @@ type Column = {
   passingAdjustment: number;
   /** Free money at the end of the month, adding up what is left from the months before. */
   free: number;
-  /** The lowest «free» from this month on: what can be saved or spent without leaving a later month short. */
+  /** What can be put aside in this month without leaving a later month short. */
   savings: number;
   savingsNote?: string;
   incomeNote?: string;
@@ -151,7 +151,7 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, o
                 {showFree && (
                   <SummaryRow
                     label="Ahorro"
-                    hint="lo que puedes ahorrar o gastar sin dejar en rojo los meses siguientes"
+                    hint="lo que puedes apartar ese mes"
                     columns={columns}
                     value={(column) => column.savings}
                     note={(column) => column.savingsNote}
@@ -222,16 +222,23 @@ function buildColumns(
   return withSavings(columns);
 }
 
-/** Each month keeps only what no later month needs: the lowest «free» from that month to the last one. */
+/**
+ * What each month adds to the money no later month needs. That money is the lowest «free» from the month to the
+ * last one, so the amounts can be added up month after month.
+ */
 function withSavings(columns: Column[]): Column[] {
+  const kept: number[] = [];
   let lowest: Column | undefined;
   for (let index = columns.length - 1; index >= 0; index--) {
     const column = columns[index];
     if (!lowest || column.free <= lowest.free + 0.005) lowest = column;
-    column.savings = lowest.free;
+    kept[index] = lowest.free;
     column.savingsNote =
       lowest === column ? undefined : `${euros(column.free - lowest.free)} los necesitas en ${monthName(lowest.month)}.`;
   }
+  columns.forEach((column, index) => {
+    column.savings = index === 0 ? kept[0] : kept[index] - kept[index - 1];
+  });
   return columns;
 }
 
