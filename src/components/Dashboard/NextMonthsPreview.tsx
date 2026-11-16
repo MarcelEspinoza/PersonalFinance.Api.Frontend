@@ -142,10 +142,10 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, o
                 {showFree && (
                   <SummaryRow
                     label="Libre a fin de mes"
-                    hint="sumando lo que te sobra de antes"
+                    hint="con lo que sobra de antes"
                     columns={columns}
                     value={(column) => column.free}
-                    total
+                    total="top"
                   />
                 )}
                 {showFree && (
@@ -155,7 +155,7 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, o
                     columns={columns}
                     value={(column) => column.savings}
                     note={(column) => column.savingsNote}
-                    total
+                    total="bottom"
                   />
                 )}
               </tbody>
@@ -281,7 +281,7 @@ function SummaryRow({
   note,
   className,
   signed = false,
-  total = false,
+  total,
 }: {
   label: string;
   hint?: string;
@@ -290,13 +290,27 @@ function SummaryRow({
   note?: (column: Column) => string | undefined;
   className?: string;
   signed?: boolean;
-  total?: boolean;
+  total?: "top" | "bottom";
 }) {
+  const boxEdges = total && [
+    "bg-muted",
+    total === "top" ? "border-t-2 border-t-primary/50" : "border-b-2 border-b-primary/50",
+  ];
   return (
     <tr className={cn((signed || total) && "font-semibold")}>
-      <th scope="row" className={cn(stickyCell, "border-t px-3 py-2 text-left font-medium", total && "border-t-2")}>
+      <th
+        scope="row"
+        className={cn(
+          stickyCell,
+          "border-t px-3 py-2 text-left font-medium",
+          boxEdges,
+          total && "border-l-2 border-l-primary/50",
+          total === "top" && "rounded-tl-md",
+          total === "bottom" && "rounded-bl-md",
+        )}
+      >
         {label}
-        {hint && <span className="block text-[11px] font-normal text-muted-foreground">{hint}</span>}
+        {hint && <span className="block whitespace-nowrap text-[11px] font-normal text-muted-foreground">{hint}</span>}
       </th>
       {columns.map((column, index) => {
         const amount = value(column);
@@ -306,8 +320,10 @@ function SummaryRow({
             title={note?.(column)}
             className={cn(
               "border-t px-3 py-2 text-right tabular-nums",
-              total && "border-t-2",
-              index === 0 && "bg-primary/5",
+              boxEdges,
+              total && index === columns.length - 1 && "border-r-2 border-r-primary/50",
+              total && index === columns.length - 1 && (total === "top" ? "rounded-tr-md" : "rounded-br-md"),
+              !total && index === 0 && "bg-primary/5",
               signed || total
                 ? amount < -0.005
                   ? "text-negative"
