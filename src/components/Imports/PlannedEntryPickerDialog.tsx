@@ -25,6 +25,8 @@ interface PlannedEntryPickerDialogProps {
   error: string | null;
   onPick: (candidate: PlannedCandidate) => void;
   onSave: (allocations: ImportPlannedAllocation[]) => void;
+  onIncrease: (candidate: PlannedCandidate, reason: string) => void;
+  onSplit: (row: ImportRow) => void;
   onUnlink: () => void;
   onClose: () => void;
 }
@@ -36,16 +38,22 @@ export function PlannedEntryPickerDialog({
   error,
   onPick,
   onSave,
+  onIncrease,
+  onSplit,
   onUnlink,
   onClose,
 }: PlannedEntryPickerDialogProps) {
   const [multiple, setMultiple] = useState(false);
   const [query, setQuery] = useState("");
   const [parts, setParts] = useState<ImportPlannedAllocation[]>([]);
+  const [increaseCandidateId, setIncreaseCandidateId] = useState<string | null>(null);
+  const [increaseReason, setIncreaseReason] = useState("");
   useEffect(() => {
     setQuery("");
     setMultiple(Boolean(row?.plannedAllocations?.length));
     setParts(row?.plannedAllocations ?? []);
+    setIncreaseCandidateId(null);
+    setIncreaseReason("");
   }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
   const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
@@ -61,6 +69,7 @@ export function PlannedEntryPickerDialog({
   const cents = (amount: number) => Math.round(amount * 100);
   const total = parts.reduce((sum, part) => sum + cents(part.amount), 0);
   const bankTotal = cents(Math.abs(row?.amount ?? 0));
+  const rowConceptId = row?.confirmedConceptId ?? row?.suggestedConceptId ?? null;
   const selectedCategory = options.find((candidate) => candidate.id === parts[0]?.plannedEntryId)?.conceptId;
   const available = (candidate: PlannedCandidate) => cents(candidate.remainingAfterLinks) +
     current.filter((part) => part.plannedEntryId === candidate.id).reduce((sum, part) => sum + cents(part.amount), 0);
@@ -90,6 +99,7 @@ export function PlannedEntryPickerDialog({
           <DialogTitle>Descontar de previstos</DialogTitle>
           <DialogDescription>
             Puedes descontar todo de un previsto o repartir el pago entre varios de la misma categoría.
+            {" "}Para categorías distintas, divide el movimiento; si el previsto no alcanza, puedes aumentarlo indicando el motivo.
             Se registra un solo movimiento bancario y cada previsto conserva su historial.
           </DialogDescription>
         </DialogHeader>
@@ -105,6 +115,9 @@ export function PlannedEntryPickerDialog({
               </Button>
               <Button type="button" variant={multiple ? "default" : "outline"} disabled={saving} onClick={() => setMultiple(true)}>
                 Repartir el pago
+              </Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => onSplit(row)}>
+                Dividir entre categorías
               </Button>
             </div>
             {multiple && (
@@ -172,49 +185,93 @@ export function PlannedEntryPickerDialog({
                           )}
                         </div>
                       ) : (
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() => onPick(candidate)}
-                        aria-pressed={linked}
-                        className={cn(
-                          "w-full rounded-md border p-3 text-left text-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60",
-                          linked && "border-primary bg-primary/5",
-                        )}
-                      >
-                        <div className="flex items-start gap-2">
-                          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="break-words font-medium">{label}</span>
-                              {linked ? (
-                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                                  <Check className="h-3 w-3" /> Vinculado
-                                </span>
-                              ) : (
-                                <span className="shrink-0 tabular-nums text-muted-foreground">
-                                  Previsto {money(candidate.forecastAmount)}
-                                </span>
-                              )}
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => onPick(candidate)}
+                          aria-pressed={linked}
+                          className={cn(
+                            "w-full rounded-md border p-3 text-left text-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60",
+                            linked && "border-primary bg-primary/5",
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="break-words font-medium">{label}</span>
+                                {linked ? (
+                                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                                    <Check className="h-3 w-3" /> Vinculado
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                                    Previsto {money(candidate.forecastAmount)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 break-words text-xs text-muted-foreground">{details.join(" · ")}</p>
+                              <p className="mt-1 text-xs">
+                                {linked ? `Previsto ${money(candidate.forecastAmount)} · ` : ""}
+                                Ahora {remainingText(candidate.remainingAfterLinks)}
+                                {otherRows > 0 &&
+                                  ` (ya ${otherRows === 1 ? "se descuenta 1 movimiento" : `se descuentan ${otherRows} movimientos`} de este extracto)`}
+                              </p>
+                              <p
+                                className={cn(
+                                  "mt-0.5 text-xs font-medium",
+                                  after < -0.005 ? "text-warning" : "text-positive",
+                                )}
+                              >
+                                {linked ? "Con este movimiento" : "Si lo descuentas de aquí"}, {remainingText(after)}
+                              </p>
                             </div>
-                            <p className="mt-0.5 break-words text-xs text-muted-foreground">{details.join(" · ")}</p>
-                            <p className="mt-1 text-xs">
-                              {linked ? `Previsto ${money(candidate.forecastAmount)} · ` : ""}
-                              Ahora {remainingText(candidate.remainingAfterLinks)}
-                              {otherRows > 0 &&
-                                ` (ya ${otherRows === 1 ? "se descuenta 1 movimiento" : `se descuentan ${otherRows} movimientos`} de este extracto)`}
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-0.5 text-xs font-medium",
-                                after < -0.005 ? "text-warning" : "text-positive",
-                              )}
-                            >
-                              {linked ? "Con este movimiento" : "Si lo descuentas de aquí"}, {remainingText(after)}
-                            </p>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        {!multiple && bankTotal > available(candidate) && (
+                          <div className="rounded-md border border-warning/40 bg-warning-soft/20 p-3">
+                            {candidate.conceptId === null || (rowConceptId !== null && rowConceptId !== candidate.conceptId) ? (
+                              <p className="text-xs">
+                                Para cubrir el resto con otra categoría, usa «Dividir entre categorías».
+                              </p>
+                            ) : increaseCandidateId === candidate.id ? (
+                              <div className="space-y-2">
+                                <p className="text-xs">
+                                  El previsto aumentará en {money((bankTotal - available(candidate)) / 100)} para cubrir este movimiento.
+                                </p>
+                                <label className="block space-y-1 text-xs font-medium" htmlFor={`increase-reason-${candidate.id}`}>
+                                  Motivo del aumento
+                                  <textarea
+                                    id={`increase-reason-${candidate.id}`}
+                                    maxLength={450}
+                                    rows={2}
+                                    value={increaseReason}
+                                    disabled={saving}
+                                    onChange={event => setIncreaseReason(event.target.value)}
+                                    className="w-full rounded-md border bg-background px-2 py-1.5 text-sm font-normal"
+                                  />
+                                </label>
+                                <div className="flex justify-end gap-2">
+                                  <Button type="button" size="sm" variant="ghost" disabled={saving}
+                                    onClick={() => { setIncreaseCandidateId(null); setIncreaseReason(""); }}>
+                                    Cancelar
+                                  </Button>
+                                  <Button type="button" size="sm" disabled={saving || !increaseReason.trim()}
+                                    onClick={() => onIncrease(candidate, increaseReason.trim())}>
+                                    Aumentar y vincular
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <Button type="button" size="sm" variant="outline" disabled={saving}
+                                onClick={() => { setIncreaseCandidateId(candidate.id); setIncreaseReason(""); }}>
+                                Aumentar previsto en {money((bankTotal - available(candidate)) / 100)}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       )}
                     </li>
                   );

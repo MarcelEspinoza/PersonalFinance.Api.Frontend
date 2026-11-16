@@ -256,7 +256,7 @@ const IMPORT_NEWS: GlossaryItem[] = [
   {
     term: "Descontar de un previsto",
     meaning:
-      "Puedes descontar varios pagos de un mismo previsto o usar «Repartir el pago» para cubrir varios previstos de la misma categoría con un solo movimiento. Indica cuánto corresponde a cada uno: el reparto debe sumar exactamente el pago. Al aplicar el lote, cada previsto se reduce o queda cubierto sin duplicar el movimiento bancario.",
+      "Puedes descontar varios pagos de un mismo previsto o usar «Repartir el pago» para cubrir varios previstos de la misma categoría con un solo movimiento. Si el pago corresponde a varias categorías, divide el movimiento y vincula cada parte a un previsto de su categoría. Si un previsto no alcanza, puedes aumentarlo indicando el motivo. Al aplicar el lote, cada previsto se reduce o queda cubierto sin duplicar el movimiento bancario.",
     example:
       "Un Bizum de 35 € paga dos previsiones de cuidados de Zeus: asignas 25 € a una y 10 € a la otra. Queda un solo pago de 35 €, ambas previsiones quedan cubiertas y las estancias conservan su historial.",
   },

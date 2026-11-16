@@ -715,6 +715,29 @@ export function ImportsPage() {
     }
   };
 
+  const increasePlannedForImport = async (candidate: PlannedCandidate, reason: string) => {
+    if (!review || !plannedPickerRow) return;
+    const batchId = review.id;
+    setPlannedPickerSaving(true);
+    setPlannedPickerError(null);
+    try {
+      await LedgerService.increaseImportPlannedEntry(batchId, plannedPickerRow.id, candidate.id, reason);
+    } catch (err) {
+      setPlannedPickerError(ledgerErrorMessage(err, "No se ha podido aumentar el previsto."));
+      setPlannedPickerSaving(false);
+      return;
+    }
+    setPlannedPickerRow(null);
+    try {
+      await reloadReview(batchId);
+      setMessage("Previsto aumentado y movimiento vinculado.");
+    } catch (err) {
+      setError(ledgerErrorMessage(err, "No se ha podido recargar la revisión."));
+    } finally {
+      setPlannedPickerSaving(false);
+    }
+  };
+
   const pickPlannedEntry = (candidate: PlannedCandidate) => {
     if (candidate.id === plannedPickerRow?.plannedEntryId) {
       closePlannedPicker();
@@ -1734,6 +1757,12 @@ export function ImportsPage() {
         error={plannedPickerError}
         onPick={pickPlannedEntry}
         onSave={(allocations) => void savePlannedLink(null, allocations)}
+        onIncrease={(candidate, reason) => void increasePlannedForImport(candidate, reason)}
+        onSplit={(row) => {
+          setPlannedPickerRow(null);
+          setPlannedPickerError(null);
+          openSplitRow(row);
+        }}
         onUnlink={() => void savePlannedLink(null)}
         onClose={closePlannedPicker}
       />
