@@ -59,6 +59,7 @@ import type {
   ImportRow,
   ImportSplitTarget,
   ImportPlannedAllocation,
+  PlannedAllocationSaveOptions,
   PlannedCandidate,
   PendingImport,
   UpdateLedgerEntryPayload,
@@ -686,7 +687,7 @@ export function ImportsPage() {
   const savePlannedLink = async (
     plannedEntryId: string | null,
     allocations?: ImportPlannedAllocation[],
-    increase?: { plannedEntryId: string; reason: string },
+    options?: PlannedAllocationSaveOptions,
   ) => {
     if (!review || !plannedPickerRow) return;
     const batchId = review.id;
@@ -694,7 +695,7 @@ export function ImportsPage() {
     setPlannedPickerError(null);
     try {
       if (allocations) {
-        await LedgerService.setRowPlannedAllocations(batchId, plannedPickerRow.id, allocations, increase);
+        await LedgerService.setRowPlannedAllocations(batchId, plannedPickerRow.id, allocations, options);
       } else {
         await LedgerService.setRowPlannedEntry(batchId, plannedPickerRow.id, plannedEntryId);
       }
@@ -1763,8 +1764,9 @@ export function ImportsPage() {
         candidates={plannedCandidates}
         saving={plannedPickerSaving}
         error={plannedPickerError}
+        people={review?.people ?? []}
         onPick={pickPlannedEntry}
-        onSave={(allocations, increase) => void savePlannedLink(null, allocations, increase)}
+        onSave={(allocations, options) => void savePlannedLink(null, allocations, options)}
         onIncrease={(candidate, reason) => void increasePlannedForImport(candidate, reason)}
         onSplit={(row) => {
           setPlannedPickerRow(null);

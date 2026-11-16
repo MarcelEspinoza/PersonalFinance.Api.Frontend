@@ -18,6 +18,7 @@ import type {
   PendingImport,
   ImportRow,
   ImportPlannedAllocation,
+  PlannedAllocationSaveOptions,
   MonthlyEntry,
   MonthlySummary,
   OwnTransferPayload,
@@ -286,12 +287,13 @@ export const LedgerService = {
     batchId: string,
     rowId: string,
     allocations: ImportPlannedAllocation[],
-    increase?: { plannedEntryId: string; reason: string },
+    options?: PlannedAllocationSaveOptions,
   ): Promise<void> => {
     await apiClient.put(`/imports/${batchId}/rows/${rowId}/planned-allocations`, {
       allocations,
-      increasePlannedEntryId: increase?.plannedEntryId,
-      increaseReason: increase?.reason,
+      increasePlannedEntryId: options?.increase?.plannedEntryId,
+      increaseReason: options?.increase?.reason,
+      refundCounterpartyId: options?.refundCounterpartyId,
     });
   },
 

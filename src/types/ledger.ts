@@ -355,6 +355,11 @@ export interface ImportPersonOption {
   name: string;
 }
 
+export interface PlannedAllocationSaveOptions {
+  increase?: { plannedEntryId: string; reason: string };
+  refundCounterpartyId?: string;
+}
+
 export interface SplitImportRowInput {
   allocations: ImportRowAllocation[];
 }

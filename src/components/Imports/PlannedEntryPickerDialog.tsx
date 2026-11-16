@@ -4,7 +4,13 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { cn, normalizeSearchText } from "../../lib/utils";
-import type { ImportPlannedAllocation, ImportRow, PlannedCandidate } from "../../types/ledger";
+import type {
+  ImportPersonOption,
+  ImportPlannedAllocation,
+  ImportRow,
+  PlannedAllocationSaveOptions,
+  PlannedCandidate,
+} from "../../types/ledger";
 import { money } from "../../utils/civilDate";
 import {
   candidatesForRow,
@@ -21,10 +27,11 @@ interface PlannedEntryPickerDialogProps {
   /** Row to deduct from a planned entry; the dialog is open while it is not null. */
   row: ImportRow | null;
   candidates: PlannedCandidate[];
+  people: ImportPersonOption[];
   saving: boolean;
   error: string | null;
   onPick: (candidate: PlannedCandidate) => void;
-  onSave: (allocations: ImportPlannedAllocation[], increase?: { plannedEntryId: string; reason: string }) => void;
+  onSave: (allocations: ImportPlannedAllocation[], options?: PlannedAllocationSaveOptions) => void;
   onIncrease: (candidate: PlannedCandidate, reason: string) => void;
   onSplit: (row: ImportRow) => void;
   onUnlink: () => void;
@@ -34,6 +41,7 @@ interface PlannedEntryPickerDialogProps {
 export function PlannedEntryPickerDialog({
   row,
   candidates,
+  people,
   saving,
   error,
   onPick,
@@ -50,7 +58,12 @@ export function PlannedEntryPickerDialog({
   const [increaseReason, setIncreaseReason] = useState("");
   const [partIncreaseId, setPartIncreaseId] = useState("");
   const [partIncreaseReason, setPartIncreaseReason] = useState("");
+  const [missingMode, setMissingMode] = useState<"increase" | "refund">("increase");
+  const [refundPersonId, setRefundPersonId] = useState("");
   useEffect(() => {
+    const refundPart = row?.plannedAllocations?.length
+      ? row.allocations?.find((part) => part.counterpartyId)
+      : undefined;
     setQuery("");
     setMultiple(Boolean(row?.plannedAllocations?.length));
     setParts(row?.plannedAllocations ?? []);
@@ -58,6 +71,8 @@ export function PlannedEntryPickerDialog({
     setIncreaseReason("");
     setPartIncreaseId("");
     setPartIncreaseReason("");
+    setMissingMode(refundPart ? "refund" : "increase");
+    setRefundPersonId(refundPart?.counterpartyId ?? "");
   }, [row]);
   const options = row ? candidatesForRow(candidates, row) : [];
   const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
@@ -85,6 +100,8 @@ export function PlannedEntryPickerDialog({
   const valid = partsAreValid && total === bankTotal;
   const missing = bankTotal - total;
   const canIncreasePart = multiple && partsAreValid && missing > 0;
+  const hasPlannedRefund = Boolean(row?.plannedAllocations?.length &&
+    row.allocations?.some((part) => part.counterpartyId));
   const increasePart = parts.find((part) => part.plannedEntryId === partIncreaseId) ? partIncreaseId : parts[0]?.plannedEntryId ?? "";
   const partLabel = (part: ImportPlannedAllocation) => {
     const candidate = options.find((option) => option.id === part.plannedEntryId);
@@ -99,8 +116,14 @@ export function PlannedEntryPickerDialog({
       parts.map((part) => part.plannedEntryId === increasePart
         ? { ...part, amount: (cents(part.amount) + missing) / 100 }
         : part),
-      { plannedEntryId: increasePart, reason },
+      { increase: { plannedEntryId: increasePart, reason } },
     );
+  };
+  const refundPerson = people.find((person) => person.id === refundPersonId) ?? null;
+  const canRefund = canIncreasePart && (row?.amount ?? 0) < 0;
+  const saveWithRefund = () => {
+    if (!refundPerson) return;
+    onSave(parts, { refundCounterpartyId: refundPerson.id });
   };
   const toggle = (candidate: PlannedCandidate) => {
     setParts((previous) => previous.some((part) => part.plannedEntryId === candidate.id)
@@ -140,7 +163,13 @@ export function PlannedEntryPickerDialog({
               <Button type="button" variant={multiple ? "default" : "outline"} disabled={saving} onClick={() => setMultiple(true)}>
                 Repartir el pago
               </Button>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => onSplit(row)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving || hasPlannedRefund}
+                title={hasPlannedRefund ? "Quita primero el vínculo con los previstos para cambiar la distribución" : undefined}
+                onClick={() => onSplit(row)}
+              >
                 Dividir entre categorías
               </Button>
             </div>
@@ -155,9 +184,57 @@ export function PlannedEntryPickerDialog({
             {canIncreasePart && (
               <div className="space-y-2 rounded-md border border-warning/40 bg-warning-soft/20 p-3 text-sm">
                 <p>
-                  Faltan {money(missing / 100)} para cubrir el pago. Si gastaste más de lo previsto, súmalo a uno de los
-                  previstos marcados e indica el motivo. Si esa parte es de otra categoría, usa «Dividir entre categorías».
+                  Faltan {money(missing / 100)} para cubrir el pago. ¿Qué pasó con esa diferencia?
+                  {" "}Si es de otra categoría, usa «Dividir entre categorías».
                 </p>
+                {canRefund && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" variant={missingMode === "increase" ? "default" : "outline"}
+                      disabled={saving} onClick={() => setMissingMode("increase")}>
+                      Gasté más de lo previsto
+                    </Button>
+                    <Button type="button" size="sm" variant={missingMode === "refund" ? "default" : "outline"}
+                      disabled={saving} onClick={() => setMissingMode("refund")}>
+                      Me lo tienen que devolver
+                    </Button>
+                  </div>
+                )}
+                {missingMode === "refund" && canRefund ? (
+                  people.length === 0 ? (
+                    <p className="text-xs">
+                      Primero añade a quién te lo tiene que devolver (por ejemplo, la guardería o el comercio) en «Liquidaciones».
+                    </p>
+                  ) : (
+                    <>
+                      <label className="block space-y-1 text-xs font-medium" htmlFor="part-refund-person">
+                        ¿Quién te devuelve {money(missing / 100)}?
+                        <select
+                          id="part-refund-person"
+                          value={refundPersonId}
+                          disabled={saving}
+                          onChange={(event) => setRefundPersonId(event.target.value)}
+                          className="h-9 w-full rounded-md border bg-background px-2 text-sm font-normal"
+                        >
+                          <option value="">Elige una persona o comercio…</option>
+                          {people.map((person) => (
+                            <option key={person.id} value={person.id}>{person.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Al aplicar el extracto, {money(total / 100)} se descuentan de los previstos y
+                        {" "}{refundPerson?.name ?? "esa persona o comercio"} te quedará debiendo {money(missing / 100)} en
+                        {" "}«Liquidaciones». Cuando te llegue el ingreso, se vincula a esa deuda y queda saldada.
+                      </p>
+                      <div className="flex justify-end">
+                        <Button type="button" size="sm" disabled={saving || !refundPerson} onClick={saveWithRefund}>
+                          Guardar: me deben {money(missing / 100)}
+                        </Button>
+                      </div>
+                    </>
+                  )
+                ) : (
+                <>
                 <label className="block space-y-1 text-xs font-medium" htmlFor="part-increase-target">
                   Previsto que aumenta en {money(missing / 100)}
                   <select
@@ -190,6 +267,8 @@ export function PlannedEntryPickerDialog({
                     Aumentar y guardar reparto
                   </Button>
                 </div>
+                </>
+                )}
               </div>
             )}
             <Input type="search" aria-label="Buscar previstos"
