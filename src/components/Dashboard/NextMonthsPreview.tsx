@@ -19,6 +19,9 @@ type Column = {
   passingAdjustment: number;
   /** Free money at the end of the month, adding up what is left from the months before. */
   free: number;
+  /** The lowest «free» from this month on: what can be saved or spent without leaving a later month short. */
+  savings: number;
+  savingsNote?: string;
   incomeNote?: string;
   expenseNote?: string;
 };
@@ -38,7 +41,7 @@ type Props = {
 
 /** The same summary as «Plan de gastos», month by month: what comes in, what goes out and what is left. */
 export function NextMonthsPreview({ months, startFree, includeVariableReserve, outlook, paidExpense, pastTotals, onSelectMonth }: Props) {
-  const columns = buildColumns(months.slice(0, COLUMNS), startFree, includeVariableReserve, pastTotals ?? null);
+  const columns = buildColumns(months, startFree, includeVariableReserve, pastTotals ?? null).slice(0, COLUMNS);
   // From a month that is over, adding up the months after it would not match what really happened since.
   const showFree = !pastTotals;
   const showPassing = showFree && columns.some((column) => Math.abs(column.passingAdjustment) >= 0.005);
@@ -145,6 +148,16 @@ export function NextMonthsPreview({ months, startFree, includeVariableReserve, o
                     total
                   />
                 )}
+                {showFree && (
+                  <SummaryRow
+                    label="Ahorro"
+                    hint="lo que puedes ahorrar o gastar sin dejar en rojo los meses siguientes"
+                    columns={columns}
+                    value={(column) => column.savings}
+                    note={(column) => column.savingsNote}
+                    total
+                  />
+                )}
               </tbody>
             </table>
           </div>
@@ -201,10 +214,24 @@ function buildColumns(
       ...totals,
       passingAdjustment: month.passingAdjustment ?? 0,
       free: index === 0 ? startFree : columns[index - 1].free + totals.result + (month.passingAdjustment ?? 0),
+      savings: 0,
       incomeNote: past ? undefined : incomeNote(month),
       expenseNote: past ? undefined : expenseNote(month, includeVariableReserve),
     });
   });
+  return withSavings(columns);
+}
+
+/** Each month keeps only what no later month needs: the lowest «free» from that month to the last one. */
+function withSavings(columns: Column[]): Column[] {
+  let lowest: Column | undefined;
+  for (let index = columns.length - 1; index >= 0; index--) {
+    const column = columns[index];
+    if (!lowest || column.free <= lowest.free + 0.005) lowest = column;
+    column.savings = lowest.free;
+    column.savingsNote =
+      lowest === column ? undefined : `${euros(column.free - lowest.free)} los necesitas en ${monthName(lowest.month)}.`;
+  }
   return columns;
 }
 
