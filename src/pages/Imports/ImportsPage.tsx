@@ -870,8 +870,12 @@ export function ImportsPage() {
         if (rowIds.length !== 1 || !action.counterpartyId || !action.conceptId || action.amount == null) {
           throw new ChatActionError("La propuesta no indica la persona, la categoría y la parte que te deben.");
         }
+        if (review?.rows.find((row) => row.id === rowIds[0])?.allocations.some((part) => part.counterpartyId)) {
+          throw new ChatActionError("Este gasto ya está compartido. Abre «Compartir gasto» en la fila para editarlo.");
+        }
         await LedgerService.shareImportRow(batchId, rowIds[0], {
-          counterpartyId: action.counterpartyId, conceptId: action.conceptId, amount: action.amount,
+          conceptId: action.conceptId,
+          shares: [{ counterpartyId: action.counterpartyId, amount: action.amount }],
         });
         return;
       }

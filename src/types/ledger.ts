@@ -343,8 +343,11 @@ export interface ImportSplitTarget {
 
 export interface ShareImportRowInput {
   conceptId: string;
-  counterpartyId: string;
-  amount: number;
+  replaceExisting?: boolean;
+  shares: Array<{
+    counterpartyId: string;
+    amount: number;
+  }>;
 }
 
 export interface ImportPersonOption {
